@@ -9,12 +9,12 @@ interface Settings {
 
 const productionSettings: Settings = {
     apiUrl: 'https://ra-api.ironcliff.ai',
-    appName: 'Research Agent'
+    appName: 'Orchestrator'
 };
 
 const developmentSettings: Settings = {
     apiUrl: 'http://localhost:8000',
-    appName: 'Research Agent (Dev)'
+    appName: 'Orchestrator (Dev)'
 };
 
 // Select settings based on environment

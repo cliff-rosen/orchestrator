@@ -6,4 +6,3 @@ export { default as SourceSelection } from './SourceSelection';
 export { default as SourceAnalysis } from './SourceAnalysis';
 export { default as ResearchAnswer } from './ResearchAnswer';
 export { default as SourceInput } from './SourceInput';
-export { default as KnowledgeGraphDisplay } from './KnowledgeGraphDisplay'; 
