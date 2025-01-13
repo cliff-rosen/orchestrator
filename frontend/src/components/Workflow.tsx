@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { WorkflowStep as BaseWorkflowStep, Workflow as WorkflowType } from '../data';
+import { WorkflowStep as BaseWorkflowStep, Workflow as WorkflowType, Schema } from '../data';
 
-interface WorkflowStep extends BaseWorkflowStep {
+interface RuntimeWorkflowStep extends BaseWorkflowStep {
     action: (data?: any) => Promise<void>;
     component: (props: any) => JSX.Element;
     actionButtonText: (state?: any) => string;
@@ -13,6 +13,11 @@ interface WorkflowProps {
     workflows: readonly WorkflowType[];
 }
 
+interface WorkflowState {
+    inputs: Record<string, any>;
+    outputs: Record<string, any>;
+}
+
 const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
     const navigate = useNavigate();
     const { workflowId } = useParams();
@@ -21,6 +26,10 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
     const [_isSearching, setIsSearching] = useState(false);
     const [error, setError] = useState<string>('');
     const [isEditMode, setIsEditMode] = useState(true);
+    const [state, setState] = useState<WorkflowState>({
+        inputs: {},
+        outputs: {}
+    });
 
     // Find the selected workflow
     const workflow = workflows.find(w => w.id === workflowId);
@@ -50,24 +59,67 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
 
     const handleNewQuestion = async (): Promise<void> => {
         setActiveStep(0);
+        setState({ inputs: {}, outputs: {} });
     };
 
     const renderStepContent = (step: number) => {
-        return <div>Step {step}</div>
+        const currentStep = workflowSteps[step];
+        return (
+            <div>
+                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">{currentStep.label}</h2>
+                <div className="mb-4">
+                    <h3 className="font-medium mb-2 text-gray-800 dark:text-gray-200">Tool: {currentStep.tool.name}</h3>
+                    <p className="text-gray-600 dark:text-gray-300">{currentStep.tool.description}</p>
+                </div>
+                <div className="mb-4">
+                    <h3 className="font-medium mb-2 text-gray-800 dark:text-gray-200">Input Schema:</h3>
+                    <pre className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
+                        {JSON.stringify(currentStep.inputSchema, null, 2)}
+                    </pre>
+                </div>
+                <div>
+                    <h3 className="font-medium mb-2 text-gray-800 dark:text-gray-200">Output Schema:</h3>
+                    <pre className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
+                        {JSON.stringify(currentStep.outputSchema, null, 2)}
+                    </pre>
+                </div>
+            </div>
+        );
     };
 
-    // Convert workflow steps to WorkflowStep interface
-    const workflowSteps: WorkflowStep[] = workflow.steps.map(step => ({
-        ...step,
-        action: handleNext,
-        actionButtonText: () => 'Next Step',
-        component: () => <div>{step.label}</div>
-    }));
+    // Convert workflow steps to RuntimeWorkflowStep interface
+    const workflowSteps: RuntimeWorkflowStep[] = [
+        // Input step for workflow configuration
+        {
+            label: 'Input',
+            description: 'Configure workflow inputs',
+            tool: {
+                name: 'workflow_input',
+                description: 'Configure the workflow inputs'
+            },
+            inputSchema: {
+                fields: []
+            },
+            outputSchema: {
+                fields: []
+            },
+            action: handleNext,
+            actionButtonText: () => 'Save Inputs',
+            component: () => <div>Configure Workflow Inputs</div>
+        },
+        // Regular workflow steps
+        ...workflow.steps.map(step => ({
+            ...step,
+            action: handleNext,
+            actionButtonText: () => 'Next Step',
+            component: () => <div>{step.label}</div>
+        }))
+    ];
 
     return (
         <div className="flex flex-col h-full">
             {/* Menu Bar */}
-            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+            <div className="bg-white dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
                 <div className="flex items-center justify-between max-w-7xl mx-auto">
                     <div className="flex items-center space-x-4">
                         {/* Back to Workflows Button */}
@@ -112,9 +164,9 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
             </div>
 
             {/* Main Content Area with Left Nav */}
-            <div className="flex-1 flex">
+            <div className="flex-1 flex bg-gray-50 dark:bg-gray-900">
                 {/* Left Navigation */}
-                <div className="w-64 shrink-0 p-6 border-r border-gray-200 dark:border-gray-700">
+                <div className="w-64 shrink-0 p-6 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50">
                     <div className="flex flex-col gap-4">
                         {workflowSteps.map((step, index) => (
                             <div
@@ -145,7 +197,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
 
                 {/* Main Content */}
                 <div className="flex-1 p-6">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                    <div className="bg-white dark:bg-gray-800/50 rounded-lg shadow-lg p-6">
                         {renderStepContent(activeStep)}
                     </div>
                 </div>
@@ -153,7 +205,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
 
             {/* Navigation */}
             <div className="fixed bottom-0 left-0 right-0 z-10">
-                <div className="max-w-7xl mx-auto px-6 py-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 shadow-lg">
+                <div className="max-w-7xl mx-auto px-6 py-4 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 shadow-lg">
                     <div className="flex justify-between items-center">
                         <div className="flex gap-4 items-center">
                             <button
