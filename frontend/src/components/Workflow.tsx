@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { WORKFLOWS } from '../App';
+import { WORKFLOWS, WorkflowStep as BaseWorkflowStep } from '../data';
 
-interface WorkflowStep {
-    label: string;
-    description: string;
+interface WorkflowStep extends BaseWorkflowStep {
     action: (data?: any) => Promise<void>;
     component: (props: any) => JSX.Element;
     actionButtonText: (state?: any) => string;
@@ -35,6 +33,10 @@ const Workflow: React.FC = () => {
     }
 
     const handleNext = async (): Promise<void> => {
+        setIsLoading(true);
+        // delay for 1 second
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setIsLoading(false);
         setActiveStep((prev) => prev + 1);
     };
 
