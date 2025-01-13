@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { WorkflowStep as BaseWorkflowStep, Workflow as WorkflowType, Schema } from '../data';
+import { WorkflowStep as BaseWorkflowStep, Workflow as WorkflowType } from '../data';
+import StepContent from './StepContent';
+import { useSchemaDictionary } from '../hooks/schema';
+import { SchemaManager } from '../hooks/schema/types';
 
 interface RuntimeWorkflowStep extends BaseWorkflowStep {
     action: (data?: any) => Promise<void>;
@@ -13,34 +16,35 @@ interface WorkflowProps {
     workflows: readonly WorkflowType[];
 }
 
-interface WorkflowState {
-    inputs: Record<string, any>;
-    outputs: Record<string, any>;
-}
-
 const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
     const navigate = useNavigate();
     const { workflowId } = useParams();
     const [activeStep, setActiveStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
-    const [_isSearching, setIsSearching] = useState(false);
     const [error, setError] = useState<string>('');
     const [isEditMode, setIsEditMode] = useState(true);
-    const [state, setState] = useState<WorkflowState>({
-        inputs: {},
-        outputs: {}
-    });
     const [localWorkflow, setLocalWorkflow] = useState<WorkflowType | null>(null);
+
+    const schemaManager = useSchemaDictionary();
+
+    const stateManager: SchemaManager = {
+        state: schemaManager.state,
+        setSchema: schemaManager.setSchema,
+        setValues: schemaManager.setValues,
+        removeSchema: schemaManager.removeSchema
+    };
 
     // Find the selected workflow
     const workflow = localWorkflow || workflows.find(w => w.id === workflowId);
 
-    // Initialize local workflow
+    // Initialize local workflow and schemas
     useEffect(() => {
         if (!localWorkflow && workflow) {
             setLocalWorkflow(workflow);
-        }
-    }, [workflow, localWorkflow]);
+
+        };
+    }
+        , [workflow, localWorkflow, schemaManager.setSchema]);
 
     // Redirect to home if workflow not found
     useEffect(() => {
@@ -59,10 +63,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
         const newStep: BaseWorkflowStep = {
             label: `Step ${localWorkflow.steps.length + 1}`,
             description: 'New step description',
-            tool: {
-                name: 'new_tool',
-                description: 'Configure this tool'
-            },
+            stepType: 'LLM',
             inputSchema: {
                 fields: []
             },
@@ -75,12 +76,11 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
             ...localWorkflow,
             steps: [...localWorkflow.steps, newStep]
         });
-        setActiveStep(workflowSteps.length); // Set active step to the new step
+        setActiveStep(workflowSteps.length);
     };
 
     const handleNext = async (): Promise<void> => {
         setIsLoading(true);
-        // delay for 1 second
         await new Promise(resolve => setTimeout(resolve, 500));
         setIsLoading(false);
         setActiveStep((prev) => prev + 1);
@@ -92,32 +92,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
 
     const handleNewQuestion = async (): Promise<void> => {
         setActiveStep(0);
-        setState({ inputs: {}, outputs: {} });
-    };
 
-    const renderStepContent = (step: number) => {
-        const currentStep = workflowSteps[step];
-        return (
-            <div>
-                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">{currentStep.label}</h2>
-                <div className="mb-4">
-                    <h3 className="font-medium mb-2 text-gray-800 dark:text-gray-200">Tool: {currentStep.tool.name}</h3>
-                    <p className="text-gray-600 dark:text-gray-300">{currentStep.tool.description}</p>
-                </div>
-                <div className="mb-4">
-                    <h3 className="font-medium mb-2 text-gray-800 dark:text-gray-200">Input Schema:</h3>
-                    <pre className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
-                        {JSON.stringify(currentStep.inputSchema, null, 2)}
-                    </pre>
-                </div>
-                <div>
-                    <h3 className="font-medium mb-2 text-gray-800 dark:text-gray-200">Output Schema:</h3>
-                    <pre className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
-                        {JSON.stringify(currentStep.outputSchema, null, 2)}
-                    </pre>
-                </div>
-            </div>
-        );
     };
 
     const handleStepClick = (index: number) => {
@@ -132,10 +107,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
         {
             label: 'Input',
             description: 'Configure workflow inputs',
-            tool: {
-                name: 'workflow_input',
-                description: 'Configure the workflow inputs'
-            },
+            stepType: 'INPUT',
             inputSchema: {
                 fields: []
             },
@@ -270,7 +242,11 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
                 {/* Main Content */}
                 <div className="flex-1 p-6">
                     <div className="bg-white dark:bg-gray-800/50 rounded-lg shadow-lg p-6">
-                        {renderStepContent(activeStep)}
+                        <StepContent
+                            step={workflowSteps[activeStep]}
+                            stateManager={stateManager}
+                            isEditMode={isEditMode}
+                        />
                     </div>
                 </div>
             </div>

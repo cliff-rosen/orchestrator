@@ -26,6 +26,12 @@ function App() {
         {
           label: 'Step 1',
           description: 'Configure your first step',
+          tool: {
+            name: 'Tool 1',
+            description: 'Tool 1 description',
+          },
+          inputSchema: {},
+          outputSchema: {},
         }
       ]
     }
