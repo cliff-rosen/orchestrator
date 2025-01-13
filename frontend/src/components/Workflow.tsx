@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { WORKFLOWS, WorkflowStep as BaseWorkflowStep } from '../data';
+import { WorkflowStep as BaseWorkflowStep, Workflow as WorkflowType } from '../data';
 
 interface WorkflowStep extends BaseWorkflowStep {
     action: (data?: any) => Promise<void>;
@@ -9,7 +9,11 @@ interface WorkflowStep extends BaseWorkflowStep {
     isDisabled?: (state?: any) => boolean;
 }
 
-const Workflow: React.FC = () => {
+interface WorkflowProps {
+    workflows: readonly WorkflowType[];
+}
+
+const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
     const navigate = useNavigate();
     const { workflowId } = useParams();
     const [activeStep, setActiveStep] = useState(0);
@@ -19,7 +23,7 @@ const Workflow: React.FC = () => {
     const [isEditMode, setIsEditMode] = useState(true);
 
     // Find the selected workflow
-    const workflow = WORKFLOWS.find(w => w.id === workflowId);
+    const workflow = workflows.find(w => w.id === workflowId);
 
     // Redirect to home if workflow not found
     useEffect(() => {

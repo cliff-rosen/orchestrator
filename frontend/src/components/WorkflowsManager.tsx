@@ -1,25 +1,19 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-
-interface WorkflowStep {
-    label: string;
-    description: string;
-}
-
-interface Workflow {
-    readonly id: string;
-    readonly name: string;
-    readonly description: string;
-    readonly path: string;
-    readonly steps: readonly WorkflowStep[];
-}
+import { Workflow } from '../data';
 
 interface WorkflowsManagerProps {
     workflows: readonly Workflow[];
+    onCreateWorkflow: () => Workflow;
 }
 
-const WorkflowsManager: React.FC<WorkflowsManagerProps> = ({ workflows }) => {
+const WorkflowsManager: React.FC<WorkflowsManagerProps> = ({ workflows, onCreateWorkflow }) => {
     const navigate = useNavigate();
+
+    const handleCreateWorkflow = () => {
+        const newWorkflow = onCreateWorkflow();
+        navigate(newWorkflow.path);
+    };
 
     return (
         <div className="max-w-4xl mx-auto">
@@ -52,6 +46,7 @@ const WorkflowsManager: React.FC<WorkflowsManagerProps> = ({ workflows }) => {
 
                 {/* Create New Workflow Card */}
                 <div
+                    onClick={handleCreateWorkflow}
                     className="bg-gray-50 dark:bg-gray-800/50 rounded-lg shadow-md p-6 cursor-pointer 
                    hover:shadow-lg transition-shadow border-2 border-dashed border-gray-300 
                    dark:border-gray-600 flex flex-col items-center justify-center"
