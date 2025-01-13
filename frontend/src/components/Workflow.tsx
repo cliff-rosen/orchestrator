@@ -30,9 +30,17 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
         inputs: {},
         outputs: {}
     });
+    const [localWorkflow, setLocalWorkflow] = useState<WorkflowType | null>(null);
 
     // Find the selected workflow
-    const workflow = workflows.find(w => w.id === workflowId);
+    const workflow = localWorkflow || workflows.find(w => w.id === workflowId);
+
+    // Initialize local workflow
+    useEffect(() => {
+        if (!localWorkflow && workflow) {
+            setLocalWorkflow(workflow);
+        }
+    }, [workflow, localWorkflow]);
 
     // Redirect to home if workflow not found
     useEffect(() => {
@@ -44,6 +52,31 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
     if (!workflow) {
         return null;
     }
+
+    const handleAddStep = () => {
+        if (!localWorkflow) return;
+
+        const newStep: BaseWorkflowStep = {
+            label: `Step ${localWorkflow.steps.length + 1}`,
+            description: 'New step description',
+            tool: {
+                name: 'new_tool',
+                description: 'Configure this tool'
+            },
+            inputSchema: {
+                fields: []
+            },
+            outputSchema: {
+                fields: []
+            }
+        };
+
+        setLocalWorkflow({
+            ...localWorkflow,
+            steps: [...localWorkflow.steps, newStep]
+        });
+        setActiveStep(workflowSteps.length); // Set active step to the new step
+    };
 
     const handleNext = async (): Promise<void> => {
         setIsLoading(true);
@@ -85,6 +118,12 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
                 </div>
             </div>
         );
+    };
+
+    const handleStepClick = (index: number) => {
+        if (isEditMode) {
+            setActiveStep(index);
+        }
     };
 
     // Convert workflow steps to RuntimeWorkflowStep interface
@@ -166,33 +205,66 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
             {/* Main Content Area with Left Nav */}
             <div className="flex-1 flex bg-gray-50 dark:bg-gray-900">
                 {/* Left Navigation */}
-                <div className="w-64 shrink-0 p-6 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50">
-                    <div className="flex flex-col gap-4">
-                        {workflowSteps.map((step, index) => (
-                            <div
-                                key={step.label}
-                                className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${index === activeStep
-                                    ? 'bg-blue-50 border-2 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-400 dark:text-blue-200'
-                                    : index < activeStep
-                                        ? 'bg-emerald-50 border border-emerald-300 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-500/30 dark:text-emerald-200'
-                                        : 'bg-gray-50 border border-gray-200 text-gray-600 dark:bg-gray-800/50 dark:border-gray-700 dark:text-gray-400'
-                                    }`}
-                            >
-                                <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${index === activeStep
-                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
-                                    : index < activeStep
-                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-200'
-                                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                                    }`}>
-                                    {index + 1}
+                <div className="w-64 shrink-0 flex flex-col bg-white dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700">
+                    {/* Steps List - Scrollable */}
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <div className="flex flex-col gap-4">
+                            {workflowSteps.map((step, index) => (
+                                <div
+                                    key={`${step.label}-${index}`}
+                                    onClick={() => handleStepClick(index)}
+                                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${isEditMode ? 'cursor-pointer' : ''
+                                        } ${index === activeStep
+                                            ? 'bg-blue-50 border-2 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-400 dark:text-blue-200'
+                                            : index < activeStep && !isEditMode
+                                                ? 'bg-emerald-50 border border-emerald-300 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-500/30 dark:text-emerald-200'
+                                                : 'bg-gray-50 border border-gray-200 text-gray-600 dark:bg-gray-800/50 dark:border-gray-700 dark:text-gray-400'
+                                        }`}
+                                >
+                                    <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${index === activeStep
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
+                                        : index < activeStep && !isEditMode
+                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-200'
+                                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                        }`}>
+                                        {index + 1}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <div className="font-medium">{step.label}</div>
+                                        <div className="text-xs opacity-80">{step.description}</div>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col">
-                                    <div className="font-medium">{step.label}</div>
-                                    <div className="text-xs opacity-80">{step.description}</div>
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
+
+                    {/* Add Step Button - Fixed at bottom */}
+                    {isEditMode && (
+                        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                            <button
+                                onClick={handleAddStep}
+                                className="w-full flex items-center justify-center gap-2 px-3 py-2 
+                                         bg-gray-50 dark:bg-gray-800 rounded-md text-gray-600 dark:text-gray-300 
+                                         hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400
+                                         transition-colors text-sm font-medium"
+                            >
+                                <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                                    />
+                                </svg>
+                                <span>Add Step</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Main Content */}
@@ -203,47 +275,49 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
                 </div>
             </div>
 
-            {/* Navigation */}
-            <div className="fixed bottom-0 left-0 right-0 z-10">
-                <div className="max-w-7xl mx-auto px-6 py-4 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 shadow-lg">
-                    <div className="flex justify-between items-center">
-                        <div className="flex gap-4 items-center">
-                            <button
-                                className={`px-4 py-2 rounded-lg ${activeStep === 0
-                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200'
-                                    }`}
-                                onClick={handleBack}
-                                disabled={activeStep === 0}
-                            >
-                                Back
-                            </button>
-                            {activeStep > 0 && (
+            {/* Navigation - Only show in Run mode */}
+            {!isEditMode && (
+                <div className="fixed bottom-0 left-0 right-0 z-10">
+                    <div className="max-w-7xl mx-auto px-6 py-4 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 shadow-lg">
+                        <div className="flex justify-between items-center">
+                            <div className="flex gap-4 items-center">
                                 <button
-                                    onClick={handleNewQuestion}
-                                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                                    className={`px-4 py-2 rounded-lg ${activeStep === 0
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200'
+                                        }`}
+                                    onClick={handleBack}
+                                    disabled={activeStep === 0}
                                 >
-                                    <span>New Question</span>
+                                    Back
+                                </button>
+                                {activeStep > 0 && (
+                                    <button
+                                        onClick={handleNewQuestion}
+                                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                                    >
+                                        <span>New Question</span>
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Workflow-specific action button */}
+                            {activeStep < workflowSteps.length - 1 && (
+                                <button
+                                    onClick={() => workflowSteps[activeStep].action()}
+                                    disabled={isLoading || (workflowSteps[activeStep].isDisabled?.() ?? false)}
+                                    className={`px-6 py-2 rounded-lg ${isLoading || (workflowSteps[activeStep].isDisabled?.() ?? false)
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                                        }`}
+                                >
+                                    {isLoading ? 'Processing...' : workflowSteps[activeStep].actionButtonText()}
                                 </button>
                             )}
                         </div>
-
-                        {/* Workflow-specific action button */}
-                        {activeStep < workflowSteps.length - 1 && (
-                            <button
-                                onClick={() => workflowSteps[activeStep].action()}
-                                disabled={isLoading || (workflowSteps[activeStep].isDisabled?.() ?? false)}
-                                className={`px-6 py-2 rounded-lg ${isLoading || (workflowSteps[activeStep].isDisabled?.() ?? false)
-                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                                    }`}
-                            >
-                                {isLoading ? 'Processing...' : workflowSteps[activeStep].actionButtonText()}
-                            </button>
-                        )}
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
