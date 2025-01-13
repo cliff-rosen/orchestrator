@@ -6,26 +6,48 @@ import { useEffect, useState } from 'react'
 import { setSessionExpiredHandler } from './lib/api'
 import { setStreamSessionExpiredHandler } from './lib/api/streamUtils'
 import LoginForm from './components/auth/LoginForm'
-import HomeScreen from './components/HomeScreen'
-import ResearchWorkflow from './components/ResearchWorkflow'
-import TemplateWorkflow from './components/TemplateWorkflow'
+import HomeScreen from './components/WorkflowsManager'
+import Workflow from './components/Workflow'
+
 // Define available workflows
-const WORKFLOWS = [
+export const WORKFLOWS = [
   {
     id: 'research',
     name: 'Research Assistant',
     description: 'AI-powered research workflow to analyze questions and find answers',
-    path: '/research',
-    component: ResearchWorkflow
+    path: '/workflow/research',
+    steps: [
+      {
+        label: 'Initial Question',
+        description: 'Enter your research question with as much context as possible',
+      },
+      {
+        label: 'Question Improvement',
+        description: 'Review and approve suggested improvements to your question',
+      },
+      {
+        label: 'Final Answer',
+        description: 'Review and approve the final answer',
+      }
+    ]
   },
   {
     id: 'aita',
     name: 'AITA',
     description: 'Find out if you are the asshole',
-    path: '/aita',
-    component: TemplateWorkflow
+    path: '/workflow/aita',
+    steps: [
+      {
+        label: 'Initial Story',
+        description: 'Tell us your story',
+      },
+      {
+        label: 'Analysis',
+        description: 'AI analysis of your situation',
+      }
+    ]
   }
-] as const
+] as const;
 
 function App() {
   const { handleSessionExpired, isAuthenticated, login, register, error } = useAuth()
@@ -66,13 +88,7 @@ function App() {
               <div className="flex-1">
                 <Routes>
                   <Route path="/" element={<HomeScreen workflows={WORKFLOWS} />} />
-                  {WORKFLOWS.map(workflow => (
-                    <Route
-                      key={workflow.id}
-                      path={workflow.path}
-                      element={<workflow.component />}
-                    />
-                  ))}
+                  <Route path="/workflow/:workflowId" element={<Workflow />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </div>

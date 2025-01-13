@@ -20,7 +20,7 @@ interface WorkflowStep {
     isDisabled?: (state?: any) => boolean;
 }
 
-const ResearchWorkflow: React.FC = () => {
+const Workflow: React.FC = () => {
     const [activeStep, setActiveStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [_isSearching, setIsSearching] = useState(false);
@@ -612,4 +612,4 @@ ${analysis.success_criteria.map(c => `- ${c}`).join('\n')}
     );
 };
 
-export default ResearchWorkflow; 
+export default Workflow; 

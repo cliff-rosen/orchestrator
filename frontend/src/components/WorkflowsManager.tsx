@@ -1,19 +1,24 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
+interface WorkflowStep {
+    label: string;
+    description: string;
+}
+
 interface Workflow {
     readonly id: string;
     readonly name: string;
     readonly description: string;
     readonly path: string;
-    readonly component: React.FC;
+    readonly steps: readonly WorkflowStep[];
 }
 
-interface HomeScreenProps {
+interface WorkflowsManagerProps {
     workflows: readonly Workflow[];
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ workflows }) => {
+const WorkflowsManager: React.FC<WorkflowsManagerProps> = ({ workflows }) => {
     const navigate = useNavigate();
 
     return (
@@ -39,7 +44,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ workflows }) => {
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
                          transition-colors text-sm font-medium"
                             >
-                                Load Workflow
+                                Start Workflow
                             </button>
                         </div>
                     </div>
@@ -79,4 +84,4 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ workflows }) => {
     );
 };
 
-export default HomeScreen; 
+export default WorkflowsManager; 
