@@ -28,9 +28,11 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
     const schemaManager = useSchemaDictionary();
 
     const stateManager: SchemaManager = {
-        state: schemaManager.state,
+        schemas: schemaManager.schemas,
+        values: schemaManager.values,
         setSchema: schemaManager.setSchema,
         setValues: schemaManager.setValues,
+        getValue: schemaManager.getValue,
         removeSchema: schemaManager.removeSchema
     };
 
@@ -64,12 +66,8 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
             label: `Step ${localWorkflow.steps.length + 1}`,
             description: 'New step description',
             stepType: 'LLM',
-            inputSchema: {
-                fields: []
-            },
-            outputSchema: {
-                fields: []
-            }
+            inputMap: {},
+            outputMap: {}
         };
 
         setLocalWorkflow({
@@ -108,12 +106,8 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
             label: 'Input',
             description: 'Configure workflow inputs',
             stepType: 'INPUT',
-            inputSchema: {
-                fields: []
-            },
-            outputSchema: {
-                fields: []
-            },
+            inputMap: {},
+            outputMap: {},
             action: handleNext,
             actionButtonText: () => 'Save Inputs',
             component: () => <div>Configure Workflow Inputs</div>

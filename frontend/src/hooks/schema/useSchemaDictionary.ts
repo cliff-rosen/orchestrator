@@ -1,30 +1,36 @@
 import { useState, useCallback } from 'react';
 import { SchemaDictionary } from './SchemaDictionary';
-import { SchemaState, FieldDefinition, SchemaEntry } from './types';
+import { SchemaState, SchemaValue } from './types';
 
 export function useSchemaDictionary(initialState: SchemaState = {}) {
     const [manager] = useState(() => new SchemaDictionary(initialState));
-    const [state, setState] = useState<SchemaState>(initialState);
+    const [version, setVersion] = useState(0);
 
-    const setSchema = useCallback((key: string, schema: FieldDefinition[]) => {
+    const setSchema = useCallback((key: string, schema: SchemaValue) => {
         manager.setSchema(key, schema);
-        setState(manager.getState());
+        setVersion(v => v + 1);
     }, [manager]);
 
-    const setValues = useCallback((key: string, values: Record<string, any>) => {
-        manager.setValues(key, values);
-        setState(manager.getState());
+    const setValues = useCallback((key: string, value: any) => {
+        manager.setValues(key, value);
+        setVersion(v => v + 1);
+    }, [manager]);
+
+    const getValue = useCallback((key: string) => {
+        return manager.getValue(key);
     }, [manager]);
 
     const removeSchema = useCallback((key: string) => {
         manager.removeSchema(key);
-        setState(manager.getState());
+        setVersion(v => v + 1);
     }, [manager]);
 
     return {
-        state,       // The full state dictionary
-        setSchema,   // Set schema for a key
-        setValues,   // Set values for a key
-        removeSchema // Remove entry for a key
+        schemas: manager.getSchemas(),
+        values: manager.getValues(),
+        setSchema,
+        setValues,
+        getValue,
+        removeSchema
     };
 } 

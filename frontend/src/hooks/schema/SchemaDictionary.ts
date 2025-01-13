@@ -1,111 +1,47 @@
-import { FieldDefinition, SchemaState, SchemaEntry } from './types';
+import { SchemaState, SchemaValue, PrimitiveValue, ArrayValue, ObjectValue } from './types';
 
 export class SchemaDictionary {
-    private state: SchemaState;
+    private schemas: SchemaState;
+    private values: Record<string, any>;
 
     constructor(initialState: SchemaState = {}) {
-        this.state = initialState;
+        this.schemas = { ...initialState };
+        this.values = {};
     }
 
-    getState(): SchemaState {
-        return this.state;
+    getSchemas(): SchemaState {
+        return this.schemas;
     }
 
-    setSchema(name: string, schema: FieldDefinition[]) {
-        if (this.state[name]) {
-            this.state[name] = {
-                schema,
-                values: this.validateValues(schema, this.state[name].values)
-            };
-        } else {
-            this.state[name] = {
-                schema,
-                values: this.getDefaultValues(schema)
-            };
-        }
+    getValues(): Record<string, any> {
+        return this.values;
     }
 
-    setValues(name: string, values: Record<string, any>) {
-        if (!this.state[name]) {
-            throw new Error(`Schema '${name}' not found`);
-        }
-
-        this.state[name] = {
-            ...this.state[name],
-            values: this.validateValues(this.state[name].schema, values)
+    setSchema(key: string, schema: SchemaValue): void {
+        this.schemas = {
+            ...this.schemas,
+            [key]: schema
         };
     }
 
-    removeSchema(name: string) {
-        delete this.state[name];
-    }
-
-    getEntry(name: string): SchemaEntry | undefined {
-        return this.state[name];
-    }
-
-    private getDefaultValues(schema: FieldDefinition[]): Record<string, any> {
-        const defaults: Record<string, any> = {};
-
-        for (const field of schema) {
-            defaults[field.name] = this.getDefaultValueForField(field);
+    setValues(key: string, value: any): void {
+        if (!this.schemas[key]) {
+            throw new Error(`No schema found for key: ${key}`);
         }
-
-        return defaults;
+        this.values = {
+            ...this.values,
+            [key]: value
+        };
     }
 
-    private getDefaultValueForField(field: FieldDefinition): any {
-        switch (field.type) {
-            case 'string':
-                return '';
-            case 'number':
-                return 0;
-            case 'boolean':
-                return false;
-            case 'array':
-                return [];
-            case 'object':
-                return this.getDefaultValues(field.fields);
-            default:
-                return null;
-        }
+    getValue(key: string): any {
+        return this.values[key];
     }
 
-    private validateValues(schema: FieldDefinition[], values: Record<string, any>): Record<string, any> {
-        const validated: Record<string, any> = {};
-
-        for (const field of schema) {
-            const value = values[field.name];
-            validated[field.name] = this.validateFieldValue(field, value);
-        }
-
-        return validated;
-    }
-
-    private validateFieldValue(field: FieldDefinition, value: any): any {
-        switch (field.type) {
-            case 'string':
-                return String(value || '');
-
-            case 'number':
-                const num = Number(value);
-                return isNaN(num) ? 0 : num;
-
-            case 'boolean':
-                return Boolean(value);
-
-            case 'array':
-                if (!Array.isArray(value)) return [];
-                return value.map(item => this.validateFieldValue(field.itemType, item));
-
-            case 'object':
-                if (typeof value !== 'object' || value === null) {
-                    return this.getDefaultValueForField(field);
-                }
-                return this.validateValues(field.fields, value);
-
-            default:
-                return null;
-        }
+    removeSchema(key: string): void {
+        const { [key]: _, ...remainingSchemas } = this.schemas;
+        const { [key]: __, ...remainingValues } = this.values;
+        this.schemas = remainingSchemas;
+        this.values = remainingValues;
     }
 } 

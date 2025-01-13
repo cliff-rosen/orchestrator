@@ -1,43 +1,43 @@
 export type PrimitiveType = 'string' | 'number' | 'boolean';
 export type ComplexType = 'array' | 'object';
-export type FieldType = PrimitiveType | ComplexType;
+export type ValueType = PrimitiveType | ComplexType;
 
-export interface BaseFieldDefinition {
+// Base value type that all schema entries extend
+export interface BaseValue {
     name: string;
-    type: FieldType;
-    label?: string;
+    type: ValueType;
     required?: boolean;
 }
 
-export interface PrimitiveFieldDefinition extends BaseFieldDefinition {
+// Primitive values (string, number, boolean)
+export interface PrimitiveValue extends BaseValue {
     type: PrimitiveType;
 }
 
-export interface ArrayFieldDefinition extends BaseFieldDefinition {
+// Array values
+export interface ArrayValue extends BaseValue {
     type: 'array';
-    itemType: FieldDefinition;
+    items: SchemaValue;  // The type of items in the array
 }
 
-export interface ObjectFieldDefinition extends BaseFieldDefinition {
+// Object values with nested fields
+export interface ObjectValue extends BaseValue {
     type: 'object';
-    fields: FieldDefinition[];
+    fields: Record<string, SchemaValue>;  // Named fields mapping to their types
 }
 
-export type FieldDefinition =
-    | PrimitiveFieldDefinition
-    | ArrayFieldDefinition
-    | ObjectFieldDefinition;
+// Union type for all possible schema values
+export type SchemaValue = PrimitiveValue | ArrayValue | ObjectValue;
 
-export interface SchemaEntry {
-    schema: FieldDefinition[];
-    values: Record<string, any>;
-}
+// The state maps keys to schema values
+export type SchemaState = Record<string, SchemaValue>;
 
-export type SchemaState = Record<string, SchemaEntry>;
-
+// Schema manager interface
 export interface SchemaManager {
-    state: SchemaState;
-    setSchema: (key: string, schema: FieldDefinition[]) => void;
-    setValues: (key: string, values: Record<string, any>) => void;
+    schemas: SchemaState;
+    values: Record<string, any>;
+    setSchema: (key: string, value: SchemaValue) => void;
+    setValues: (key: string, value: any) => void;
+    getValue: (key: string) => any;
     removeSchema: (key: string) => void;
 } 
