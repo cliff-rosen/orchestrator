@@ -63,11 +63,10 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
         if (!localWorkflow) return;
 
         const newStep: BaseWorkflowStep = {
+            id: `step-${localWorkflow.steps.length + 1}`,
             label: `Step ${localWorkflow.steps.length + 1}`,
             description: 'New step description',
-            stepType: 'LLM',
-            inputMap: {},
-            outputMap: {}
+            stepType: 'ACTION'
         };
 
         setLocalWorkflow({

@@ -24,14 +24,15 @@ function App() {
       path: `/workflow/${newId}`,
       steps: [
         {
+          id: 'step-1',
           label: 'Step 1',
           description: 'Configure your first step',
+          stepType: 'ACTION',
           tool: {
+            type: 'llm',
             name: 'Tool 1',
             description: 'Tool 1 description',
-          },
-          inputSchema: {},
-          outputSchema: {},
+          }
         }
       ]
     }

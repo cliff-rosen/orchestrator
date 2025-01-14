@@ -30,11 +30,55 @@ const ActionEditor: React.FC<{
         });
     };
 
+    const handleLabelChange = (label: string) => {
+        onStepUpdate({
+            ...step,
+            label
+        });
+    };
+
+    const handleDescriptionChange = (description: string) => {
+        onStepUpdate({
+            ...step,
+            description
+        });
+    };
+
     return (
         <div className="space-y-4">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-                {step.label}
-            </h2>
+            <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Step Label
+                </label>
+                <input
+                    type="text"
+                    value={step.label}
+                    onChange={(e) => handleLabelChange(e.target.value)}
+                    className="w-full px-3 py-2 
+                             border border-gray-300 dark:border-gray-600
+                             bg-white dark:bg-gray-700 
+                             text-gray-900 dark:text-gray-100
+                             rounded-md"
+                    placeholder="Enter step label"
+                />
+            </div>
+
+            <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Step Description
+                </label>
+                <textarea
+                    value={step.description}
+                    onChange={(e) => handleDescriptionChange(e.target.value)}
+                    className="w-full px-3 py-2 
+                             border border-gray-300 dark:border-gray-600
+                             bg-white dark:bg-gray-700 
+                             text-gray-900 dark:text-gray-100
+                             rounded-md"
+                    rows={3}
+                    placeholder="Enter step description"
+                />
+            </div>
 
             <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -52,17 +96,10 @@ const ActionEditor: React.FC<{
                     <option value="" disabled>Select a tool</option>
                     {TOOL_TYPES.map(toolType => (
                         <option key={toolType} value={toolType}>
-                            {toolType.toUpperCase()}
+                            {toolType}
                         </option>
                     ))}
                 </select>
-            </div>
-
-            <div className="mb-4">
-                <h3 className="font-medium mb-2 text-gray-800 dark:text-gray-200">
-                    Step Type: {step.stepType}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300">{step.description}</p>
             </div>
         </div>
     );
@@ -115,7 +152,7 @@ const ActionStepContent: React.FC<{ step: WorkflowStep, stateManager: SchemaMana
                                 Type:
                             </span>
                             <p className="text-gray-900 dark:text-gray-100">
-                                {step.tool.type.toUpperCase()}
+                                {step.tool.type}
                             </p>
                         </div>
                         {step.tool.name && (
