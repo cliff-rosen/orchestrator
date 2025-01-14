@@ -1,16 +1,17 @@
-export type Tool = {
-    name: string;
-    description: string;
-};
+export type ToolType = 'llm' | 'search' | 'retrieve';
 
-export type StepType = 'LLM' | 'SEARCH' | 'RETRIEVE' | 'INPUT';
+export interface Tool {
+    type: ToolType;
+    name?: string;
+    description?: string;
+}
 
 export interface WorkflowStep {
+    id: string;
     label: string;
     description: string;
-    stepType: StepType;
-    inputMap: Record<string, string>;
-    outputMap: Record<string, string>;
+    stepType: 'INPUT' | 'ACTION';
+    tool?: Tool;
 }
 
 export interface Workflow {
@@ -30,25 +31,37 @@ export const WORKFLOWS: readonly Workflow[] = [
         path: '/workflow/research',
         steps: [
             {
+                id: 'question-input',
                 label: 'Initial Question',
                 description: 'Enter your research question with as much context as possible',
-                stepType: 'LLM',
-                inputMap: {},
-                outputMap: {}
+                stepType: 'ACTION',
+                tool: {
+                    type: 'llm',
+                    name: 'Question Generator',
+                    description: 'AI tool to generate research questions'
+                }
             },
             {
+                id: 'question-improvement',
                 label: 'Question Improvement',
                 description: 'Review and approve suggested improvements to your question',
-                stepType: 'LLM',
-                inputMap: {},
-                outputMap: {}
+                stepType: 'ACTION',
+                tool: {
+                    type: 'llm',
+                    name: 'Question Improver',
+                    description: 'AI tool to improve research questions'
+                }
             },
             {
+                id: 'final-answer',
                 label: 'Final Answer',
                 description: 'Review and approve the final answer',
-                stepType: 'LLM',
-                inputMap: {},
-                outputMap: {}
+                stepType: 'ACTION',
+                tool: {
+                    type: 'llm',
+                    name: 'Answer Generator',
+                    description: 'AI tool to generate comprehensive answers'
+                }
             }
         ]
     },
@@ -59,18 +72,21 @@ export const WORKFLOWS: readonly Workflow[] = [
         path: '/workflow/aita',
         steps: [
             {
+                id: 'story-input',
                 label: 'Initial Story',
                 description: 'Tell us your story',
-                stepType: 'LLM',
-                inputMap: {},
-                outputMap: {}
+                stepType: 'INPUT'
             },
             {
+                id: 'analysis',
                 label: 'Analysis',
                 description: 'AI analysis of your situation',
-                stepType: 'LLM',
-                inputMap: {},
-                outputMap: {}
+                stepType: 'ACTION',
+                tool: {
+                    type: 'llm',
+                    name: 'Situation Analyzer',
+                    description: 'AI tool to analyze social situations'
+                }
             }
         ]
     }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { WorkflowStep as BaseWorkflowStep, Workflow as WorkflowType } from '../data';
+import { WorkflowStep as BaseWorkflowStep, WorkflowStep, Workflow as WorkflowType } from '../data';
 import StepContent from './StepContent';
 import { useSchemaDictionary } from '../hooks/schema';
 import { SchemaManager } from '../hooks/schema/types';
@@ -75,6 +75,15 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
             steps: [...localWorkflow.steps, newStep]
         });
         setActiveStep(workflowSteps.length);
+    };
+
+    const handleStepUpdate = (step: WorkflowStep) => {
+        if (!localWorkflow) return;
+
+        setLocalWorkflow({
+            ...localWorkflow,
+            steps: localWorkflow.steps.map(s => s.id === step.id ? step : s)
+        });
     };
 
     const handleNext = async (): Promise<void> => {
@@ -240,6 +249,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
                             step={workflowSteps[activeStep]}
                             stateManager={stateManager}
                             isEditMode={isEditMode}
+                            onStepUpdate={handleStepUpdate}
                         />
                     </div>
                 </div>
