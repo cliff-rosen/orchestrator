@@ -1,14 +1,122 @@
 import React, { useState } from 'react';
-import { SchemaManager, SchemaValue, ValueType, PrimitiveType } from '../hooks/schema/types';
-import ValueDisplay from './ValueDisplay';
-import ValueEditorModal from './ValueEditorModal';
+import { SchemaManager, SchemaValue, ValueType } from '../hooks/schema/types';
 
 interface SchemaEditorProps {
     stateManager: SchemaManager;
 }
 
-const PRIMITIVE_TYPES: PrimitiveType[] = ['string', 'number', 'boolean'];
-const VALUE_TYPES: ValueType[] = [...PRIMITIVE_TYPES, 'array', 'object'];
+const VALUE_TYPES: ValueType[] = ['string', 'number', 'boolean', 'array', 'object'];
+
+interface SchemaFieldProps {
+    value: SchemaValue;
+    onChange: (value: SchemaValue) => void;
+    onRemove: () => void;
+    indent?: number;
+}
+
+const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, indent = 0 }) => {
+    return (
+        <div className="space-y-2" style={{ marginLeft: `${indent * 20}px` }}>
+            <div className="flex items-center gap-2">
+                <input
+                    value={value.name}
+                    onChange={e => onChange({ ...value, name: e.target.value })}
+                    placeholder="Field name"
+                    className="flex-1 px-3 py-2 
+                             border border-gray-300 dark:border-gray-600
+                             bg-white dark:bg-gray-700 
+                             text-gray-900 dark:text-gray-100
+                             rounded-md"
+                />
+                <select
+                    value={value.type}
+                    onChange={e => {
+                        const type = e.target.value as ValueType;
+                        if (type === 'object') {
+                            onChange({ ...value, type: 'object', fields: {} });
+                        } else if (type === 'array') {
+                            onChange({ ...value, type: 'array', items: { name: 'item', type: 'string' } });
+                        } else {
+                            onChange({ ...value, type });
+                        }
+                    }}
+                    className="px-3 py-2 
+                             border border-gray-300 dark:border-gray-600
+                             bg-white dark:bg-gray-700 
+                             text-gray-900 dark:text-gray-100
+                             rounded-md"
+                >
+                    {VALUE_TYPES.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                    ))}
+                </select>
+                <button
+                    onClick={onRemove}
+                    className="px-3 py-2 text-red-600 dark:text-red-400 
+                             hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md"
+                >
+                    Remove
+                </button>
+            </div>
+
+            {value.type === 'object' && (
+                <div className="pl-4 border-l-2 border-gray-300 dark:border-gray-600 space-y-2">
+                    {Object.entries(value.fields).map(([fieldName, fieldValue]) => (
+                        <SchemaField
+                            key={fieldName}
+                            value={fieldValue}
+                            onChange={newValue => {
+                                onChange({
+                                    ...value,
+                                    fields: {
+                                        ...value.fields,
+                                        [fieldName]: newValue
+                                    }
+                                });
+                            }}
+                            onRemove={() => {
+                                const { [fieldName]: _, ...rest } = value.fields;
+                                onChange({ ...value, fields: rest });
+                            }}
+                            indent={indent + 1}
+                        />
+                    ))}
+                    <button
+                        onClick={() => {
+                            const newField = { name: '', type: 'string' };
+                            onChange({
+                                ...value,
+                                fields: {
+                                    ...value.fields,
+                                    [`field${Object.keys(value.fields).length}`]: newField
+                                }
+                            });
+                        }}
+                        className="text-blue-600 dark:text-blue-400 
+                                 hover:bg-blue-50 dark:hover:bg-blue-900/30 
+                                 px-3 py-1 rounded-md"
+                    >
+                        Add Field
+                    </button>
+                </div>
+            )}
+
+            {value.type === 'array' && (
+                <div className="pl-4 border-l-2 border-gray-300 dark:border-gray-600">
+                    <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+                        Array Item Type:
+                    </div>
+                    <SchemaField
+                        value={value.items}
+                        onChange={newValue => onChange({ ...value, items: newValue })}
+                        onRemove={() => { }}
+                        indent={indent + 1}
+                    />
+                </div>
+            )}
+        </div>
+    );
+};
 
 const SchemaEditor: React.FC<SchemaEditorProps> = ({ stateManager }) => {
     const [newKey, setNewKey] = useState('');
@@ -22,7 +130,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ stateManager }) => {
                 name: newKey,
                 type: 'string'
             };
-            stateManager.setSchema(newKey, newValue);
+            stateManager.setSchema(newKey, newValue, 'input');
             setSelectedKey(newKey);
             setNewKey('');
         }
@@ -42,9 +150,13 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ stateManager }) => {
 
     const handleSaveValue = (value: SchemaValue) => {
         if (!selectedKey) return;
-        stateManager.setSchema(selectedKey, value);
+        stateManager.setSchema(selectedKey, value, 'input');
         setShowValueEditor(false);
         setEditingValue(null);
+    };
+
+    const handleSchemaChange = (key: string, schema: SchemaValue) => {
+        stateManager.setSchema(key, schema, 'input');
     };
 
     return (
@@ -110,26 +222,18 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ stateManager }) => {
                     </div>
                 </div>
 
-                {/* Value Editor */}
+                {/* Schema Editor */}
                 {selectedKey && stateManager.schemas && stateManager.schemas[selectedKey] && (
                     <div className="col-span-2 border border-gray-200 dark:border-gray-700 
                                   bg-white dark:bg-gray-800/50 rounded-md p-4">
-                        <ValueDisplay
-                            value={stateManager.schemas[selectedKey]}
-                            onEdit={handleEditValue}
+                        <SchemaField
+                            value={stateManager.schemas[selectedKey].schema}
+                            onChange={value => handleSchemaChange(selectedKey, value)}
+                            onRemove={() => stateManager.removeSchema(selectedKey)}
                         />
                     </div>
                 )}
             </div>
-
-            {/* Value Editor Modal */}
-            {showValueEditor && editingValue && (
-                <ValueEditorModal
-                    value={editingValue}
-                    onSave={handleSaveValue}
-                    onCancel={() => setShowValueEditor(false)}
-                />
-            )}
         </div>
     );
 };

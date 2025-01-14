@@ -29,14 +29,20 @@ export interface ObjectValue extends BaseValue {
 // Union type for all possible schema values
 export type SchemaValue = PrimitiveValue | ArrayValue | ObjectValue;
 
-// The state maps keys to schema values
-export type SchemaState = Record<string, SchemaValue>;
+export type SchemaRole = 'input' | 'output';
+
+export interface SchemaEntry {
+    role: SchemaRole;
+    schema: SchemaValue;
+}
+
+export type SchemaState = Record<string, SchemaEntry>;
 
 // Schema manager interface
 export interface SchemaManager {
     schemas: SchemaState;
     values: Record<string, any>;
-    setSchema: (key: string, value: SchemaValue) => void;
+    setSchema: (key: string, schema: SchemaValue, role: SchemaRole) => void;
     setValues: (key: string, value: any) => void;
     getValue: (key: string) => any;
     removeSchema: (key: string) => void;

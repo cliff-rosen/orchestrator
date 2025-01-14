@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
 import { SchemaDictionary } from './SchemaDictionary';
-import { SchemaState, SchemaValue } from './types';
+import { SchemaRole, SchemaState, SchemaValue } from './types';
 
 export function useSchemaDictionary(initialState: SchemaState = {}) {
     const [manager] = useState(() => new SchemaDictionary(initialState));
     const [version, setVersion] = useState(0);
 
-    const setSchema = useCallback((key: string, schema: SchemaValue) => {
-        manager.setSchema(key, schema);
+    const setSchema = useCallback((key: string, schema: SchemaValue, role: SchemaRole) => {
+        manager.setSchema(key, schema, role);
         setVersion(v => v + 1);
     }, [manager]);
 

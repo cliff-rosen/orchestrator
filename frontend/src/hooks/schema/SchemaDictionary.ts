@@ -1,4 +1,4 @@
-import { SchemaState, SchemaValue, PrimitiveValue, ArrayValue, ObjectValue } from './types';
+import { SchemaState, SchemaValue, SchemaRole } from './types';
 
 export class SchemaDictionary {
     private schemas: SchemaState;
@@ -17,10 +17,10 @@ export class SchemaDictionary {
         return this.values;
     }
 
-    setSchema(key: string, schema: SchemaValue): void {
+    setSchema(key: string, schema: SchemaValue, role: SchemaRole): void {
         this.schemas = {
             ...this.schemas,
-            [key]: schema
+            [key]: { schema, role }
         };
     }
 
