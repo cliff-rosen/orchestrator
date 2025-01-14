@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { WorkflowStep as BaseWorkflowStep, WorkflowStep, Workflow as WorkflowType } from '../data';
+import { Workflow as WorkflowType, WorkflowStep } from '../types';
 import StepContent from './StepContent';
 import { useSchemaDictionary } from '../hooks/schema';
 import { SchemaManager } from '../hooks/schema/types';
 
-interface RuntimeWorkflowStep extends BaseWorkflowStep {
+interface RuntimeWorkflowStep extends WorkflowStep {
     action: (data?: any) => Promise<void>;
     component: (props: any) => JSX.Element;
     actionButtonText: (state?: any) => string;
@@ -62,7 +62,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
     const handleAddStep = () => {
         if (!localWorkflow) return;
 
-        const newStep: BaseWorkflowStep = {
+        const newStep: WorkflowStep = {
             id: `step-${localWorkflow.steps.length + 1}`,
             label: `Step ${localWorkflow.steps.length + 1}`,
             description: 'New step description',

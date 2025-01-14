@@ -28,11 +28,6 @@ function App() {
           label: 'Step 1',
           description: 'Configure your first step',
           stepType: 'ACTION',
-          tool: {
-            type: 'llm',
-            name: 'Tool 1',
-            description: 'Tool 1 description',
-          }
         }
       ]
     }

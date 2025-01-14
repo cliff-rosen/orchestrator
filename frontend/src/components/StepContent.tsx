@@ -1,5 +1,5 @@
 import React from 'react';
-import { WorkflowStep } from '../data';
+import { WorkflowStep } from '../types';
 import { SchemaManager } from '../hooks/schema/types';
 import SchemaEditor from './SchemaEditor';
 import ActionEditor from './ActionEditor';
