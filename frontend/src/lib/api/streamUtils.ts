@@ -18,14 +18,14 @@ export async function* makeStreamRequest(endpoint: string, params: Record<string
                 // For arrays, use POST with JSON body
                 return null;
             }
-            return `${key}=${encodeURIComponent(value)}`;
+            return `${key}=${encodeURI(value)}`;
         })
         .filter(Boolean)
         .join('&');
-        
+
     const token = localStorage.getItem('authToken');
     const hasArrayParams = Object.values(params).some(Array.isArray);
-    
+
     const response = await fetch(
         `${settings.apiUrl}${endpoint}${queryString ? `?${queryString}` : ''}`,
         {

@@ -7,7 +7,6 @@ import { SchemaManager } from '../hooks/schema/types';
 
 interface RuntimeWorkflowStep extends WorkflowStep {
     action: (data?: any) => Promise<void>;
-    component: (props: any) => JSX.Element;
     actionButtonText: (state?: any) => string;
     isDisabled?: (state?: any) => boolean;
 }
@@ -24,17 +23,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
     const [error, setError] = useState<string>('');
     const [isEditMode, setIsEditMode] = useState(true);
     const [localWorkflow, setLocalWorkflow] = useState<WorkflowType | null>(null);
-
-    const schemaManager = useSchemaDictionary();
-
-    const stateManager: SchemaManager = {
-        schemas: schemaManager.schemas,
-        values: schemaManager.values,
-        setSchema: schemaManager.setSchema,
-        setValues: schemaManager.setValues,
-        getValue: schemaManager.getValue,
-        removeSchema: schemaManager.removeSchema
-    };
+    const stateManager: SchemaManager = useSchemaDictionary();
 
     // Find the selected workflow
     const workflow = localWorkflow || workflows.find(w => w.id === workflowId);
@@ -43,10 +32,8 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
     useEffect(() => {
         if (!localWorkflow && workflow) {
             setLocalWorkflow(workflow);
-
         };
-    }
-        , [workflow, localWorkflow, schemaManager.setSchema]);
+    }, [workflow, localWorkflow, stateManager]);
 
     // Redirect to home if workflow not found
     useEffect(() => {
@@ -87,7 +74,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
 
     const handleNext = async (): Promise<void> => {
         setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 200));
         setIsLoading(false);
         setActiveStep((prev) => prev + 1);
     };
@@ -98,7 +85,6 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
 
     const handleNewQuestion = async (): Promise<void> => {
         setActiveStep(0);
-
     };
 
     const handleStepClick = (index: number) => {
@@ -111,21 +97,18 @@ const Workflow: React.FC<WorkflowProps> = ({ workflows }) => {
     const workflowSteps: RuntimeWorkflowStep[] = [
         // Input step for workflow configuration
         {
+            id: 'input',
             label: 'Input',
             description: 'Configure workflow inputs',
             stepType: 'INPUT',
-            inputMap: {},
-            outputMap: {},
             action: handleNext,
-            actionButtonText: () => 'Save Inputs',
-            component: () => <div>Configure Workflow Inputs</div>
+            actionButtonText: () => 'Save Inputs'
         },
         // Regular workflow steps
         ...workflow.steps.map(step => ({
             ...step,
             action: handleNext,
             actionButtonText: () => 'Next Step',
-            component: () => <div>{step.label}</div>
         }))
     ];
 

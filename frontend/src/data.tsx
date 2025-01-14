@@ -155,7 +155,7 @@ export const WORKFLOWS: readonly Workflow[] = [
                 id: 'story-input',
                 label: 'Initial Story',
                 description: 'Tell us your story',
-                stepType: 'INPUT'
+                stepType: 'ACTION'
             },
             {
                 id: 'analysis',
