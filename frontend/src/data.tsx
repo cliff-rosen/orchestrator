@@ -2,7 +2,7 @@ export type ToolType = 'llm' | 'search' | 'retrieve';
 
 export interface ToolParameter {
     name: string;
-    type: 'string' | 'number' | 'boolean';
+    type: 'string' | 'number' | 'boolean' | 'string[]';
     description?: string;
 }
 
@@ -18,10 +18,14 @@ export const TOOL_SIGNATURES: Record<ToolType, ToolSignature> = {
             description: 'The search query text'
         }]
     },
-    llm: {
-        parameters: []  // We'll define these later
-    },
     retrieve: {
+        parameters: [{
+            name: 'urls',
+            type: 'string[]',
+            description: 'List of URLs to retrieve content from'
+        }]
+    },
+    llm: {
         parameters: []  // We'll define these later
     }
 };

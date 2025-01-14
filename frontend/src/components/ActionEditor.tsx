@@ -57,12 +57,20 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
         });
     };
 
-    // Get available schema keys for mapping
-    const availableSchemaKeys = stateManager.schemas
-        ? Object.entries(stateManager.schemas)
-            .filter(([_, entry]) => entry.schema.type === 'string')  // For now, only show string fields
-            .map(([key]) => key)
-        : [];
+    // Get available schema keys for mapping based on parameter type
+    const getAvailableSchemaKeys = (paramType: string) => {
+        if (!stateManager.schemas) return [];
+
+        return Object.entries(stateManager.schemas)
+            .filter(([_, entry]) => {
+                if (paramType === 'string[]') {
+                    return entry.schema.type === 'array' &&
+                        entry.schema.items?.type === 'string';
+                }
+                return entry.schema.type === paramType;
+            })
+            .map(([key]) => key);
+    };
 
     return (
         <div className="space-y-4">
@@ -129,34 +137,41 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                         Parameter Mappings
                     </h3>
                     <div className="space-y-4">
-                        {TOOL_SIGNATURES[step.tool.type].parameters.map(param => (
-                            <div key={param.name} className="space-y-1">
-                                <label className="block text-sm text-gray-600 dark:text-gray-400">
-                                    {param.name}
-                                    {param.description && (
+                        {TOOL_SIGNATURES[step.tool.type].parameters.map(param => {
+                            const availableKeys = getAvailableSchemaKeys(param.type);
+
+                            return (
+                                <div key={param.name} className="space-y-1">
+                                    <label className="block text-sm text-gray-600 dark:text-gray-400">
+                                        {param.name}
+                                        {param.description && (
+                                            <span className="ml-2 text-xs text-gray-500">
+                                                ({param.description})
+                                            </span>
+                                        )}
                                         <span className="ml-2 text-xs text-gray-500">
-                                            ({param.description})
+                                            Type: {param.type}
                                         </span>
-                                    )}
-                                </label>
-                                <select
-                                    value={step.tool.parameterMappings?.[param.name] || ''}
-                                    onChange={(e) => handleParameterMappingChange(param.name, e.target.value)}
-                                    className="w-full px-3 py-2 
-                                             border border-gray-300 dark:border-gray-600
-                                             bg-white dark:bg-gray-700 
-                                             text-gray-900 dark:text-gray-100
-                                             rounded-md"
-                                >
-                                    <option value="">Select a field</option>
-                                    {availableSchemaKeys.map(key => (
-                                        <option key={key} value={key}>
-                                            {key}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        ))}
+                                    </label>
+                                    <select
+                                        value={step.tool.parameterMappings?.[param.name] || ''}
+                                        onChange={(e) => handleParameterMappingChange(param.name, e.target.value)}
+                                        className="w-full px-3 py-2 
+                                                 border border-gray-300 dark:border-gray-600
+                                                 bg-white dark:bg-gray-700 
+                                                 text-gray-900 dark:text-gray-100
+                                                 rounded-md"
+                                    >
+                                        <option value="">Select a field</option>
+                                        {availableKeys.map(key => (
+                                            <option key={key} value={key}>
+                                                {key}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}

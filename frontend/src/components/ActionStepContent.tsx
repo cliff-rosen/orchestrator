@@ -58,43 +58,58 @@ const ActionStepContent: React.FC<ActionStepContentProps> = ({ step, stateManage
                     )}
 
                     {/* Parameter Mappings Display */}
-                    {step.tool.parameterMappings && 
-                     TOOL_SIGNATURES[step.tool.type].parameters.length > 0 && (
-                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Parameter Mappings
-                            </h4>
-                            <div className="space-y-2">
-                                {TOOL_SIGNATURES[step.tool.type].parameters.map(param => {
-                                    const mappedKey = step.tool?.parameterMappings?.[param.name];
-                                    const mappedValue = mappedKey ? stateManager.getValue(mappedKey) : null;
-                                    
-                                    return (
-                                        <div key={param.name} className="flex items-start gap-2">
-                                            <div className="flex-1">
-                                                <span className="text-sm text-gray-500 dark:text-gray-400">
-                                                    {param.name}:
-                                                </span>
-                                                <p className="text-sm text-gray-900 dark:text-gray-100">
-                                                    mapped to "{mappedKey || 'not mapped'}"
-                                                </p>
-                                            </div>
-                                            {mappedValue !== null && (
+                    {step.tool.parameterMappings &&
+                        TOOL_SIGNATURES[step.tool.type].parameters.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Parameter Mappings
+                                </h4>
+                                <div className="space-y-2">
+                                    {TOOL_SIGNATURES[step.tool.type].parameters.map(param => {
+                                        const mappedKey = step.tool?.parameterMappings?.[param.name];
+                                        const mappedValue = mappedKey ? stateManager.getValue(mappedKey) : null;
+
+                                        const formatValue = (value: any, type: string) => {
+                                            if (type === 'string[]' && Array.isArray(value)) {
+                                                return (
+                                                    <ul className="list-disc list-inside">
+                                                        {value.map((item, index) => (
+                                                            <li key={index} className="text-sm">
+                                                                {item}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                );
+                                            }
+                                            return String(value);
+                                        };
+
+                                        return (
+                                            <div key={param.name} className="flex items-start gap-2">
                                                 <div className="flex-1">
                                                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                                                        Current Value:
+                                                        {param.name}:
                                                     </span>
                                                     <p className="text-sm text-gray-900 dark:text-gray-100">
-                                                        {String(mappedValue)}
+                                                        mapped to "{mappedKey || 'not mapped'}"
                                                     </p>
                                                 </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                                {mappedValue !== null && (
+                                                    <div className="flex-1">
+                                                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                                                            Current Value:
+                                                        </span>
+                                                        <div className="text-sm text-gray-900 dark:text-gray-100">
+                                                            {formatValue(mappedValue, param.type)}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
                 </div>
             </div>
         )}
