@@ -1,9 +1,36 @@
 export type ToolType = 'llm' | 'search' | 'retrieve';
 
+export interface ToolParameter {
+    name: string;
+    type: 'string' | 'number' | 'boolean';
+    description?: string;
+}
+
+export interface ToolSignature {
+    parameters: ToolParameter[];
+}
+
+export const TOOL_SIGNATURES: Record<ToolType, ToolSignature> = {
+    search: {
+        parameters: [{
+            name: 'query',
+            type: 'string',
+            description: 'The search query text'
+        }]
+    },
+    llm: {
+        parameters: []  // We'll define these later
+    },
+    retrieve: {
+        parameters: []  // We'll define these later
+    }
+};
+
 export interface Tool {
     type: ToolType;
     name?: string;
     description?: string;
+    parameterMappings?: Record<string, string>;  // maps parameter name to schema key
 }
 
 export interface WorkflowStep {
