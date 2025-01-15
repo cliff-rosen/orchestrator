@@ -109,18 +109,66 @@ export const WORKFLOWS: readonly Workflow[] = [
         name: 'Research Assistant',
         description: 'AI-powered research workflow to analyze questions and find answers',
         path: '/workflow/research',
-        steps: [
+        inputs: [
             {
-                id: 'question-input',
-                label: 'Initial Question',
-                description: 'Enter your research question with as much context as possible',
-                stepType: 'ACTION',
-                tool: {
-                    type: 'llm',
-                    name: 'Question Generator',
-                    description: 'AI tool to generate research questions'
+                id: 'research-question',
+                name: 'Research Question',
+                description: 'The initial research question to investigate',
+                schema: {
+                    name: 'question',
+                    type: 'string'
+                }
+            }
+        ],
+        outputs: [
+            {
+                id: 'improved-question',
+                name: 'Improved Question',
+                description: 'The improved version of the research question',
+                schema: {
+                    name: 'improvedQuestion',
+                    type: 'object',
+                    fields: {
+                        question: {
+                            name: 'question',
+                            type: 'string'
+                        },
+                        explanation: {
+                            name: 'explanation',
+                            type: 'string'
+                        }
+                    }
                 }
             },
+            {
+                id: 'final-answer',
+                name: 'Final Answer',
+                description: 'The final research answer with citations',
+                schema: {
+                    name: 'answer',
+                    type: 'object',
+                    fields: {
+                        answer: {
+                            name: 'answer',
+                            type: 'string'
+                        },
+                        confidence: {
+                            name: 'confidence',
+                            type: 'number'
+                        },
+                        citations: {
+                            name: 'citations',
+                            type: 'array',
+                            items: {
+                                name: 'citation',
+                                type: 'string'
+                            }
+                        }
+                    }
+                }
+            }
+        ],
+        steps: [
             {
                 id: 'question-improvement',
                 label: 'Question Improvement',
@@ -129,7 +177,14 @@ export const WORKFLOWS: readonly Workflow[] = [
                 tool: {
                     type: 'llm',
                     name: 'Question Improver',
-                    description: 'AI tool to improve research questions'
+                    description: 'AI tool to improve research questions',
+                    promptTemplate: 'question-improver',
+                    parameterMappings: {
+                        'question': 'research-question' // Maps to input variable
+                    },
+                    outputMappings: {
+                        'improvedQuestion': 'improved-question' // Maps to output variable
+                    }
                 }
             },
             {
@@ -140,7 +195,14 @@ export const WORKFLOWS: readonly Workflow[] = [
                 tool: {
                     type: 'llm',
                     name: 'Answer Generator',
-                    description: 'AI tool to generate comprehensive answers'
+                    description: 'AI tool to generate comprehensive answers',
+                    promptTemplate: 'answer-generator',
+                    parameterMappings: {
+                        'question': 'improved-question.question' // Maps to output from previous step
+                    },
+                    outputMappings: {
+                        'answer': 'final-answer' // Maps to final output variable
+                    }
                 }
             }
         ]
@@ -150,13 +212,39 @@ export const WORKFLOWS: readonly Workflow[] = [
         name: 'AITA',
         description: 'Find out if you are the asshole',
         path: '/workflow/aita',
-        steps: [
+        inputs: [
             {
-                id: 'story-input',
-                label: 'Initial Story',
-                description: 'Tell us your story',
-                stepType: 'ACTION'
-            },
+                id: 'story',
+                name: 'Your Story',
+                description: 'Tell us what happened',
+                schema: {
+                    name: 'story',
+                    type: 'string'
+                }
+            }
+        ],
+        outputs: [
+            {
+                id: 'judgment',
+                name: 'Judgment',
+                description: 'The final judgment with explanation',
+                schema: {
+                    name: 'judgment',
+                    type: 'object',
+                    fields: {
+                        verdict: {
+                            name: 'verdict',
+                            type: 'string'
+                        },
+                        explanation: {
+                            name: 'explanation',
+                            type: 'string'
+                        }
+                    }
+                }
+            }
+        ],
+        steps: [
             {
                 id: 'analysis',
                 label: 'Analysis',
@@ -165,7 +253,13 @@ export const WORKFLOWS: readonly Workflow[] = [
                 tool: {
                     type: 'llm',
                     name: 'Situation Analyzer',
-                    description: 'AI tool to analyze social situations'
+                    description: 'AI tool to analyze social situations',
+                    parameterMappings: {
+                        'story': 'story' // Maps to input variable
+                    },
+                    outputMappings: {
+                        'analysis': 'judgment' // Maps to output variable
+                    }
                 }
             }
         ]

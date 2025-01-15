@@ -1,14 +1,26 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import TopBar from './components/TopBar'
 import { ThemeProvider } from './context/ThemeContext'
-import { useAuth } from './context/AuthContext'
-import { useEffect, useState } from 'react'
-import { setSessionExpiredHandler } from './lib/api'
-import { setStreamSessionExpiredHandler } from './lib/api/streamUtils'
 import LoginForm from './components/auth/LoginForm'
+import { useAuth } from './context/AuthContext'
+import { setStreamSessionExpiredHandler } from './lib/api/streamUtils'
 import WorkflowsManager from './components/WorkflowsManager'
 import Workflow from './components/Workflow'
-import { WORKFLOWS, Workflow as WorkflowType } from './data'
+import { WORKFLOWS } from './data'
+import { Workflow as WorkflowType } from './types'
+
+// Wrapper component to handle workflow selection
+const WorkflowWrapper: React.FC<{ workflows: readonly WorkflowType[] }> = ({ workflows }) => {
+  const { workflowId } = useParams();
+  const selectedWorkflow = workflows.find(w => w.id === workflowId);
+
+  if (!selectedWorkflow) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Workflow workflow={selectedWorkflow} />;
+};
 
 function App() {
   const { handleSessionExpired, isAuthenticated, login, register, error } = useAuth()
@@ -22,11 +34,13 @@ function App() {
       name: 'Untitled Workflow',
       description: 'A new custom workflow',
       path: `/workflow/${newId}`,
+      inputs: [],
+      outputs: [],
       steps: [
         {
           id: 'step-1',
           label: 'Step 1',
-          description: 'Configure your first step',
+          description: 'Step 1 description',
           stepType: 'ACTION',
         }
       ]
@@ -36,9 +50,8 @@ function App() {
   }
 
   useEffect(() => {
-    setSessionExpiredHandler(handleSessionExpired)
     setStreamSessionExpiredHandler(handleSessionExpired)
-    return () => setSessionExpiredHandler(() => { })
+    return () => setStreamSessionExpiredHandler(() => { })
   }, [handleSessionExpired])
 
   if (!isAuthenticated) {
@@ -76,7 +89,7 @@ function App() {
                     />
                   } />
                   <Route path="/workflow/:workflowId" element={
-                    <Workflow workflows={workflows} />
+                    <WorkflowWrapper workflows={workflows} />
                   } />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

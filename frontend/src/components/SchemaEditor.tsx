@@ -121,8 +121,6 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
 const SchemaEditor: React.FC<SchemaEditorProps> = ({ stateManager }) => {
     const [newKey, setNewKey] = useState('');
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
-    const [showValueEditor, setShowValueEditor] = useState(false);
-    const [editingValue, setEditingValue] = useState<SchemaValue | null>(null);
 
     const handleAddKey = () => {
         if (newKey) {
@@ -143,17 +141,6 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ stateManager }) => {
         }
     };
 
-    const handleEditValue = (value: SchemaValue) => {
-        setEditingValue(value);
-        setShowValueEditor(true);
-    };
-
-    const handleSaveValue = (value: SchemaValue) => {
-        if (!selectedKey) return;
-        stateManager.setSchema(selectedKey, value, 'input');
-        setShowValueEditor(false);
-        setEditingValue(null);
-    };
 
     const handleSchemaChange = (key: string, schema: SchemaValue) => {
         stateManager.setSchema(key, schema, 'input');

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Workflow } from '../data';
+import { Workflow } from '../types';
 
 interface WorkflowsManagerProps {
     workflows: readonly Workflow[];
