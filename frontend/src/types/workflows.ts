@@ -27,4 +27,11 @@ export interface Workflow {
     readonly inputs: WorkflowVariable[];
     readonly outputs: WorkflowVariable[];
     readonly steps: WorkflowStep[];
-} 
+}
+
+// Workflow hierarchy
+// Workflow -> WorkflowStep -> WorkflowVariable
+// Workflow -> WorkflowVariable
+// WorkflowStep -> Record<string, string>
+// WorkflowVariable -> SchemaValue -> {name: string, type: string, required: boolean}
+

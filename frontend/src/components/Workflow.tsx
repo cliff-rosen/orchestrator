@@ -29,7 +29,8 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
 
     // Initialize local workflow and schemas
     useEffect(() => {
-        console.log('initialWorkflow', initialWorkflow);
+        console.log('localWorkflow', localWorkflow);
+        console.log('stateManager', stateManager);
         if (!localWorkflow && initialWorkflow) {
             setLocalWorkflow(initialWorkflow);
 
@@ -204,18 +205,20 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                     </div>
 
                     <div className="flex items-center space-x-4">
-                        {/* Config Toggle Button */}
+                        {/* Schema Toggle Button */}
                         <button
                             onClick={() => setShowConfig(!showConfig)}
-                            className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 
-                                     dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600
-                                     transition-colors flex items-center space-x-2"
+                            className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors
+                                ${showConfig
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                }`}
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            <span>Configuration</span>
+                            <span>Schema</span>
                         </button>
 
                         {/* Mode Toggle Button */}
@@ -249,26 +252,6 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
             <div className="flex-1 flex bg-gray-50 dark:bg-gray-900">
                 {/* Left Navigation */}
                 <div className="w-64 shrink-0 flex flex-col bg-white dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700">
-                    {/* Configuration Section */}
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                        <button
-                            onClick={() => setShowConfig(!showConfig)}
-                            className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors
-                                ${showConfig
-                                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200'
-                                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50'}`}
-                        >
-                            <span className="font-medium">Configuration</span>
-                            <svg
-                                className={`w-5 h-5 transform transition-transform ${showConfig ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
-                    </div>
 
                     {/* Steps List - Scrollable */}
                     <div className="flex-1 overflow-y-auto p-6">
@@ -278,11 +261,13 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                                     key={`${step.label}-${index}`}
                                     onClick={() => handleStepClick(index)}
                                     className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${isEditMode ? 'cursor-pointer' : ''}
-                                        } ${index === activeStep
-                                            ? 'bg-blue-50 border-2 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-400 dark:text-blue-200'
-                                            : index < activeStep && !isEditMode
-                                                ? 'bg-emerald-50 border border-emerald-300 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-500/30 dark:text-emerald-200'
-                                                : 'bg-gray-50 border border-gray-200 text-gray-600 dark:bg-gray-800/50 dark:border-gray-700 dark:text-gray-400'
+                                        } ${showConfig
+                                            ? 'opacity-50 pointer-events-none'
+                                            : index === activeStep
+                                                ? 'bg-blue-50 border-2 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-400 dark:text-blue-200'
+                                                : index < activeStep && !isEditMode
+                                                    ? 'bg-emerald-50 border border-emerald-300 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-500/30 dark:text-emerald-200'
+                                                    : 'bg-gray-50 border border-gray-200 text-gray-600 dark:bg-gray-800/50 dark:border-gray-700 dark:text-gray-400'
                                         }`}
                                 >
                                     <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${index === activeStep
@@ -353,7 +338,6 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                             {!isEditMode && activeStep === 0 ? (
                                 <InputStepContent
                                     stateManager={stateManager}
-                                    onComplete={handleNext}
                                 />
                             ) : (
                                 <StepContent

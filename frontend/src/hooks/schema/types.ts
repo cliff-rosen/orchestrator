@@ -46,4 +46,18 @@ export interface SchemaManager {
     setValues: (key: string, value: any) => void;
     getValue: (key: string) => any;
     removeSchema: (key: string) => void;
-} 
+}
+
+// Schema hierarchy
+// SchemaValue -> {name: string, type: string, required: boolean, items: SchemaValue, fields: Record<string, SchemaValue>}
+// SchemaEntry -> {role: 'input' | 'output', schema: SchemaValue}
+// SchemaState -> Record<string, SchemaEntry>
+// SchemaManager -> {
+//      schemas: SchemaState,
+//      values: Record<string, any>,
+//      setSchema: (key: string, schema: SchemaValue, role: SchemaRole) => void,
+//      setValues: (key: string, value: any) => void,
+//      getValue: (key: string) => any,
+//      removeSchema: (key: string) => void
+// } 
+

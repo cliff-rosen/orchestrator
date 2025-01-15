@@ -1,7 +1,6 @@
 import React from 'react';
 import { WorkflowStep } from '../types';
 import { SchemaManager } from '../hooks/schema/types';
-import SchemaEditor from './SchemaEditor';
 import ActionEditor from './ActionEditor';
 import InputStepContent from './InputStepContent';
 import ActionStepContent from './ActionStepContent';
@@ -23,7 +22,7 @@ const StepContent: React.FC<StepContentProps> = ({
 
     if (isEditMode) {
         if (isInputStep) {
-            return <SchemaEditor stateManager={stateManager} />;
+            return <div>ERROR - StepContent should not be called in edit mode for input steps</div>;
         } else {
             return <ActionEditor
                 step={step}
