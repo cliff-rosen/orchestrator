@@ -1,146 +1,223 @@
 # Technical Overview
 
-## Workflows
+## Core Concepts
 
-A workflow is a sequence of steps that process data to achieve a specific goal. Each workflow:
-- Has a unique identifier and name
-- Contains a series of ordered steps
-- Defines its required inputs and expected outputs
-- Maintains state during execution
+### Workflows
+
+A workflow is a reusable sequence of steps that process data to achieve a specific goal. It defines:
+- What inputs it needs (through WorkflowVariables)
+- What outputs it produces (through WorkflowVariables)
+- What steps it will perform
+- How data flows between steps
+
+At runtime, workflows:
+- Initialize by registering all variables with SchemaManager
+- Start with an INPUT step to gather required variables
+- Execute ACTION steps in sequence
+- Track intermediate results
+- Produce final outputs
+
+### Workflow Initialization
+
+When a workflow instance starts:
+```typescript
+// In the Workflow component
+useEffect(() => {
+    if (!localWorkflow && initialWorkflow) {
+        // Set up local state
+        setLocalWorkflow(initialWorkflow);
+
+        // Register all input variables with SchemaManager
+        initialWorkflow.inputs?.forEach(input => {
+            stateManager.setSchema(input.name, input.schema, 'input');
+        });
+
+        // Register all output variables with SchemaManager
+        initialWorkflow.outputs?.forEach(output => {
+            stateManager.setSchema(output.name, output.schema, 'output');
+        });
+    }
+}, [initialWorkflow, localWorkflow, stateManager]);
+```
+
+This initialization:
+1. Happens once when the workflow starts
+2. Registers all WorkflowVariables with the SchemaManager
+3. Sets up validation rules for all variables
+4. Prepares the runtime state for execution
 
 ```typescript
 interface Workflow {
-    id: string;
-    name: string;
-    description: string;
-    steps: WorkflowStep[];
-    inputs: WorkflowVariable[];
-    outputs: WorkflowVariable[];
+    readonly id: string;
+    readonly name: string;
+    readonly description: string;
+    readonly path: string;
+    readonly inputs: WorkflowVariable[];    // Variables to collect in INPUT step
+    readonly outputs: WorkflowVariable[];   // Variables to produce in ACTION steps
+    readonly steps: WorkflowStep[];
 }
 ```
 
-## Workflow Steps
+### Steps
 
-Steps are the building blocks of a workflow. Each step:
-1. Represents a discrete action in the workflow
-2. Can be one of two types:
-   - INPUT: Gathers required input values
-   - ACTION: Performs a specific task using a tool
-3. Can access values from previous steps
-4. Can produce new values for subsequent steps
+There are two types of steps that handle variables differently:
+
+1. INPUT Steps:
+   - Use WorkflowVariables to define what inputs to collect
+   - Generate forms based on variable schemas
+   - Validate user input against schemas
+   - Store valid values in SchemaDictionary
+
+2. ACTION Steps:
+   - Use tools to process data
+   - Read input values from SchemaDictionary
+   - Write output values to SchemaDictionary
 
 ```typescript
+type StepType = 'INPUT' | 'ACTION';
+
 interface WorkflowStep {
     id: string;
     label: string;
     description: string;
-    stepType: 'INPUT' | 'ACTION';
-    tool?: Tool;                    // Only for ACTION steps
-    outputMappings?: Record<string, string>; // How tool outputs map to workflow variables
+    stepType: StepType;
+    tool?: Tool;  // Only for ACTION steps
+    outputMappings?: Record<string, string>;  // Maps tool outputs to workflow variables
 }
 ```
 
-## Tools and Actions
+### Tools
 
-Tools are the processing units that perform actions within steps. Each tool:
-1. Has a specific type (e.g., 'llm', 'search', 'retrieve')
-2. Defines its required parameters and expected outputs
-3. Can be configured with different settings
-4. Executes as an atomic unit
+Tools are reusable components that perform specific actions like:
+- Running language models (llm)
+- Searching for information (search)
+- Retrieving data (retrieve)
+
+Each tool:
+- Takes specific inputs
+- Produces specific outputs
+- Can be configured with parameters
+- Maps its inputs/outputs to workflow variables
 
 ```typescript
-interface Tool {
-    type: string;
-    name: string;
-    description: string;
-    signature: ToolSignature;       // Defines inputs/outputs
-    configuration?: ToolConfig;     // Optional tool-specific settings
-}
+type ToolType = 'llm' | 'search' | 'retrieve';
 
-interface ToolSignature {
-    parameters: Parameter[];        // What the tool needs
-    outputs: Parameter[];          // What the tool produces
+interface Tool {
+    type: ToolType;
+    name?: string;
+    description?: string;
+    parameterMappings?: Record<string, string>;  // Maps: workflow variable -> tool input
+    outputMappings?: Record<string, string>;     // Maps: tool output -> workflow variable
+    promptTemplate?: string;  // For LLM tools: template ID
 }
 ```
 
-## Workflow State
+## Data Flow
 
-The workflow maintains state through variables that:
-1. Can be inputs provided by users
-2. Can be outputs produced by steps
-3. Have defined schemas for validation
-4. Are accessible based on workflow position
+### Variables and Schema Management
 
-### Variables
+Variables are handled differently depending on the step type:
+
+1. In INPUT Steps:
 ```typescript
 interface WorkflowVariable {
     id: string;
-    name: string;
-    schema: SchemaValue;           // Type and validation rules
-    role: 'input' | 'output';      // How the variable is used
-    value?: any;                   // Current value during execution
+    name: string;           // Form field identifier
+    description: string;    // Form field label
+    schema: SchemaValue;    // Validation rules for user input
 }
+
+// Example: Generating input form
+const InputStep = ({ workflow, stateManager }) => {
+    workflow.inputs.forEach(input => {
+        // Generate form field based on schema
+        const value = stateManager.getValue(input.name);
+        // Validate against schema before storing
+        if (isValid(value, input.schema)) {
+            stateManager.setValues(input.name, value);
+        }
+    });
+};
 ```
 
-### State Management
-The runtime maintains workflow state by:
-1. Tracking variable values
-2. Validating inputs/outputs
-3. Managing variable scope
-4. Orchestrating data flow between steps
-
+2. In ACTION Steps:
 ```typescript
-interface WorkflowRuntime {
-    // State Management
-    getVariable(name: string): any;
-    setVariable(name: string, value: any): void;
-    
-    // Execution
-    executeStep(step: WorkflowStep): Promise<void>;
-    
-    // Validation
-    validateState(): boolean;
+interface SchemaEntry {
+    role: 'input' | 'output';
+    schema: SchemaValue;
 }
+
+interface SchemaManager {
+    schemas: Record<string, SchemaEntry>;
+    values: Record<string, any>;
+    
+    // Used by tools to access variables
+    setSchema(key: string, schema: SchemaValue, role: 'input' | 'output'): void;
+    setValues(key: string, value: any): void;
+    getValue(key: string): any;
+}
+
+// Example: Tool accessing variables
+const toolInputs = Object.entries(tool.parameterMappings).reduce(
+    (inputs, [param, varName]) => ({
+        ...inputs,
+        [param]: stateManager.getValue(varName)
+    }), 
+    {}
+);
 ```
 
-## Example: Search and Summarize
+### Schema System
+
+The schema system provides validation rules for both input collection and tool execution:
 
 ```typescript
-const workflow = {
-    name: "Search and Summarize",
+type SchemaValue = 
+    | { type: 'string', format?: string }
+    | { type: 'number', minimum?: number, maximum?: number }
+    | { type: 'boolean' }
+    | { type: 'array', items: SchemaValue }
+    | { type: 'object', properties: Record<string, SchemaValue> };
+```
+
+## Example: Research Workflow
+
+This example shows both INPUT and ACTION handling:
+```typescript
+const workflow: Workflow = {
+    id: 'research',
+    name: 'Research Assistant',
+    inputs: [
+        {
+            id: 'research-question',
+            name: 'research-question',
+            description: 'Enter your research question:', // Used in input form
+            schema: { name: 'question', type: 'string' }
+        }
+    ],
     steps: [
-        // Step 1: Get user query
+        // First: INPUT step to collect research question
         {
-            type: 'INPUT',
-            label: 'Search Query',
-            variables: ['query']
+            id: 'input-step',
+            label: 'Research Question',
+            description: 'Provide your question',
+            stepType: 'INPUT'
         },
-        // Step 2: Perform search
+        // Then: ACTION step to process it
         {
-            type: 'ACTION',
-            tool: {
-                type: 'search',
-                inputs: { query: 'query' },
-                outputs: { results: 'searchResults' }
-            }
-        },
-        // Step 3: Summarize results
-        {
-            type: 'ACTION',
+            id: 'question-improvement',
+            label: 'Question Improvement',
+            description: 'Review and improve question',
+            stepType: 'ACTION',
             tool: {
                 type: 'llm',
-                inputs: { content: 'searchResults' },
-                outputs: { summary: 'finalSummary' }
+                parameterMappings: {
+                    'question': 'research-question' // Read from SchemaDictionary
+                },
+                outputMappings: {
+                    'improvedQuestion': 'improved-question' // Write to SchemaDictionary
+                }
             }
         }
     ]
 };
-```
-
-This architecture provides:
-1. Clear separation of workflow logic and execution
-2. Type-safe data flow between steps
-3. Flexible tool integration
-4. Runtime validation
-5. Reusable components
-

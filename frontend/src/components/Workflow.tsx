@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Workflow as WorkflowType, WorkflowStep, WorkflowVariable } from '../types';
 import StepContent from './StepContent';
 import { useSchemaDictionary } from '../hooks/schema';
@@ -29,6 +29,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
 
     // Initialize local workflow and schemas
     useEffect(() => {
+        console.log('initialWorkflow', initialWorkflow);
         if (!localWorkflow && initialWorkflow) {
             setLocalWorkflow(initialWorkflow);
 
