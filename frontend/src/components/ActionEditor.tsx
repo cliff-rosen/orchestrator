@@ -1,6 +1,15 @@
-import React from 'react';
-import { WorkflowStep, Tool, ToolType, ToolParameter } from '../types';
-import { TOOL_SIGNATURES, PROMPT_TEMPLATES } from '../data';
+import React, { useState, useEffect } from 'react';
+import {
+    WorkflowStep,
+    Tool,
+    ToolType,
+    ToolParameter,
+    ToolSignature,
+    ToolParameterName,
+    ToolOutputName,
+    WorkflowVariableName
+} from '../types';
+import { toolApi, PromptTemplate } from '../lib/api';
 import { SchemaManager, SchemaValue } from '../hooks/schema/types';
 
 const TOOL_TYPES: ToolType[] = ['llm', 'search', 'retrieve'];
@@ -35,6 +44,50 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
 }) => {
     // Add state to force re-render when schema changes
     const [schemaVersion, setSchemaVersion] = React.useState(0);
+    const [toolSignature, setToolSignature] = useState<ToolSignature | null>(null);
+    const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    // Fetch tool signature when tool type changes
+    useEffect(() => {
+        const fetchToolSignature = async () => {
+            if (!step.tool?.type) return;
+
+            try {
+                setLoading(true);
+                const signature = await toolApi.getToolSignature(step.tool.type, step.tool.promptTemplate);
+                setToolSignature(signature);
+            } catch (err) {
+                console.error('Error fetching tool signature:', err);
+                setError('Failed to load tool signature');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchToolSignature();
+    }, [step.tool?.type, step.tool?.promptTemplate]);
+
+    // Fetch prompt templates when tool type is llm
+    useEffect(() => {
+        const fetchPromptTemplates = async () => {
+            if (step.tool?.type !== 'llm') return;
+
+            try {
+                setLoading(true);
+                const templates = await toolApi.getPromptTemplates();
+                setPromptTemplates(templates);
+            } catch (err) {
+                console.error('Error fetching prompt templates:', err);
+                setError('Failed to load prompt templates');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchPromptTemplates();
+    }, [step.tool?.type]);
 
     const handleToolChange = (type: ToolType) => {
         const newTool: Tool = {
@@ -72,7 +125,7 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                 ...step.tool,
                 parameterMappings: {
                     ...step.tool.parameterMappings,
-                    [paramName]: schemaKey
+                    [paramName as ToolParameterName]: schemaKey as WorkflowVariableName
                 }
             }
         });
@@ -87,7 +140,7 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                 ...step.tool,
                 outputMappings: {
                     ...step.tool.outputMappings,
-                    [outputName]: schemaKey
+                    [outputName as ToolOutputName]: schemaKey as WorkflowVariableName
                 }
             }
         });
@@ -119,7 +172,7 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                     ...step.tool,
                     outputMappings: {
                         ...step.tool.outputMappings,
-                        [output.name]: fieldName
+                        [output.name as ToolOutputName]: fieldName as WorkflowVariableName
                     }
                 }
             });
@@ -158,13 +211,13 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
         });
     };
 
-    // Get the current tool signature, handling dynamic LLM case
-    const getCurrentToolSignature = (tool: Tool): ToolSignature => {
-        if (tool.type === 'llm') {
-            return TOOL_SIGNATURES.llm(tool.promptTemplate);
-        }
-        return TOOL_SIGNATURES[tool.type];
-    };
+    if (loading) {
+        return <div>Loading...</div>;
+    }
+
+    if (error) {
+        return <div className="text-red-500">{error}</div>;
+    }
 
     return (
         <div className="space-y-4">
@@ -240,7 +293,7 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                                  rounded-md"
                     >
                         <option value="">Select a template</option>
-                        {PROMPT_TEMPLATES.map(template => (
+                        {promptTemplates.map(template => (
                             <option key={template.id} value={template.id}>
                                 {template.name}
                             </option>
@@ -249,14 +302,14 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                     {step.tool.promptTemplate && (
                         <div className="mt-2 space-y-2">
                             <div className="text-sm text-gray-500 dark:text-gray-400">
-                                {PROMPT_TEMPLATES.find(t => t.id === step.tool?.promptTemplate)?.description}
+                                {promptTemplates.find(t => t.id === step.tool?.promptTemplate)?.description}
                             </div>
                             <div className="text-sm">
                                 <span className="font-medium text-gray-700 dark:text-gray-300">
                                     Required tokens:
                                 </span>
                                 <div className="mt-1 flex flex-wrap gap-2">
-                                    {PROMPT_TEMPLATES.find(t => t.id === step.tool?.promptTemplate)?.tokens.map(token => (
+                                    {promptTemplates.find(t => t.id === step.tool?.promptTemplate)?.tokens.map((token: string) => (
                                         <span
                                             key={token}
                                             className="px-2 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 
@@ -275,20 +328,20 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                                       border border-gray-200 dark:border-gray-700 
                                       text-gray-800 dark:text-gray-200 rounded-md 
                                       whitespace-pre-wrap text-sm">
-                                    {PROMPT_TEMPLATES.find(t => t.id === step.tool?.promptTemplate)?.template}
+                                    {promptTemplates.find(t => t.id === step.tool?.promptTemplate)?.template}
                                 </pre>
                             </div>
                         </div>
                     )}
 
                     {/* Token Mapping UI - only show after template is selected */}
-                    {step.tool.promptTemplate && (
+                    {step.tool.promptTemplate && toolSignature && (
                         <div className="mt-4 space-y-4">
                             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Token Mappings
                             </h3>
                             <div className="space-y-4">
-                                {getCurrentToolSignature(step.tool).parameters.map(param => {
+                                {toolSignature.parameters.map((param: ToolParameter) => {
                                     const availableKeys = getAvailableSchemaKeys('string');
 
                                     return (
@@ -300,7 +353,7 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                                                 </span>
                                             </label>
                                             <select
-                                                value={step.tool.parameterMappings?.[param.name] || ''}
+                                                value={step.tool?.parameterMappings?.[param.name as ToolParameterName] || ''}
                                                 onChange={(e) => handleParameterMappingChange(param.name, e.target.value)}
                                                 className="w-full px-3 py-2 
                                                          border border-gray-300 dark:border-gray-600
@@ -325,14 +378,14 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
             )}
 
             {/* Parameter Mapping UI - only show for non-LLM tools */}
-            {step.tool && step.tool.type !== 'llm' &&
-                getCurrentToolSignature(step.tool).parameters.length > 0 && (
+            {step.tool && step.tool.type !== 'llm' && toolSignature &&
+                toolSignature.parameters.length > 0 && (
                     <div className="space-y-2">
                         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                             Input Parameter Mappings
                         </h3>
                         <div className="space-y-4">
-                            {getCurrentToolSignature(step.tool).parameters.map(param => {
+                            {toolSignature.parameters.map((param: ToolParameter) => {
                                 const availableKeys = getAvailableSchemaKeys(param.type);
 
                                 return (
@@ -349,7 +402,7 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                                             </span>
                                         </label>
                                         <select
-                                            value={step.tool.parameterMappings?.[param.name] || ''}
+                                            value={step.tool?.parameterMappings?.[param.name as ToolParameterName] || ''}
                                             onChange={(e) => handleParameterMappingChange(param.name, e.target.value)}
                                             className="w-full px-3 py-2 
                                                  border border-gray-300 dark:border-gray-600
@@ -372,13 +425,13 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                 )}
 
             {/* Output Mapping UI */}
-            {step.tool && getCurrentToolSignature(step.tool).outputs.length > 0 && (
+            {step.tool && toolSignature && toolSignature.outputs.length > 0 && (
                 <div className="space-y-2">
                     <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Output Mappings
                     </h3>
                     <div className="space-y-4">
-                        {getCurrentToolSignature(step.tool).outputs.map(output => {
+                        {toolSignature.outputs.map((output: ToolParameter) => {
                             const availableKeys = getAvailableSchemaKeys(output.type);
 
                             return (
@@ -396,7 +449,7 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                                     </label>
                                     <div className="flex gap-2">
                                         <select
-                                            value={step.tool.outputMappings?.[output.name] || ''}
+                                            value={step.tool?.outputMappings?.[output.name as ToolOutputName] || ''}
                                             onChange={(e) => handleOutputMappingChange(output.name, e.target.value)}
                                             className="flex-1 px-3 py-2 
                                                      border border-gray-300 dark:border-gray-600

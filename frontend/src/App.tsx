@@ -1,14 +1,14 @@
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import TopBar from './components/TopBar'
-import { ThemeProvider } from './context/ThemeContext'
-import LoginForm from './components/auth/LoginForm'
-import { useAuth } from './context/AuthContext'
-import { setStreamSessionExpiredHandler } from './lib/api/streamUtils'
-import WorkflowsManager from './components/WorkflowsManager'
-import Workflow from './components/Workflow'
-import { WORKFLOWS } from './data'
-import { Workflow as WorkflowType } from './types'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import TopBar from './components/TopBar';
+import { ThemeProvider } from './context/ThemeContext';
+import LoginForm from './components/auth/LoginForm';
+import { useAuth } from './context/AuthContext';
+import { setStreamSessionExpiredHandler } from './lib/api/streamUtils';
+import WorkflowsManager from './components/WorkflowsManager';
+import Workflow from './components/Workflow';
+import { Workflow as WorkflowType } from './types';
+import { workflowApi } from './lib/api';
 
 // Wrapper component to handle workflow selection
 const WorkflowWrapper: React.FC<{ workflows: readonly WorkflowType[] }> = ({ workflows }) => {
@@ -23,12 +23,40 @@ const WorkflowWrapper: React.FC<{ workflows: readonly WorkflowType[] }> = ({ wor
 };
 
 function App() {
-  const { handleSessionExpired, isAuthenticated, login, register, error } = useAuth()
-  const [isRegistering, setIsRegistering] = useState(false)
-  const [workflows, setWorkflows] = useState<WorkflowType[]>([...WORKFLOWS])
+  const { handleSessionExpired, isAuthenticated, login, register, error: authError } = useAuth();
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [workflows, setWorkflows] = useState<WorkflowType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleCreateWorkflow = () => {
-    const newId = `workflow-${workflows.length + 1}`
+  // Set up session expiry handler
+  useEffect(() => {
+    setStreamSessionExpiredHandler(handleSessionExpired);
+    return () => setStreamSessionExpiredHandler(() => { });
+  }, [handleSessionExpired]);
+
+  // Fetch workflows when authenticated
+  useEffect(() => {
+    const fetchWorkflows = async () => {
+      if (!isAuthenticated) return;
+
+      try {
+        setLoading(true);
+        const fetchedWorkflows = await workflowApi.getWorkflows();
+        setWorkflows(fetchedWorkflows);
+      } catch (err) {
+        setError('Failed to load workflows');
+        console.error('Error loading workflows:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWorkflows();
+  }, [isAuthenticated]);
+
+  const handleCreateWorkflow = async (): Promise<WorkflowType> => {
+    const newId = `workflow-${workflows.length + 1}`;
     const newWorkflow: WorkflowType = {
       id: newId,
       name: 'Untitled Workflow',
@@ -44,15 +72,18 @@ function App() {
           stepType: 'ACTION',
         }
       ]
-    }
-    setWorkflows([...workflows, newWorkflow])
-    return newWorkflow
-  }
+    };
 
-  useEffect(() => {
-    setStreamSessionExpiredHandler(handleSessionExpired)
-    return () => setStreamSessionExpiredHandler(() => { })
-  }, [handleSessionExpired])
+    try {
+      // In a real app, this would be an API call
+      // const createdWorkflow = await workflowApi.createWorkflow(newWorkflow);
+      setWorkflows([...workflows, newWorkflow]);
+      return newWorkflow;
+    } catch (err) {
+      console.error('Error creating workflow:', err);
+      throw err;
+    }
+  };
 
   if (!isAuthenticated) {
     return (
@@ -64,12 +95,36 @@ function App() {
               setIsRegistering={setIsRegistering}
               login={login}
               register={register}
-              error={error}
+              error={authError}
             />
           </div>
         </ThemeProvider>
       </BrowserRouter>
-    )
+    );
+  }
+
+  if (loading) {
+    return (
+      <BrowserRouter>
+        <ThemeProvider>
+          <div className="min-h-screen flex items-center justify-center dark:bg-gray-900 bg-gray-50">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 dark:border-gray-100"></div>
+          </div>
+        </ThemeProvider>
+      </BrowserRouter>
+    );
+  }
+
+  if (error) {
+    return (
+      <BrowserRouter>
+        <ThemeProvider>
+          <div className="min-h-screen flex items-center justify-center dark:bg-gray-900 bg-gray-50">
+            <div className="text-red-500 text-xl">{error}</div>
+          </div>
+        </ThemeProvider>
+      </BrowserRouter>
+    );
   }
 
   return (
@@ -82,15 +137,19 @@ function App() {
             <div className="container mx-auto px-4 py-6">
               <div className="flex-1">
                 <Routes>
-                  <Route path="/" element={
-                    <WorkflowsManager
-                      workflows={workflows}
-                      onCreateWorkflow={handleCreateWorkflow}
-                    />
-                  } />
-                  <Route path="/workflow/:workflowId" element={
-                    <WorkflowWrapper workflows={workflows} />
-                  } />
+                  <Route
+                    path="/"
+                    element={
+                      <WorkflowsManager
+                        workflows={workflows}
+                        onCreateWorkflow={handleCreateWorkflow}
+                      />
+                    }
+                  />
+                  <Route
+                    path="/workflow/:workflowId/*"
+                    element={<WorkflowWrapper workflows={workflows} />}
+                  />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </div>
@@ -99,7 +158,7 @@ function App() {
         </div>
       </ThemeProvider>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App 
+export default App; 
