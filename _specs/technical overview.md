@@ -1,4 +1,36 @@
-# Workflow and Schema Technical Overview
+# Technical Overview
+
+## Workflow System
+
+### Variables and Data Flow
+
+Workflows manage data through a system of variables and mappings:
+
+1. **Workflow Variables**
+   - Defined by `WorkflowVariable` interface
+   - Contains id, name, description, and schema
+   - Two categories: inputs (collected from user) and outputs (produced by workflow)
+
+2. **Tool Integration**
+   - Tools define their parameters and outputs using strongly-typed names
+   - Two types of mappings:
+     - Parameter Mappings: Connect tool parameters to workflow variables
+     - Output Mappings: Connect tool outputs to workflow variables
+
+3. **Data Flow**
+   - Workflow inputs are collected from users
+   - Tools receive inputs via parameter mappings
+   - Tool outputs are captured via output mappings
+   - Mapped outputs can be used as inputs for subsequent steps
+
+### Type Safety
+
+The system uses branded types to ensure type safety in mappings:
+- `ToolParameterName`: Represents a tool's parameter name
+- `ToolOutputName`: Represents a tool's output name
+- `WorkflowVariableName`: Represents a workflow variable name
+
+This ensures that mappings are correctly typed and maintains clear distinction between tool and workflow variables.
 
 ## Core Concepts
 
@@ -66,19 +98,18 @@ interface Tool {
     name?: string;
     description?: string;
     promptTemplate?: string;  // For LLM tools: template ID
-    parameterMappings?: Record<string, ParameterMapping>;  // Maps inputs to tool parameters
-    outputMappings?: Record<string, OutputMapping>;        // Maps tool outputs to workflow variables
+    parameterMappings?: ParameterMappingType;  // Maps tool parameters to workflow variables
+    outputMappings?: OutputMappingType;        // Maps tool outputs to workflow variables
 }
 
-export interface ParameterMapping {
-    sourceVariable: string;    // Name of the source variable (input or previous step output)
-    targetParameter: string;   // Name of the target parameter in the tool
-}
+// Strongly typed names for mapping
+type ToolParameterName = string & { readonly __brand: unique symbol };
+type ToolOutputName = string & { readonly __brand: unique symbol };
+type WorkflowVariableName = string & { readonly __brand: unique symbol };
 
-export interface OutputMapping {
-    sourceOutput: string;      // Name of the tool's output
-    targetVariable: string;    // Name of the workflow variable to store the output
-}
+// Mapping types
+type ParameterMappingType = Record<ToolParameterName, WorkflowVariableName>;    // tool parameter -> workflow variable
+type OutputMappingType = Record<ToolOutputName, WorkflowVariableName>;          // tool output -> workflow variable
 
 interface ToolSignature {
     parameters: ToolParameter[];  // What inputs the tool accepts
@@ -88,10 +119,14 @@ interface ToolSignature {
 interface ToolParameter {
     name: string;
     type: "string" | "number" | "boolean" | "string[]";
-    description: string;
+    description?: string;
 }
-
 ```
+
+The mapping system ensures type safety by:
+- Using branded types to distinguish between tool and workflow variables
+- Maintaining clear directionality in mappings (tool -> workflow)
+- Providing compile-time type checking for variable names
 
 ### Prompt Templates
 
