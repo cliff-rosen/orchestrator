@@ -18,6 +18,10 @@ const StepContent: React.FC<StepContentProps> = ({
     isEditMode,
     onStepUpdate
 }) => {
+    if (!step) {
+        return <div>Error: No step provided</div>;
+    }
+
     const isInputStep = step.stepType === 'INPUT';
 
     if (isEditMode) {
@@ -35,7 +39,11 @@ const StepContent: React.FC<StepContentProps> = ({
     if (isInputStep) {
         return <InputStepContent stateManager={stateManager} />;
     } else {
-        return <ActionStepContent step={step} stateManager={stateManager} />;
+        return <ActionStepContent
+            step={step}
+            stateManager={stateManager}
+            onStepUpdate={onStepUpdate}
+        />;
     }
 };
 

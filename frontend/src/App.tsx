@@ -10,16 +10,12 @@ import Workflow from './components/Workflow';
 import { Workflow as WorkflowType } from './types';
 import { workflowApi } from './lib/api';
 
-// Wrapper component to handle workflow selection
-const WorkflowWrapper: React.FC<{ workflows: readonly WorkflowType[] }> = ({ workflows }) => {
+// Helper component to get current workflow
+const CurrentWorkflow = ({ workflows }: { workflows: readonly WorkflowType[] }) => {
   const { workflowId } = useParams();
-  const selectedWorkflow = workflows.find(w => w.id === workflowId);
-
-  if (!selectedWorkflow) {
-    return <Navigate to="/" replace />;
-  }
-
-  return <Workflow workflow={selectedWorkflow} />;
+  const workflow = workflows.find(w => w.id === workflowId);
+  if (!workflow) return <Navigate to="/" replace />;
+  return <Workflow workflow={workflow} />;
 };
 
 function App() {
@@ -85,6 +81,7 @@ function App() {
     }
   };
 
+
   if (!isAuthenticated) {
     return (
       <BrowserRouter>
@@ -148,7 +145,7 @@ function App() {
                   />
                   <Route
                     path="/workflow/:workflowId/*"
-                    element={<WorkflowWrapper workflows={workflows} />}
+                    element={<CurrentWorkflow workflows={workflows} />}
                   />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

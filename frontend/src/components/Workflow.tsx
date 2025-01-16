@@ -5,7 +5,6 @@ import StepContent from './StepContent';
 import { useSchemaDictionary } from '../hooks/schema';
 import { SchemaManager } from '../hooks/schema/types';
 import WorkflowConfig from './WorkflowConfig';
-import InputStepContent from './InputStepContent';
 
 interface RuntimeWorkflowStep extends WorkflowStep {
     action: (data?: any) => Promise<void>;
@@ -183,6 +182,14 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
         ...workflowSteps
     ] : workflowSteps;
 
+    // Get current step
+    const currentStep = allSteps[activeStep];
+    if (!currentStep) {
+        // Reset to first step if current step doesn't exist
+        setActiveStep(0);
+        return null;
+    }
+
     return (
         <div className="flex flex-col h-full">
             {/* Menu Bar */}
@@ -323,78 +330,60 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                 </div>
 
                 {/* Main Content */}
-                <div className="flex-1 p-6">
-                    {showConfig ? (
-                        <div className="bg-white dark:bg-gray-800/50 rounded-lg shadow-lg p-6">
+                <div className="container mx-auto px-4 py-6">
+                    <div className="flex-1">
+                        {showConfig ? (
                             <WorkflowConfig
                                 inputs={workflow.inputs}
                                 outputs={workflow.outputs}
                                 onInputChange={handleInputChange}
                                 onOutputChange={handleOutputChange}
                             />
-                        </div>
-                    ) : (
-                        <div className="bg-white dark:bg-gray-800/50 rounded-lg shadow-lg p-6">
-                            {!isEditMode && activeStep === 0 ? (
-                                <InputStepContent
-                                    stateManager={stateManager}
-                                />
-                            ) : (
-                                <StepContent
-                                    step={allSteps[activeStep]}
-                                    stateManager={stateManager}
-                                    isEditMode={isEditMode}
-                                    onStepUpdate={handleStepUpdate}
-                                />
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
+                        ) : (
+                            <>
+                                {/* Step Content */}
+                                <div className="mt-4">
+                                    <StepContent
+                                        step={currentStep}
+                                        stateManager={stateManager}
+                                        isEditMode={isEditMode}
+                                        onStepUpdate={handleStepUpdate}
+                                    />
+                                </div>
 
-            {/* Navigation - Only show in Run mode */}
-            {!isEditMode && !showConfig && (
-                <div className="fixed bottom-0 left-0 right-0 z-10">
-                    <div className="max-w-7xl mx-auto px-6 py-4 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 shadow-lg">
-                        <div className="flex justify-between items-center">
-                            <div className="flex gap-4 items-center">
-                                <button
-                                    className={`px-4 py-2 rounded-lg ${activeStep === 0
-                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200'
-                                        }`}
-                                    onClick={handleBack}
-                                    disabled={activeStep === 0}
-                                >
-                                    Back
-                                </button>
-                                {activeStep > 0 && (
+                                {/* Navigation */}
+                                <div className="mt-4 flex justify-between">
                                     <button
-                                        onClick={handleNewQuestion}
-                                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                                        onClick={handleBack}
+                                        disabled={activeStep === 0}
+                                        className={`px-4 py-2 rounded-lg ${activeStep === 0
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                            }`}
                                     >
-                                        <span>New Question</span>
+                                        Back
                                     </button>
-                                )}
-                            </div>
-
-                            {/* Workflow-specific action button */}
-                            {activeStep < allSteps.length && (
-                                <button
-                                    onClick={() => allSteps[activeStep].action()}
-                                    disabled={isLoading || (allSteps[activeStep].isDisabled?.() ?? false)}
-                                    className={`px-6 py-2 rounded-lg ${isLoading || (allSteps[activeStep].isDisabled?.() ?? false)
-                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                                        }`}
-                                >
-                                    {isLoading ? 'Processing...' : allSteps[activeStep].actionButtonText()}
-                                </button>
-                            )}
-                        </div>
+                                    {activeStep === allSteps.length - 1 ? (
+                                        <button
+                                            onClick={handleNewQuestion}
+                                            className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                                        >
+                                            New Question
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={handleNext}
+                                            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                                        >
+                                            Next
+                                        </button>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
-            )}
+            </div>
         </div>
     );
 };

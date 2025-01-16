@@ -9,7 +9,7 @@ import {
     ToolOutputName,
     WorkflowVariableName
 } from '../types';
-import { toolApi, PromptTemplate } from '../lib/api';
+import { toolApi } from '../lib/api';
 import { SchemaManager, SchemaValue } from '../hooks/schema/types';
 
 const TOOL_TYPES: ToolType[] = ['llm', 'search', 'retrieve'];
