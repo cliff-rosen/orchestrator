@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { toolApi } from '../lib/api';
 import { SchemaManager } from '../hooks/schema/types';
+import { PromptTemplate } from '../types/prompts';
 
 interface ActionEditorProps {
     step: WorkflowStep;
@@ -26,16 +27,21 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
     // Add state to force re-render when schema changes
     const [schemaVersion, setSchemaVersion] = React.useState(0);
     const [availableTools, setAvailableTools] = useState<Tool[]>([]);
+    const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Fetch available tools
+    // Fetch available tools and prompt templates
     useEffect(() => {
         const fetchTools = async () => {
             try {
                 setLoading(true);
-                const tools = await toolApi.getAvailableTools();
+                const [tools, templates] = await Promise.all([
+                    toolApi.getAvailableTools(),
+                    toolApi.getPromptTemplates()
+                ]);
                 setAvailableTools(tools);
+                setPromptTemplates(templates);
             } catch (err) {
                 console.error('Error fetching tools:', err);
                 setError('Failed to load tools');
@@ -57,6 +63,24 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                 ...selectedTool,
                 parameterMappings: {},
                 outputMappings: {}
+            }
+        });
+    };
+
+    const handleTemplateChange = (templateId: string) => {
+        if (!step.tool) return;
+
+        // Get the updated signature for the selected template
+        const newSignature = toolApi.updateLLMSignature(templateId);
+
+        onStepUpdate({
+            ...step,
+            tool: {
+                ...step.tool,
+                signature: newSignature,
+                promptTemplate: templateId,
+                parameterMappings: {},  // Reset mappings since parameters changed
+                outputMappings: {}      // Reset mappings since outputs changed
             }
         });
     };
@@ -240,7 +264,7 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                     Tool
                 </label>
                 <select
-                    value={tool.id}
+                    value={step.tool?.id || ''}
                     onChange={(e) => handleToolChange(e.target.value)}
                     className="w-full px-3 py-2 
                              border border-gray-300 dark:border-gray-600
@@ -256,6 +280,36 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                     ))}
                 </select>
             </div>
+
+            {/* Prompt Template Selection - Only show when LLM tool is selected */}
+            {step.tool?.type === 'llm' && (
+                <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Prompt Template
+                    </label>
+                    <select
+                        value={step.tool.promptTemplate || ''}
+                        onChange={(e) => handleTemplateChange(e.target.value)}
+                        className="w-full px-3 py-2 
+                                 border border-gray-300 dark:border-gray-600
+                                 bg-white dark:bg-gray-700 
+                                 text-gray-900 dark:text-gray-100
+                                 rounded-md"
+                    >
+                        <option value="" disabled>Select a prompt template</option>
+                        {promptTemplates.map(template => (
+                            <option key={template.id} value={template.id}>
+                                {template.name}
+                            </option>
+                        ))}
+                    </select>
+                    {step.tool.promptTemplate && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {promptTemplates.find(t => t.id === step.tool?.promptTemplate)?.description}
+                        </p>
+                    )}
+                </div>
+            )}
 
             {/* Parameter Mapping UI */}
             {hasParameters && (

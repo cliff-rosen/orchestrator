@@ -1,4 +1,4 @@
-export type ToolType = 'llm' | 'search' | 'retrieve';
+export type ToolType = 'llm' | 'search' | 'retrieve' | 'utility';
 
 export interface ToolParameter {
     name: string;
