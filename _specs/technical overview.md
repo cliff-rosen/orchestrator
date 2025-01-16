@@ -1,50 +1,13 @@
-# Technical Overview
+# Workflow and Schema Technical Overview
 
 ## Core Concepts
 
 ### Workflows
 
 A workflow is a reusable sequence of steps that process data to achieve a specific goal. It defines:
-- What inputs it needs (through WorkflowVariables)
-- What outputs it produces (through WorkflowVariables)
 - What steps it will perform
-- How data flows between steps
-
-At runtime, workflows:
-- Initialize by registering all variables with SchemaManager
-- Start with an INPUT step to gather required variables
-- Execute ACTION steps in sequence
-- Track intermediate results
-- Produce final outputs
-
-### Workflow Initialization
-
-When a workflow instance starts:
-```typescript
-// In the Workflow component
-useEffect(() => {
-    if (!localWorkflow && initialWorkflow) {
-        // Set up local state
-        setLocalWorkflow(initialWorkflow);
-
-        // Register all input variables with SchemaManager
-        initialWorkflow.inputs?.forEach(input => {
-            stateManager.setSchema(input.name, input.schema, 'input');
-        });
-
-        // Register all output variables with SchemaManager
-        initialWorkflow.outputs?.forEach(output => {
-            stateManager.setSchema(output.name, output.schema, 'output');
-        });
-    }
-}, [initialWorkflow, localWorkflow, stateManager]);
-```
-
-This initialization:
-1. Happens once when the workflow starts
-2. Registers all WorkflowVariables with the SchemaManager
-3. Sets up validation rules for all variables
-4. Prepares the runtime state for execution
+- What inputs it needs for each step (through WorkflowVariables)
+- What outputs it produces for each step (through WorkflowVariables)
 
 ```typescript
 interface Workflow {
@@ -52,26 +15,32 @@ interface Workflow {
     readonly name: string;
     readonly description: string;
     readonly path: string;
-    readonly inputs: WorkflowVariable[];    // Variables to collect in INPUT step
-    readonly outputs: WorkflowVariable[];   // Variables to produce in ACTION steps
+    readonly inputs: WorkflowVariable[];    // Variables to collect
+    readonly outputs: WorkflowVariable[];   // Variables to produce
     readonly steps: WorkflowStep[];
+}
+
+interface WorkflowVariable {
+    id: string;
+    name: string;           // Display name
+    description: string;    // Description for users
+    schema: SchemaValue;    // Validation rules
 }
 ```
 
 ### Steps
 
-There are two types of steps that handle variables differently:
+There are two types of steps:
 
 1. INPUT Steps:
-   - Use WorkflowVariables to define what inputs to collect
-   - Generate forms based on variable schemas
+   - Collect user input based on workflow input variables
    - Validate user input against schemas
-   - Store valid values in SchemaDictionary
+   - Store valid values in SchemaManager
 
 2. ACTION Steps:
    - Use tools to process data
-   - Read input values from SchemaDictionary
-   - Write output values to SchemaDictionary
+   - Map workflow variables to tool parameters
+   - Map tool outputs back to workflow variables
 
 ```typescript
 type StepType = 'INPUT' | 'ACTION';
@@ -82,22 +51,12 @@ interface WorkflowStep {
     description: string;
     stepType: StepType;
     tool?: Tool;  // Only for ACTION steps
-    outputMappings?: Record<string, string>;  // Maps tool outputs to workflow variables
 }
 ```
 
 ### Tools
 
-Tools are reusable components that perform specific actions like:
-- Running language models (llm)
-- Searching for information (search)
-- Retrieving data (retrieve)
-
-Each tool:
-- Takes specific inputs
-- Produces specific outputs
-- Can be configured with parameters
-- Maps its inputs/outputs to workflow variables
+Tools are reusable components that perform specific actions. Each tool has a signature that defines its inputs and outputs.
 
 ```typescript
 type ToolType = 'llm' | 'search' | 'retrieve';
@@ -106,118 +65,141 @@ interface Tool {
     type: ToolType;
     name?: string;
     description?: string;
-    parameterMappings?: Record<string, string>;  // Maps: workflow variable -> tool input
-    outputMappings?: Record<string, string>;     // Maps: tool output -> workflow variable
     promptTemplate?: string;  // For LLM tools: template ID
+    parameterMappings?: Record<string, ParameterMapping>;  // Maps inputs to tool parameters
+    outputMappings?: Record<string, OutputMapping>;        // Maps tool outputs to workflow variables
+}
+
+export interface ParameterMapping {
+    sourceVariable: string;    // Name of the source variable (input or previous step output)
+    targetParameter: string;   // Name of the target parameter in the tool
+}
+
+export interface OutputMapping {
+    sourceOutput: string;      // Name of the tool's output
+    targetVariable: string;    // Name of the workflow variable to store the output
+}
+
+interface ToolSignature {
+    parameters: ToolParameter[];  // What inputs the tool accepts
+    outputs: ToolParameter[];    // What outputs the tool produces
+}
+
+interface ToolParameter {
+    name: string;
+    type: "string" | "number" | "boolean" | "string[]";
+    description: string;
+}
+
+```
+
+### Prompt Templates
+
+LLM tools use prompt templates that define:
+- The prompt text with variable tokens
+- Expected input parameters
+- Output schema definition
+
+```typescript
+interface PromptTemplate {
+    id: string;
+    name: string;
+    description: string;
+    template: string;
+    tokens: string[];  // Required input parameters
+    output: {
+        type: "string" | "object" | "string[]";
+        description: string;
+        schema?: {  // For object type outputs
+            type: "object";
+            fields: Record<string, {
+                type: "string" | "number" | "boolean" | "string[]";
+                description: string;
+            }>;
+        };
+    };
 }
 ```
 
 ## Data Flow
 
-### Variables and Schema Management
+### Schema System
 
-Variables are handled differently depending on the step type:
+The schema system provides validation rules for variables:
 
-1. In INPUT Steps:
 ```typescript
-interface WorkflowVariable {
-    id: string;
-    name: string;           // Form field identifier
-    description: string;    // Form field label
-    schema: SchemaValue;    // Validation rules for user input
-}
-
-// Example: Generating input form
-const InputStep = ({ workflow, stateManager }) => {
-    workflow.inputs.forEach(input => {
-        // Generate form field based on schema
-        const value = stateManager.getValue(input.name);
-        // Validate against schema before storing
-        if (isValid(value, input.schema)) {
-            stateManager.setValues(input.name, value);
-        }
-    });
+type SchemaValue = {
+    name: string;
+    type: "string" | "number" | "boolean" | "array" | "object";
+    fields?: Record<string, {  // For object types
+        name: string;
+        type: "string" | "number" | "boolean" | "array";
+        items?: SchemaValue;   // For array types
+    }>;
+    items?: SchemaValue;      // For array types
 };
 ```
 
-2. In ACTION Steps:
-```typescript
-interface SchemaEntry {
-    role: 'input' | 'output';
-    schema: SchemaValue;
-}
+### Variable Resolution
 
+Tools can access workflow variables through parameter mappings:
+- Simple mappings: `"variable-name"`
+- Nested object fields: `"variable-name.field-name"`
+
+The SchemaManager maintains the state of all variables during workflow execution:
+
+```typescript
 interface SchemaManager {
     schemas: Record<string, SchemaEntry>;
     values: Record<string, any>;
     
-    // Used by tools to access variables
     setSchema(key: string, schema: SchemaValue, role: 'input' | 'output'): void;
     setValues(key: string, value: any): void;
     getValue(key: string): any;
 }
-
-// Example: Tool accessing variables
-const toolInputs = Object.entries(tool.parameterMappings).reduce(
-    (inputs, [param, varName]) => ({
-        ...inputs,
-        [param]: stateManager.getValue(varName)
-    }), 
-    {}
-);
 ```
 
-### Schema System
+## Example Workflow
 
-The schema system provides validation rules for both input collection and tool execution:
+Here's a complete example of how these components work together:
 
 ```typescript
-type SchemaValue = 
-    | { type: 'string', format?: string }
-    | { type: 'number', minimum?: number, maximum?: number }
-    | { type: 'boolean' }
-    | { type: 'array', items: SchemaValue }
-    | { type: 'object', properties: Record<string, SchemaValue> };
-```
-
-## Example: Research Workflow
-
-This example shows both INPUT and ACTION handling:
-```typescript
-const workflow: Workflow = {
+const researchWorkflow: Workflow = {
     id: 'research',
     name: 'Research Assistant',
-    inputs: [
-        {
-            id: 'research-question',
-            name: 'research-question',
-            description: 'Enter your research question:', // Used in input form
-            schema: { name: 'question', type: 'string' }
-        }
-    ],
-    steps: [
-        // First: INPUT step to collect research question
-        {
-            id: 'input-step',
-            label: 'Research Question',
-            description: 'Provide your question',
-            stepType: 'INPUT'
-        },
-        // Then: ACTION step to process it
-        {
-            id: 'question-improvement',
-            label: 'Question Improvement',
-            description: 'Review and improve question',
-            stepType: 'ACTION',
-            tool: {
-                type: 'llm',
-                parameterMappings: {
-                    'question': 'research-question' // Read from SchemaDictionary
-                },
-                outputMappings: {
-                    'improvedQuestion': 'improved-question' // Write to SchemaDictionary
-                }
+    inputs: [{
+        id: 'research-question',
+        name: 'Research Question',
+        description: 'The initial research question',
+        schema: { name: 'question', type: 'string' }
+    }],
+    outputs: [{
+        id: 'improved-question',
+        name: 'Improved Question',
+        description: 'The improved version',
+        schema: {
+            name: 'improvedQuestion',
+            type: 'object',
+            fields: {
+                question: { name: 'question', type: 'string' },
+                explanation: { name: 'explanation', type: 'string' }
             }
         }
-    ]
+    }],
+    steps: [{
+        id: 'question-improvement',
+        label: 'Question Improvement',
+        description: 'Review and improve question',
+        stepType: 'ACTION',
+        tool: {
+            type: 'llm',
+            promptTemplate: 'question-improver',
+            parameterMappings: {
+                'question': 'research-question'
+            },
+            outputMappings: {
+                'improvedQuestion': 'improved-question'
+            }
+        }
+    }]
 };

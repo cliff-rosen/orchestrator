@@ -16,7 +16,6 @@ export interface WorkflowStep {
     description: string;
     stepType: StepType;
     tool?: Tool;
-    outputMappings?: Record<string, string>; // Maps tool outputs to workflow variables
 }
 
 export interface Workflow {
@@ -29,9 +28,13 @@ export interface Workflow {
     readonly steps: WorkflowStep[];
 }
 
-// Workflow hierarchy
-// Workflow -> WorkflowStep -> WorkflowVariable
-// Workflow -> WorkflowVariable
-// WorkflowStep -> Record<string, string>
-// WorkflowVariable -> SchemaValue -> {name: string, type: string, required: boolean}
+/* 
+Explanation of inputs, outputs and parameter mappings:
+- inputs: variables that are collected from the user
+- outputs: variables that are produced by the workflow
+- parameter mappings: maps the inputs and outputs to the variables
+note: outputs produced by workflow can be used as inputs for other steps
 
+
+
+*/
