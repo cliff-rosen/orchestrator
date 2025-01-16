@@ -20,10 +20,18 @@ export type WorkflowVariableName = string & { readonly __brand: unique symbol };
 export type ParameterMappingType = Record<ToolParameterName, WorkflowVariableName>;    // from tool parameter -> to workflow variable
 export type OutputMappingType = Record<ToolOutputName, WorkflowVariableName>;          // from tool output -> to workflow variable
 
+// Type for resolved parameter values
+export type ResolvedParameters = Record<ToolParameterName, string | number | boolean | string[]>;
+
+// Type for tool outputs
+export type ToolOutputs = Record<ToolOutputName, string | number | boolean | string[]>;
+
 export interface Tool {
+    id: string;
     type: ToolType;
-    name?: string;
-    description?: string;
+    name: string;
+    description: string;
+    signature: ToolSignature;
     parameterMappings?: ParameterMappingType;
     outputMappings?: OutputMappingType;
     promptTemplate?: string;  // ID of the selected prompt template

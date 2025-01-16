@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Workflow as WorkflowType, WorkflowStep, WorkflowVariable } from '../types';
+import { ResolvedParameters, ToolParameterName, ToolOutputName } from '../types/tools';
 import StepContent from './StepContent';
 import { useSchemaDictionary } from '../hooks/schema';
 import { SchemaManager } from '../hooks/schema/types';
 import WorkflowConfig from './WorkflowConfig';
+import { toolApi } from '../lib/api';
 
 interface RuntimeWorkflowStep extends WorkflowStep {
     action: (data?: any) => Promise<void>;
@@ -20,16 +22,18 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
     const navigate = useNavigate();
     const [activeStep, setActiveStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string>('');
     const [isEditMode, setIsEditMode] = useState(true);
     const [localWorkflow, setLocalWorkflow] = useState<WorkflowType | null>(null);
     const [showConfig, setShowConfig] = useState(false);
     const stateManager: SchemaManager = useSchemaDictionary();
+    const [error, setError] = useState<string | null>(null);
+    const [stepExecuted, setStepExecuted] = useState(false);
 
     // Initialize local workflow and schemas
     useEffect(() => {
         console.log('localWorkflow', localWorkflow);
         console.log('stateManager.schemas', stateManager.schemas);
+        console.log('stateManager.values', stateManager.values);
         if (!localWorkflow && initialWorkflow) {
             setLocalWorkflow(initialWorkflow);
 
@@ -56,6 +60,11 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
             navigate('/');
         }
     }, [workflow, navigate]);
+
+    // Reset stepExecuted when active step changes
+    useEffect(() => {
+        setStepExecuted(false);
+    }, [activeStep]);
 
     if (!workflow) {
         return null;
@@ -87,11 +96,65 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
         });
     };
 
-    const handleNext = async (): Promise<void> => {
+    const handleExecuteTool = async (): Promise<void> => {
         setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 200));
-        setIsLoading(false);
+        try {
+            const currentStep = allSteps[activeStep];
+            console.log('Executing step:', currentStep);
+
+            if (currentStep.tool?.id) {
+                // Get resolved parameters from state manager
+                const resolvedParameters: ResolvedParameters = {};
+                if (currentStep.tool.parameterMappings) {
+                    for (const [paramName, varName] of Object.entries(currentStep.tool.parameterMappings)) {
+                        const value = stateManager.getValue(varName);
+                        console.log(`Resolving parameter ${paramName} from ${varName}:`, value);
+                        resolvedParameters[paramName as ToolParameterName] = value;
+                    }
+                }
+
+                console.log('Executing tool with parameters:', resolvedParameters);
+                // Execute the tool
+                const outputs = await toolApi.executeTool(currentStep.tool.id, resolvedParameters);
+                console.log('Tool execution outputs:', outputs);
+
+                // Store outputs in state manager
+                if (currentStep.tool.outputMappings) {
+                    // First ensure the output variables are registered in the schema manager
+                    for (const [outputName, varName] of Object.entries(currentStep.tool.outputMappings)) {
+                        const outputParam = currentStep.tool.signature.outputs.find(
+                            p => p.name === outputName
+                        );
+                        if (outputParam) {
+                            console.log(`Registering output schema for ${varName}:`, outputParam);
+                            // Register the output schema if not already registered
+                            stateManager.setSchema(varName, {
+                                name: varName,
+                                type: outputParam.type as any
+                            }, 'output');
+                        }
+                    }
+
+                    // Then set the values
+                    for (const [outputName, varName] of Object.entries(currentStep.tool.outputMappings)) {
+                        const value = outputs[outputName as ToolOutputName];
+                        console.log(`Setting output ${outputName} to ${varName}:`, value);
+                        stateManager.setValues(varName, value);
+                    }
+                }
+                setStepExecuted(true);
+            }
+        } catch (error) {
+            console.error('Error executing step:', error);
+            setError('Failed to execute step');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleNext = async (): Promise<void> => {
         setActiveStep((prev) => prev + 1);
+        setStepExecuted(false);
     };
 
     const handleBack = async (): Promise<void> => {
@@ -99,6 +162,12 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
     };
 
     const handleNewQuestion = async (): Promise<void> => {
+        // Clear all output values from state manager
+        Object.keys(stateManager.schemas)
+            .filter(key => stateManager.schemas[key].role === 'output')
+            .forEach(key => {
+                stateManager.setValues(key, undefined);
+            });
         setActiveStep(0);
     };
 
@@ -165,8 +234,9 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
     // Convert workflow steps to RuntimeWorkflowStep interface
     const workflowSteps: RuntimeWorkflowStep[] = workflow.steps.map(step => ({
         ...step,
-        action: handleNext,
-        actionButtonText: () => 'Next Step',
+        action: handleExecuteTool,
+        actionButtonText: () => stepExecuted ? 'Next Step' : 'Execute Tool',
+        isDisabled: () => step.stepType === 'ACTION' && stepExecuted,
     }));
 
     // Add input step at the beginning when in run mode
@@ -351,34 +421,52 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                                     />
                                 </div>
 
-                                {/* Navigation */}
-                                <div className="mt-4 flex justify-between">
-                                    <button
-                                        onClick={handleBack}
-                                        disabled={activeStep === 0}
-                                        className={`px-4 py-2 rounded-lg ${activeStep === 0
-                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                                            }`}
-                                    >
-                                        Back
-                                    </button>
-                                    {activeStep === allSteps.length - 1 ? (
+                                {/* Navigation - Only show in run mode */}
+                                {!isEditMode && (
+                                    <div className="mt-4 flex justify-between">
                                         <button
-                                            onClick={handleNewQuestion}
-                                            className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                                            onClick={handleBack}
+                                            disabled={activeStep === 0}
+                                            className={`px-4 py-2 rounded-lg ${activeStep === 0
+                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                                                }`}
                                         >
-                                            New Question
+                                            Back
                                         </button>
-                                    ) : (
-                                        <button
-                                            onClick={handleNext}
-                                            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                                        >
-                                            Next
-                                        </button>
-                                    )}
-                                </div>
+                                        <div className="flex gap-2">
+                                            {currentStep.stepType === 'ACTION' && (
+                                                <button
+                                                    onClick={handleExecuteTool}
+                                                    disabled={isLoading || stepExecuted}
+                                                    className={`px-4 py-2 rounded-lg ${isLoading || stepExecuted
+                                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                                                        }`}
+                                                >
+                                                    {isLoading ? 'Processing...' : 'Execute Tool'}
+                                                </button>
+                                            )}
+                                            {(currentStep.stepType === 'INPUT' || stepExecuted) && (
+                                                activeStep === allSteps.length - 1 ? (
+                                                    <button
+                                                        onClick={handleNewQuestion}
+                                                        className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                                                    >
+                                                        Restart Flow
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={handleNext}
+                                                        className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                                                    >
+                                                        Next Step
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>
