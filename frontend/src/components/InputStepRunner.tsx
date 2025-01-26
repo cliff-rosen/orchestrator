@@ -1,60 +1,48 @@
 // Rename from InputStepContent.tsx
 // This is for collecting input values in run mode 
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { SchemaManager } from '../hooks/schema/types';
+import SchemaForm from './SchemaForm';
 
 interface InputStepRunnerProps {
-    prompt: string;
-    variableName: string;
     stateManager: SchemaManager;
-    onSubmit: (value: string) => void;
 }
 
 const InputStepRunner: React.FC<InputStepRunnerProps> = ({
-    prompt,
-    variableName,
-    onSubmit,
+    stateManager
 }) => {
-    const [inputValue, setInputValue] = useState('');
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSubmit(inputValue);
-    };
+    // Get all input schemas from the state manager
+    const inputSchemas = Object.entries(stateManager.schemas)
+        .filter(([_, entry]) => entry.role === 'input')
+        .map(([key, entry]) => ({
+            key,
+            schema: entry.schema,
+            value: stateManager.getValue(key)
+        }));
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             <div>
-                <h3 className="text-lg font-medium">Input Required</h3>
-                <p className="text-sm text-gray-500">{prompt}</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    Input Values
+                </h2>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label htmlFor="input" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Value for {variableName}
-                    </label>
-                    <input
-                        type="text"
-                        id="input"
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
-                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 
-                                 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter your response..."
-                    />
-                </div>
-
-                <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 
-                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                    Submit
-                </button>
-            </form>
+            <div className="space-y-6">
+                {inputSchemas.map(({ key, schema, value }) => (
+                    <div key={key} className="space-y-2">
+                        <h3 className="font-medium text-gray-800 dark:text-gray-200">
+                            {schema.name}
+                        </h3>
+                        <SchemaForm
+                            schema={schema}
+                            value={value}
+                            onChange={value => stateManager.setValues(key, value)}
+                        />
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };

@@ -46,17 +46,9 @@ const StepDetail: React.FC<StepDetailProps> = ({
 
     // In run mode, show appropriate runner based on step type
     if (isInputStep) {
-        // Extract input information from the step
-        const variableName = Object.keys(step.outputs)[0]; // Input steps map one input to one output
         return (
             <InputStepRunner
-                prompt={step.prompt || `Please enter a value for ${variableName}`}
-                variableName={variableName}
                 stateManager={stateManager}
-                onSubmit={(value) => {
-                    // Update the state with the input value
-                    stateManager.setValues(variableName, value);
-                }}
             />
         );
     }

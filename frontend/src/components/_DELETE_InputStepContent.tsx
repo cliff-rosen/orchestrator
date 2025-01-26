@@ -1,3 +1,21 @@
+// This component appears to be a legacy/deprecated component for handling input steps
+// in a workflow. Its functionality has likely been moved to InputStepRunner.tsx.
+
+// The component takes props including:
+// - step: The current input step configuration
+// - onSubmit: Callback for when input is submitted
+// - onBack: Callback for navigating back
+// - loading: Boolean indicating if the step is processing
+
+// Key functionality:
+// 1. Renders a form based on the step's schema using SchemaForm
+// 2. Handles form validation and submission
+// 3. Provides navigation controls (back/submit buttons)
+// 4. Shows loading state during processing
+
+// This component has likely been replaced by InputStepRunner.tsx
+// which probably provides similar functionality in a more modern/maintainable way
+
 import React from 'react';
 import { SchemaManager } from '../hooks/schema/types';
 import SchemaForm from './SchemaForm';
