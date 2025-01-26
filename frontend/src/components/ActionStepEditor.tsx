@@ -2,14 +2,18 @@
 // This is for editing action steps in edit mode 
 
 import React, { useState, useEffect } from 'react';
-import { Tool } from '../types/tools';
+import {
+    Tool,
+    WorkflowStep,
+    ParameterMappingType,
+    OutputMappingType
+} from '../types';
 import { SchemaManager } from '../hooks/schema/types';
 import { PromptTemplate } from '../types/prompts';
 import { toolApi } from '../lib/api';
 import ToolSelector from './ToolSelector';
 import ParameterMapper from './ParameterMapper';
 import OutputMapper from './OutputMapper';
-import { WorkflowStep } from '../types';
 
 interface ActionStepEditorProps {
     tools: Tool[];
@@ -86,6 +90,28 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         });
     };
 
+    const handleParameterChange = (mappings: Record<string, string>) => {
+        if (!step.tool) return;
+        onStepUpdate({
+            ...step,
+            tool: {
+                ...step.tool,
+                parameterMappings: mappings as unknown as ParameterMappingType
+            }
+        });
+    };
+
+    const handleOutputChange = (mappings: Record<string, string>) => {
+        if (!step.tool) return;
+        onStepUpdate({
+            ...step,
+            tool: {
+                ...step.tool,
+                outputMappings: mappings as unknown as OutputMappingType
+            }
+        });
+    };
+
     if (loading) {
         return <div>Loading...</div>;
     }
@@ -159,10 +185,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                             tool={step.tool}
                             parameterMappings={step.tool.parameterMappings || {}}
                             stateManager={stateManager}
-                            onChange={(mappings) => onStepUpdate({
-                                ...step,
-                                tool: { ...step.tool, parameterMappings: mappings }
-                            })}
+                            onChange={handleParameterChange}
                         />
                     </div>
                     <div className="space-y-2">
@@ -171,10 +194,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                             tool={step.tool}
                             parameterMappings={step.tool.outputMappings || {}}
                             stateManager={stateManager}
-                            onChange={(mappings) => onStepUpdate({
-                                ...step,
-                                tool: { ...step.tool, outputMappings: mappings }
-                            })}
+                            onChange={handleOutputChange}
                         />
                     </div>
                 </>

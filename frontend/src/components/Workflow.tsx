@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Workflow as WorkflowType, WorkflowStep, WorkflowVariable, WorkflowStepType, RuntimeWorkflowStep } from '../types';
+import { Workflow as WorkflowType, WorkflowStep, WorkflowVariable, WorkflowStepType, RuntimeWorkflowStep, Tool } from '../types';
 import { ResolvedParameters, ToolParameterName, ToolOutputName } from '../types/tools';
 import { useSchemaDictionary } from '../hooks/schema';
 import { SchemaManager } from '../hooks/schema/types';
 import WorkflowConfig from './WorkflowConfig';
 import { toolApi } from '../lib/api';
 import StepDetail from './StepDetail';
-
 
 interface WorkflowProps {
     workflow: WorkflowType;
@@ -20,9 +19,25 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
     const [isEditMode, setIsEditMode] = useState(true);
     const [localWorkflow, setLocalWorkflow] = useState<WorkflowType | null>(null);
     const [showConfig, setShowConfig] = useState(false);
+    const [tools, setTools] = useState<Tool[]>([]);
     const stateManager: SchemaManager = useSchemaDictionary();
     const [error, setError] = useState<string | null>(null);
     const [stepExecuted, setStepExecuted] = useState(false);
+
+    // Fetch available tools
+    useEffect(() => {
+        const fetchTools = async () => {
+            try {
+                const availableTools = await toolApi.getAvailableTools();
+                setTools(availableTools);
+            } catch (err) {
+                console.error('Error fetching tools:', err);
+                setError('Failed to load tools');
+            }
+        };
+
+        fetchTools();
+    }, []);
 
     // Initialize local workflow and schemas
     useEffect(() => {
@@ -239,21 +254,21 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
         ...step,
         action: handleExecuteTool,
         actionButtonText: () => stepExecuted ? 'Next Step' : 'Execute Tool',
-        isDisabled: () => step.stepType === 'ACTION' && stepExecuted,
+        isDisabled: () => step.stepType === WorkflowStepType.ACTION && stepExecuted,
     }));
 
     // Add input step at the beginning when in run mode
-    const allSteps = !isEditMode ? [
-        {
-            id: 'input-step',
-            label: 'Input Values',
-            description: 'Provide values for workflow inputs',
-            stepType: 'INPUT' as const,
-            action: handleNext,
-            actionButtonText: () => 'Start Workflow',
-        },
-        ...workflowSteps
-    ] : workflowSteps;
+    const inputStep: RuntimeWorkflowStep = {
+        id: 'input-step',
+        label: 'Input Values',
+        description: 'Provide values for workflow inputs',
+        stepType: WorkflowStepType.INPUT,
+        action: handleExecuteTool,
+        actionButtonText: () => 'Next Step',
+        isDisabled: () => false,
+    };
+
+    const allSteps = !isEditMode ? [inputStep, ...workflowSteps] : workflowSteps;
 
     // Get current step
     const currentStep = allSteps[activeStep];
@@ -417,9 +432,10 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                                 {/* Step Detail */}
                                 <div className="mt-4">
                                     <StepDetail
-                                        step={currentStep}
+                                        step={allSteps[activeStep]}
                                         stateManager={stateManager}
                                         isEditMode={isEditMode}
+                                        tools={tools}
                                         onStepUpdate={handleStepUpdate}
                                     />
                                 </div>
