@@ -25,13 +25,17 @@ const OutputMapper: React.FC<OutputMapperProps> = ({
     return (
         <div className="space-y-4">
             {tool.signature.outputs.map((output) => (
-                <div key={output.name} className="flex flex-col space-y-2">
+                <div key={output.name} className="flex flex-col space-y-1">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         {output.name}
-                        <span className="ml-2 text-xs text-gray-500">({output.type})</span>
                         {output.description && (
-                            <span className="ml-2 text-xs text-gray-500">- {output.description}</span>
+                            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                ({output.description})
+                            </span>
                         )}
+                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                            Type: {output.type}
+                        </span>
                     </label>
                     <select
                         value={parameterMappings[output.name] || ''}
@@ -41,9 +45,10 @@ const OutputMapper: React.FC<OutputMapperProps> = ({
                     >
                         <option value="">Select a variable...</option>
                         {Object.entries(stateManager.schemas)
-                            .filter(([_, schema]) => schema.role === 'output')
+                            .filter(([_, schema]) => schema.schema.type === output.type)
                             .map(([name, schema]) => (
-                                <option key={name} value={name}>
+                                <option key={name} value={name}
+                                    className="text-gray-900 dark:text-gray-100">
                                     {name} ({schema.schema.type})
                                 </option>
                             ))}

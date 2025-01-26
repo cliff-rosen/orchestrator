@@ -113,11 +113,11 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     };
 
     if (loading) {
-        return <div>Loading...</div>;
+        return <div className="text-gray-700 dark:text-gray-300">Loading...</div>;
     }
 
     if (error) {
-        return <div className="text-red-500">{error}</div>;
+        return <div className="text-red-600 dark:text-red-400">{error}</div>;
     }
 
     return (
@@ -131,7 +131,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     value={step.label}
                     onChange={(e) => handleLabelChange(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
-                             bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                             bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     placeholder="Enter step label"
                 />
             </div>
@@ -144,7 +144,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     value={step.description}
                     onChange={(e) => handleDescriptionChange(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
-                             bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                             bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     rows={3}
                     placeholder="Enter step description"
                 />
@@ -165,11 +165,12 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                         value={step.tool.promptTemplate || ''}
                         onChange={(e) => handleTemplateChange(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
-                                 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     >
                         <option value="" disabled>Select a prompt template</option>
                         {promptTemplates.map(template => (
-                            <option key={template.id} value={template.id}>
+                            <option key={template.id} value={template.id}
+                                className="text-gray-900 dark:text-gray-100">
                                 {template.name}
                             </option>
                         ))}
@@ -180,7 +181,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
             {step.tool && (
                 <>
                     <div className="space-y-2">
-                        <h3 className="text-lg font-medium">Parameters</h3>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Parameters</h3>
                         <ParameterMapper
                             tool={step.tool}
                             parameterMappings={step.tool.parameterMappings || {}}
@@ -189,7 +190,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                         />
                     </div>
                     <div className="space-y-2">
-                        <h3 className="text-lg font-medium">Outputs</h3>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Outputs</h3>
                         <OutputMapper
                             tool={step.tool}
                             parameterMappings={step.tool.outputMappings || {}}

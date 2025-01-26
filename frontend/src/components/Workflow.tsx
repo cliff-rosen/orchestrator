@@ -15,14 +15,14 @@ interface WorkflowProps {
 const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
     const navigate = useNavigate();
     const [activeStep, setActiveStep] = useState(0);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isEditMode, setIsEditMode] = useState(true);
     const [localWorkflow, setLocalWorkflow] = useState<WorkflowType | null>(null);
-    const [showConfig, setShowConfig] = useState(false);
     const [tools, setTools] = useState<Tool[]>([]);
     const stateManager: SchemaManager = useSchemaDictionary();
-    const [error, setError] = useState<string | null>(null);
     const [stepExecuted, setStepExecuted] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [showConfig, setShowConfig] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [isEditMode, setIsEditMode] = useState(true);
 
     // Fetch available tools
     useEffect(() => {
