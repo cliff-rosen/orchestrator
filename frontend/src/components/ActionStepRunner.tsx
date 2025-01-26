@@ -4,45 +4,46 @@
 import React from 'react';
 import { Tool } from '../types/tools';
 import { SchemaManager } from '../hooks/schema/types';
+import { RuntimeWorkflowStep } from '../types/workflows';
 
 interface ActionStepRunnerProps {
-    tool?: Tool;
-    parameterMappings: Record<string, string>;
-    outputMappings: Record<string, string>;
+    actionStep: RuntimeWorkflowStep;
     stateManager: SchemaManager;
+    onStepUpdate: (step: RuntimeWorkflowStep) => void;
 }
 
 const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
-    tool,
-    parameterMappings,
-    outputMappings,
+    actionStep,
     stateManager,
+    onStepUpdate,
 }) => {
-    if (!tool) {
+    if (!actionStep.tool) {
         return <div className="text-gray-500">No tool selected</div>;
     }
 
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-lg font-medium">{tool.name}</h3>
-                <p className="text-sm text-gray-500">{tool.description}</p>
+                <h3 className="text-lg font-medium">{actionStep.tool.name}</h3>
+                <p className="text-sm text-gray-500">{actionStep.tool.description}</p>
             </div>
 
             <div className="space-y-2">
                 <h4 className="font-medium">Parameters</h4>
-                {Object.entries(parameterMappings).map(([paramName, varName]) => (
+                {actionStep.parameters && Object.entries(actionStep.parameters).map(([paramName, varName]) => (
                     <div key={paramName} className="text-sm">
-                        <span className="font-medium">{paramName}:</span> {varName}
+                        <span className="font-medium">{paramName}:</span>{' '}
+                        <span>{String(varName)}</span>
                     </div>
                 ))}
             </div>
 
             <div className="space-y-2">
                 <h4 className="font-medium">Outputs</h4>
-                {Object.entries(outputMappings).map(([outputName, varName]) => (
+                {actionStep.outputs && Object.entries(actionStep.outputs).map(([outputName, varName]) => (
                     <div key={outputName} className="text-sm">
-                        <span className="font-medium">{outputName}:</span> {varName}
+                        <span className="font-medium">{outputName}:</span>{' '}
+                        <span>{String(varName)}</span>
                     </div>
                 ))}
             </div>

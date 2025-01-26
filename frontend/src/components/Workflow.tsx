@@ -97,7 +97,8 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
         setActiveStep(workflowSteps.length);
     };
 
-    const handleStepUpdate = (step: WorkflowStep) => {
+    const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {
+        console.log('handleStepUpdate', step);
         if (!localWorkflow) return;
 
         setLocalWorkflow({

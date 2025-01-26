@@ -17,9 +17,9 @@ import OutputMapper from './OutputMapper';
 
 interface ActionStepEditorProps {
     tools: Tool[];
-    step: WorkflowStep;
+    step: WorkflowStep | RuntimeWorkflowStep;
     stateManager: SchemaManager;
-    onStepUpdate: (step: WorkflowStep) => void;
+    onStepUpdate: (step: WorkflowStep | RuntimeWorkflowStep) => void;
 }
 
 const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
@@ -122,6 +122,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
     return (
         <div className="space-y-4">
+            {/* Step Label */}
             <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Step Label
@@ -136,6 +137,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                 />
             </div>
 
+            {/* Step Description */}
             <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Step Description
@@ -150,12 +152,14 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                 />
             </div>
 
+            {/* Step Tool */}
             <ToolSelector
                 tools={tools}
                 selectedTool={step.tool}
                 onSelect={handleToolSelect}
             />
 
+            {/* Prompt Template */}
             {step.tool?.type === 'llm' && (
                 <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -178,8 +182,10 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                 </div>
             )}
 
+            {/* Inputs/Outputs */}
             {step.tool && (
                 <>
+                    {/* Parameters */}
                     <div className="space-y-2">
                         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Parameters</h3>
                         <ParameterMapper
@@ -189,6 +195,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                             onChange={handleParameterChange}
                         />
                     </div>
+
+                    {/* Outputs */}
                     <div className="space-y-2">
                         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Outputs</h3>
                         <OutputMapper

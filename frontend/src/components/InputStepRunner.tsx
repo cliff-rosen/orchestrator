@@ -14,7 +14,6 @@ interface InputStepRunnerProps {
 const InputStepRunner: React.FC<InputStepRunnerProps> = ({
     prompt,
     variableName,
-    stateManager,
     onSubmit,
 }) => {
     const [inputValue, setInputValue] = useState('');
