@@ -1,22 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Workflow } from '../types';
+import { useWorkflows } from '../context/WorkflowContext';
 
-interface WorkflowsManagerProps {
-    workflows: readonly Workflow[];
-    onCreateWorkflow: () => Promise<Workflow>;
-}
-
-const WorkflowsManager: React.FC<WorkflowsManagerProps> = ({ workflows, onCreateWorkflow }) => {
+const WorkflowsManager: React.FC = () => {
     const navigate = useNavigate();
+    const { workflows, createWorkflow } = useWorkflows();
 
     const handleCreateWorkflow = async () => {
-        try {
-            const workflow = await onCreateWorkflow();
-            navigate(workflow.path);
-        } catch (error) {
-            console.error('Error creating workflow:', error);
-        }
+        const newWorkflow = await createWorkflow();
+        navigate(newWorkflow.path);
     };
 
     return (

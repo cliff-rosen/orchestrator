@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Enum, TIMESTAMP
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Enum, TIMESTAMP, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, foreign, remote
 from datetime import datetime
@@ -21,6 +21,7 @@ class User(Base):
 
     # Relationships
     topics = relationship("Topic", back_populates="user")
+    workflows = relationship("Workflow", back_populates="user")
 
 class Topic(Base):
     __tablename__ = "topics"
@@ -32,4 +33,70 @@ class Topic(Base):
 
     # Relationships
     user = relationship("User", back_populates="topics")
+
+class Tool(Base):
+    __tablename__ = "tools"
+
+    tool_id = Column(String(36), primary_key=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    tool_type = Column(String(50), nullable=False)
+    signature = Column(JSON, nullable=False)  # Contains parameters and outputs schema
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    workflow_steps = relationship("WorkflowStep", back_populates="tool")
+
+class WorkflowStep(Base):
+    __tablename__ = "workflow_steps"
+
+    step_id = Column(String(36), primary_key=True)
+    workflow_id = Column(String(36), ForeignKey("workflows.workflow_id"), nullable=False)
+    label = Column(String(255), nullable=False)
+    description = Column(Text)
+    step_type = Column(String(50), nullable=False)
+    tool_id = Column(String(36), ForeignKey("tools.tool_id"), nullable=True)
+    next_step_id = Column(String(36), ForeignKey("workflow_steps.step_id"), nullable=True)
+    parameters = Column(JSON, nullable=False, default=dict)
+    outputs = Column(JSON, nullable=False, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    workflow = relationship("Workflow", back_populates="steps")
+    tool = relationship("Tool", back_populates="workflow_steps")
+    next_step = relationship("WorkflowStep", remote_side=[step_id])
+
+class WorkflowVariable(Base):
+    __tablename__ = "workflow_variables"
+
+    variable_id = Column(String(36), primary_key=True)
+    workflow_id = Column(String(36), ForeignKey("workflows.workflow_id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    schema = Column(JSON, nullable=False)
+    variable_type = Column(String(50), nullable=False)  # 'input' or 'output'
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    workflow = relationship("Workflow", back_populates="variables")
+
+class Workflow(Base):
+    __tablename__ = "workflows"
+
+    workflow_id = Column(String(36), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    status = Column(String(50), nullable=False, default="draft")
+    error = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User", back_populates="workflows")
+    steps = relationship("WorkflowStep", back_populates="workflow", cascade="all, delete-orphan")
+    variables = relationship("WorkflowVariable", back_populates="workflow", cascade="all, delete-orphan")
 

@@ -236,3 +236,143 @@ class KnowledgeGraphElements(BaseModel):
     """Model representing the complete set of knowledge graph elements."""
     nodes: List[KnowledgeGraphNode]
     relationships: List[KnowledgeGraphRelationship]
+
+
+##### WORKFLOW SCHEMAS #####
+
+class WorkflowVariableBase(BaseModel):
+    """Base schema for workflow variables"""
+    name: str = Field(description="Name of the variable")
+    description: str = Field(description="Description of the variable")
+    schema: Dict[str, Any] = Field(description="JSON Schema of the variable")
+
+class WorkflowVariableCreate(WorkflowVariableBase):
+    """Schema for creating workflow variables"""
+    pass
+
+class WorkflowVariableResponse(WorkflowVariableBase):
+    """Schema for workflow variable responses"""
+    variable_id: str = Field(description="Unique identifier for the variable")
+    workflow_id: str = Field(description="ID of the workflow this variable belongs to")
+    variable_type: str = Field(description="Type of variable (input/output)")
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class WorkflowStepBase(BaseModel):
+    """Base schema for workflow steps"""
+    label: str = Field(description="Label for the step")
+    description: str = Field(description="Description of the step")
+    step_type: str = Field(description="Type of step (e.g., ACTION, INPUT)")
+    tool_id: Optional[str] = Field(None, description="ID of the tool to use for this step")
+    next_step_id: Optional[str] = Field(None, description="ID of the next step in the workflow")
+    parameters: Dict[str, Any] = Field(default_factory=dict, description="Parameters for the step")
+    outputs: Dict[str, Any] = Field(default_factory=dict, description="Output mappings for the step")
+
+class WorkflowStepCreate(WorkflowStepBase):
+    """Schema for creating workflow steps"""
+    pass
+
+class WorkflowStepResponse(WorkflowStepBase):
+    """Schema for workflow step responses"""
+    step_id: str = Field(description="Unique identifier for the step")
+    workflow_id: str = Field(description="ID of the workflow this step belongs to")
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class WorkflowBase(BaseModel):
+    """Base schema for workflows"""
+    name: str = Field(description="Name of the workflow")
+    description: str = Field(description="Description of the workflow")
+
+class WorkflowCreate(WorkflowBase):
+    """Schema for creating workflows"""
+    pass
+
+class WorkflowUpdate(BaseModel):
+    """Schema for updating workflows"""
+    name: Optional[str] = Field(None, description="New name for the workflow")
+    description: Optional[str] = Field(None, description="New description for the workflow")
+    status: Optional[str] = Field(None, description="New status for the workflow")
+
+class WorkflowResponse(WorkflowBase):
+    """Schema for workflow responses"""
+    workflow_id: str = Field(description="Unique identifier for the workflow")
+    user_id: int = Field(description="ID of the user who owns this workflow")
+    status: str = Field(description="Current status of the workflow")
+    error: Optional[str] = Field(None, description="Error message if workflow failed")
+    created_at: datetime
+    updated_at: datetime
+    steps: List[WorkflowStepResponse] = Field(default_factory=list)
+    variables: List[WorkflowVariableResponse] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
+
+class WorkflowExecuteRequest(BaseModel):
+    """Schema for workflow execution requests"""
+    input_data: Dict[str, Any] = Field(description="Input data for the workflow")
+
+class WorkflowExecuteResponse(BaseModel):
+    """Schema for workflow execution responses"""
+    workflow_id: str = Field(description="ID of the executed workflow")
+    status: str = Field(description="Execution status")
+    output: Dict[str, Any] = Field(description="Output data from the workflow")
+    error: Optional[str] = Field(None, description="Error message if execution failed")
+    execution_time: float = Field(description="Time taken to execute the workflow in seconds")
+
+    model_config = ConfigDict(from_attributes=True)
+
+##### TOOL SCHEMAS #####
+
+class ToolParameter(BaseModel):
+    """Schema for tool parameter definition"""
+    name: str = Field(description="Name of the parameter")
+    type: str = Field(description="Type of the parameter (string, number, boolean, etc.)")
+    description: str = Field(description="Description of the parameter")
+    required: bool = Field(default=True, description="Whether the parameter is required")
+    default: Optional[Any] = Field(None, description="Default value for the parameter")
+
+class ToolOutput(BaseModel):
+    """Schema for tool output definition"""
+    name: str = Field(description="Name of the output")
+    type: str = Field(description="Type of the output (string, number, boolean, etc.)")
+    description: str = Field(description="Description of the output")
+
+class ToolSignature(BaseModel):
+    """Schema for tool signature"""
+    parameters: List[ToolParameter] = Field(
+        default_factory=list,
+        description="Parameters accepted by the tool"
+    )
+    outputs: List[ToolOutput] = Field(
+        default_factory=list,
+        description="Outputs produced by the tool"
+    )
+
+class ToolBase(BaseModel):
+    """Base schema for tools"""
+    name: str = Field(description="Name of the tool")
+    description: str = Field(description="Description of the tool")
+    tool_type: str = Field(description="Type of tool")
+    signature: ToolSignature = Field(description="Tool's parameter and output signature")
+
+class ToolCreate(ToolBase):
+    """Schema for creating tools"""
+    pass
+
+class ToolUpdate(BaseModel):
+    """Schema for updating tools"""
+    name: Optional[str] = Field(None, description="New name for the tool")
+    description: Optional[str] = Field(None, description="New description for the tool")
+    signature: Optional[ToolSignature] = Field(None, description="New signature for the tool")
+
+class ToolResponse(ToolBase):
+    """Schema for tool responses"""
+    tool_id: str = Field(description="Unique identifier for the tool")
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

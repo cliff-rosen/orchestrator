@@ -1,15 +1,14 @@
 import React from 'react';
-import { WorkflowStep } from '../types';
+import { RuntimeWorkflowStep, WorkflowStepType } from '../types';
 import { SchemaManager } from '../hooks/schema/types';
-import ActionEditor from './ActionEditor';
-import InputStepContent from './InputStepContent';
+import ActionStepEditor from './ActionStepEditor';
 import ActionStepContent from './ActionStepContent';
 
 interface StepContentProps {
-    step: WorkflowStep;
+    step: RuntimeWorkflowStep;
     stateManager: SchemaManager;
     isEditMode: boolean;
-    onStepUpdate: (step: WorkflowStep) => void;
+    onStepUpdate: (step: RuntimeWorkflowStep) => void;
 }
 
 const StepContent: React.FC<StepContentProps> = ({
@@ -18,32 +17,38 @@ const StepContent: React.FC<StepContentProps> = ({
     isEditMode,
     onStepUpdate
 }) => {
-    if (!step) {
-        return <div>Error: No step provided</div>;
-    }
-
-    const isInputStep = step.stepType === 'INPUT';
-
-    if (isEditMode) {
-        if (isInputStep) {
-            return <div>ERROR - StepContent should not be called in edit mode for input steps</div>;
+    // Render different content based on step type
+    if (step.stepType === WorkflowStepType.ACTION) {
+        if (isEditMode) {
+            return (
+                <ActionStepEditor
+                    step={step}
+                    stateManager={stateManager}
+                    onStepUpdate={onStepUpdate}
+                />
+            );
         } else {
-            return <ActionEditor
-                step={step}
-                stateManager={stateManager}
-                onStepUpdate={onStepUpdate}
-            />;
+            return (
+                <ActionStepContent
+                    step={step}
+                    stateManager={stateManager}
+                />
+            );
         }
-    }
-
-    if (isInputStep) {
-        return <InputStepContent stateManager={stateManager} />;
     } else {
-        return <ActionStepContent
-            step={step}
-            stateManager={stateManager}
-            onStepUpdate={onStepUpdate}
-        />;
+        // Input step
+        return (
+            <div>
+                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">{step.label}</h2>
+                <p className="text-gray-600 dark:text-gray-300">{step.description}</p>
+                <div className="mt-4">
+                    <h3 className="font-medium mb-2 text-gray-800 dark:text-gray-200">Current State:</h3>
+                    <pre className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
+                        {JSON.stringify(stateManager.values, null, 2)}
+                    </pre>
+                </div>
+            </div>
+        );
     }
 };
 

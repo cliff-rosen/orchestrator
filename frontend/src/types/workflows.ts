@@ -1,7 +1,23 @@
 import { Tool } from './tools';
 import { SchemaValue } from '../hooks/schema/types';
 
-export type StepType = 'INPUT' | 'ACTION';
+export enum WorkflowStatus {
+    DRAFT = 'draft',
+    RUNNING = 'running',
+    COMPLETED = 'completed',
+    FAILED = 'failed'
+}
+
+export enum WorkflowStepType {
+    ACTION = 'ACTION',
+    INPUT = 'INPUT'
+}
+
+export interface RuntimeWorkflowStep extends WorkflowStep {
+    action: (data?: any) => Promise<void>;
+    actionButtonText: (state?: any) => string;
+    isDisabled?: (state?: any) => boolean;
+}
 
 export interface WorkflowVariable {
     id: string;
@@ -14,18 +30,24 @@ export interface WorkflowStep {
     id: string;
     label: string;
     description: string;
-    stepType: StepType;
+    stepType: WorkflowStepType;
     tool?: Tool;
 }
 
 export interface Workflow {
-    readonly id: string;
-    readonly name: string;
-    readonly description: string;
-    readonly path: string;
-    readonly inputs: WorkflowVariable[];
-    readonly outputs: WorkflowVariable[];
-    readonly steps: WorkflowStep[];
+    id: string;
+    name: string;
+    description: string;
+    status: WorkflowStatus;
+    path: string;
+    inputs: any[];
+    outputs: any[];
+    steps: {
+        id: string;
+        label: string;
+        description: string;
+        stepType: WorkflowStepType;
+    }[];
 }
 
 /* 

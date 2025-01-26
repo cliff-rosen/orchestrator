@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Workflow as WorkflowType, WorkflowStep, WorkflowVariable } from '../types';
+import { Workflow as WorkflowType, WorkflowStep, WorkflowVariable, WorkflowStepType, RuntimeWorkflowStep } from '../types';
 import { ResolvedParameters, ToolParameterName, ToolOutputName } from '../types/tools';
-import StepContent from './StepContent';
 import { useSchemaDictionary } from '../hooks/schema';
 import { SchemaManager } from '../hooks/schema/types';
 import WorkflowConfig from './WorkflowConfig';
 import { toolApi } from '../lib/api';
+import StepDetail from './StepDetail';
 
-interface RuntimeWorkflowStep extends WorkflowStep {
-    action: (data?: any) => Promise<void>;
-    actionButtonText: (state?: any) => string;
-    isDisabled?: (state?: any) => boolean;
-}
 
 interface WorkflowProps {
     workflow: WorkflowType;
@@ -77,7 +72,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
             id: `step-${localWorkflow.steps.length + 1}`,
             label: `Step ${localWorkflow.steps.length + 1}`,
             description: 'New step description',
-            stepType: 'ACTION'
+            stepType: WorkflowStepType.ACTION
         };
 
         setLocalWorkflow({
@@ -419,9 +414,9 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                             />
                         ) : (
                             <>
-                                {/* Step Content */}
+                                {/* Step Detail */}
                                 <div className="mt-4">
-                                    <StepContent
+                                    <StepDetail
                                         step={currentStep}
                                         stateManager={stateManager}
                                         isEditMode={isEditMode}
