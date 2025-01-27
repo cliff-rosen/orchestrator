@@ -2,20 +2,17 @@
 // This is for executing action steps in run mode 
 
 import React from 'react';
-import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
 import { SchemaManager } from '../hooks/schema/types';
 import { RuntimeWorkflowStep } from '../types/workflows';
 
 interface ActionStepRunnerProps {
     actionStep: RuntimeWorkflowStep;
     stateManager: SchemaManager;
-    onStepUpdate: (step: RuntimeWorkflowStep) => void;
 }
 
 const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     actionStep,
-    stateManager,
-    onStepUpdate,
+    stateManager
 }) => {
     if (!actionStep.tool) {
         return <div className="text-gray-500 dark:text-gray-400">No tool selected</div>;

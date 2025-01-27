@@ -57,7 +57,6 @@ const StepDetail: React.FC<StepDetailProps> = ({
         <ActionStepRunner
             actionStep={step} // Changed from step to actionStep to match props
             stateManager={stateManager}
-            onStepUpdate={onStepUpdate}
         />
     );
 };
