@@ -41,9 +41,9 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
 
     // Initialize local workflow and schemas
     useEffect(() => {
-        console.log('localWorkflow', localWorkflow);
-        console.log('stateManager.schemas', stateManager.schemas);
-        console.log('stateManager.values', stateManager.values);
+        // console.log('localWorkflow', localWorkflow);
+        // console.log('stateManager.schemas', stateManager.schemas);
+        // console.log('stateManager.values', stateManager.values);
         if (!localWorkflow && initialWorkflow) {
             setLocalWorkflow(initialWorkflow);
 
