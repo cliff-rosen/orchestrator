@@ -116,8 +116,8 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
             if (currentStep.tool?.id) {
                 // Get resolved parameters from state manager
                 const resolvedParameters: ResolvedParameters = {};
-                if (currentStep.tool.parameterMappings) {
-                    for (const [paramName, varName] of Object.entries(currentStep.tool.parameterMappings)) {
+                if (currentStep.parameterMappings) {
+                    for (const [paramName, varName] of Object.entries(currentStep.parameterMappings)) {
                         const value = stateManager.getValue(varName);
                         console.log(`Resolving parameter ${paramName} from ${varName}:`, value);
                         resolvedParameters[paramName as ToolParameterName] = value;
@@ -138,9 +138,9 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                 console.log('Tool execution outputs:', outputs);
 
                 // Store outputs in state manager
-                if (currentStep.tool.outputMappings) {
+                if (currentStep.outputMappings) {
                     // First ensure the output variables are registered in the schema manager
-                    for (const [outputName, varName] of Object.entries(currentStep.tool.outputMappings)) {
+                    for (const [outputName, varName] of Object.entries(currentStep.outputMappings)) {
                         const outputParam = currentStep.tool.signature.outputs.find(
                             p => p.name === outputName
                         );
@@ -155,7 +155,7 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                     }
 
                     // Then set the values
-                    for (const [outputName, varName] of Object.entries(currentStep.tool.outputMappings)) {
+                    for (const [outputName, varName] of Object.entries(currentStep.outputMappings)) {
                         const value = outputs[outputName as ToolOutputName];
                         console.log(`Setting output ${outputName} to ${varName}:`, value);
                         stateManager.setValues(varName, value);

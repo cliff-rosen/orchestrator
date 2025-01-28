@@ -4,20 +4,20 @@ import { SchemaManager } from '../hooks/schema/types';
 
 interface OutputMapperProps {
     tool: Tool;
-    parameterMappings: Record<string, string>;
+    outputMappings: Record<string, string>;
     stateManager: SchemaManager;
     onChange: (mappings: Record<string, string>) => void;
 }
 
 const OutputMapper: React.FC<OutputMapperProps> = ({
     tool,
-    parameterMappings,
+    outputMappings,
     stateManager,
     onChange
 }) => {
     const handleChange = (outputName: string, value: string) => {
         onChange({
-            ...parameterMappings,
+            ...outputMappings,
             [outputName]: value
         });
     };
@@ -38,7 +38,7 @@ const OutputMapper: React.FC<OutputMapperProps> = ({
                         </span>
                     </label>
                     <select
-                        value={parameterMappings[output.name] || ''}
+                        value={outputMappings[output.name] || ''}
                         onChange={(e) => handleChange(output.name, e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
                                  bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"

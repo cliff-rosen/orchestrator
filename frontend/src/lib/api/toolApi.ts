@@ -178,7 +178,6 @@ export const toolApi = {
     // Execute a tool
     executeTool: async (toolId: string, parameters: ResolvedParameters): Promise<ToolOutputs> => {
         const executor = getToolExecutor(toolId);
-        console.log('executor', executor);
         if (!executor) {
             throw new Error(`No executor found for tool ${toolId}`);
         }

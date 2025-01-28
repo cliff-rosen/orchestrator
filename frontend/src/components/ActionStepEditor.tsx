@@ -2,61 +2,65 @@
 // This is for editing action steps in edit mode 
 
 import React, { useState, useEffect } from 'react';
-import {
-    Tool,
-    WorkflowStep,
-    ParameterMappingType,
-    OutputMappingType
-} from '../types';
+import { Tool } from '../types/tools';
+import { WorkflowStep } from '../types/workflows';
 import { SchemaManager } from '../hooks/schema/types';
 import { PromptTemplate } from '../types/prompts';
-import { toolApi } from '../lib/api';
+import { toolApi } from '../lib/api/toolApi';
 import ToolSelector from './ToolSelector';
 import ParameterMapper from './ParameterMapper';
 import OutputMapper from './OutputMapper';
 
 interface ActionStepEditorProps {
-    tools: Tool[];
-    step: WorkflowStep | RuntimeWorkflowStep;
+    step: WorkflowStep;
     stateManager: SchemaManager;
-    onStepUpdate: (step: WorkflowStep | RuntimeWorkflowStep) => void;
+    onStepUpdate: (step: WorkflowStep) => void;
 }
 
 const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
-    tools,
     step,
     stateManager,
-    onStepUpdate,
+    onStepUpdate
 }) => {
-    const [loading, setLoading] = useState(false);
+    const [tools, setTools] = useState<Tool[]>([]);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
 
     useEffect(() => {
+        const fetchTools = async () => {
+            try {
+                const availableTools = await toolApi.getAvailableTools();
+                setTools(availableTools);
+                setLoading(false);
+            } catch (err) {
+                console.error('Error fetching tools:', err);
+                setError('Failed to load tools');
+                setLoading(false);
+            }
+        };
+
         const fetchTemplates = async () => {
             try {
-                setLoading(true);
                 const templates = await toolApi.getPromptTemplates();
                 setPromptTemplates(templates);
             } catch (err) {
                 console.error('Error fetching templates:', err);
                 setError('Failed to load prompt templates');
-            } finally {
-                setLoading(false);
             }
         };
 
+        fetchTools();
         fetchTemplates();
     }, []);
 
-    const handleToolSelect = (selectedTool: Tool) => {
+    const handleToolSelect = (tool: Tool) => {
         onStepUpdate({
             ...step,
-            tool: {
-                ...selectedTool,
-                parameterMappings: {},
-                outputMappings: {}
-            }
+            tool,
+            // Reset mappings when tool changes
+            parameterMappings: {},
+            outputMappings: {}
         });
     };
 
@@ -69,10 +73,11 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
             tool: {
                 ...step.tool,
                 signature: newSignature,
-                promptTemplate: templateId,
-                parameterMappings: {},
-                outputMappings: {}
-            }
+                promptTemplate: templateId
+            },
+            // Reset mappings when template changes
+            parameterMappings: {},
+            outputMappings: {}
         });
     };
 
@@ -90,38 +95,34 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         });
     };
 
-    const handleParameterChange = (mappings: Record<string, string>) => {
+    const handleParameterMappingChange = (mappings: Record<string, string>) => {
         if (!step.tool) return;
+
         onStepUpdate({
             ...step,
-            tool: {
-                ...step.tool,
-                parameterMappings: mappings as unknown as ParameterMappingType
-            }
+            parameterMappings: mappings
         });
     };
 
-    const handleOutputChange = (mappings: Record<string, string>) => {
+    const handleOutputMappingChange = (mappings: Record<string, string>) => {
         if (!step.tool) return;
+
         onStepUpdate({
             ...step,
-            tool: {
-                ...step.tool,
-                outputMappings: mappings as unknown as OutputMappingType
-            }
+            outputMappings: mappings
         });
     };
 
     if (loading) {
-        return <div className="text-gray-700 dark:text-gray-300">Loading...</div>;
+        return <div>Loading...</div>;
     }
 
     if (error) {
-        return <div className="text-red-600 dark:text-red-400">{error}</div>;
+        return <div className="text-red-500">{error}</div>;
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             {/* Step Label */}
             <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -152,14 +153,19 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                 />
             </div>
 
-            {/* Step Tool */}
-            <ToolSelector
-                tools={tools}
-                selectedTool={step.tool}
-                onSelect={handleToolSelect}
-            />
+            {/* Tool Selection */}
+            <div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                    Select Tool
+                </h3>
+                <ToolSelector
+                    tools={tools}
+                    selectedTool={step.tool}
+                    onSelect={handleToolSelect}
+                />
+            </div>
 
-            {/* Prompt Template */}
+            {/* Prompt Template Selection for LLM tools */}
             {step.tool?.type === 'llm' && (
                 <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -182,28 +188,31 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                 </div>
             )}
 
-            {/* Inputs/Outputs */}
             {step.tool && (
                 <>
-                    {/* Parameters */}
-                    <div className="space-y-2">
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Parameters</h3>
+                    {/* Parameter Mappings */}
+                    <div>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                            Parameter Mappings
+                        </h3>
                         <ParameterMapper
                             tool={step.tool}
-                            parameterMappings={step.tool.parameterMappings || {}}
+                            parameterMappings={step.parameterMappings || {}}
                             stateManager={stateManager}
-                            onChange={handleParameterChange}
+                            onChange={handleParameterMappingChange}
                         />
                     </div>
 
-                    {/* Outputs */}
-                    <div className="space-y-2">
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Outputs</h3>
+                    {/* Output Mappings */}
+                    <div>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                            Output Mappings
+                        </h3>
                         <OutputMapper
                             tool={step.tool}
-                            parameterMappings={step.tool.outputMappings || {}}
+                            outputMappings={step.outputMappings || {}}
                             stateManager={stateManager}
-                            onChange={handleOutputChange}
+                            onChange={handleOutputMappingChange}
                         />
                     </div>
                 </>

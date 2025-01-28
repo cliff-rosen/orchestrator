@@ -32,7 +32,5 @@ export interface Tool {
     name: string;
     description: string;
     signature: ToolSignature;
-    parameterMappings?: ParameterMappingType;
-    outputMappings?: OutputMappingType;
     promptTemplate?: string;  // ID of the selected prompt template
 } 

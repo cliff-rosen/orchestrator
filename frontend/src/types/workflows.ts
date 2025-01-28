@@ -32,6 +32,8 @@ export interface WorkflowStep {
     description: string;
     stepType: WorkflowStepType;
     tool?: Tool;
+    parameterMappings?: Record<string, string>;
+    outputMappings?: Record<string, string>;
 }
 
 export interface Workflow {
@@ -40,14 +42,9 @@ export interface Workflow {
     description: string;
     status: WorkflowStatus;
     path: string;
-    inputs: any[];
-    outputs: any[];
-    steps: {
-        id: string;
-        label: string;
-        description: string;
-        stepType: WorkflowStepType;
-    }[];
+    inputs: WorkflowVariable[];
+    outputs: WorkflowVariable[];
+    steps: WorkflowStep[];
 }
 
 /* 

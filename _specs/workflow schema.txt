@@ -1,0 +1,68 @@
+export interface WorkflowStep {
+    id: string;
+    label: string;
+    description: string;
+    stepType: WorkflowStepType;
+    tool?: Tool;
+}
+
+export interface Workflow {
+    id: string;
+    name: string;
+    description: string;
+    status: WorkflowStatus;
+    path: string;
+    inputs: WorkflowVariable[];
+    outputs: WorkflowVariable[];
+    steps: WorkflowStep[];
+}
+
+export interface WorkflowVariable {
+    id: string;
+    name: string;
+    description: string;
+    schema: SchemaValue;
+}
+
+export interface ToolParameter {
+    name: string;
+    type: 'string' | 'number' | 'boolean' | 'string[]';
+    description?: string;
+}
+
+==============================
+
+a workflow contains
+- inputs as a list of WorkflowVariables
+- outputs as a list of WorkflowVariables
+- a list of steps as a list of WorkflowSteps
+
+each step contains a tool
+each tool has
+- signature: ToolSignature;
+- parameterMappings?: ParameterMappingType;
+- outputMappings?: OutputMappingType;
+
+at runtime, the workflow has a state
+- state is a list of WorkflowVariables
+- state is initialized with the inputs
+
+the ToolSignature is a list of ToolParameters
+
+
+At design time:
+1. A tool is selected
+2. The tools signature is checked for required parameters
+3. The parameters are mapped from the state to the parameters
+4. The tools outputs are mapped from the parameters to the state
+
+When the workflow is run:
+1. The inputs are gathered from the user and added to the state
+2. The steps are executed in order
+3. The outputs are added to the state
+
+
+
+
+
+
