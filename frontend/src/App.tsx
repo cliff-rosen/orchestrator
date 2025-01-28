@@ -9,14 +9,6 @@ import WorkflowsManager from './components/WorkflowsManager';
 import Workflow from './components/Workflow';
 import { WorkflowProvider, useWorkflows } from './context/WorkflowContext';
 
-// Helper component to get current workflow
-const CurrentWorkflow = () => {
-  const { workflowId } = useParams();
-  const { workflows } = useWorkflows();
-  const workflow = workflows.find(w => w.id === workflowId);
-  if (!workflow) return <Navigate to="/" replace />;
-  return <Workflow workflow={workflow} />;
-};
 
 // Main app content when authenticated
 const AuthenticatedApp = () => {
@@ -46,7 +38,7 @@ const AuthenticatedApp = () => {
           <div className="flex-1">
             <Routes>
               <Route path="/" element={<WorkflowsManager />} />
-              <Route path="/workflow/:workflowId/*" element={<CurrentWorkflow />} />
+              <Route path="/workflow/:workflowId/*" element={<Workflow />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

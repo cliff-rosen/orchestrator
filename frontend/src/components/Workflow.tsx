@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Workflow as WorkflowType, WorkflowStep, WorkflowVariable, WorkflowStepType, RuntimeWorkflowStep, Tool } from '../types';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Tool } from '../types/tools';
+import { WorkflowStep, WorkflowVariable, WorkflowStepType, RuntimeWorkflowStep } from '../types/workflows';
 import { ResolvedParameters, ToolParameterName, ToolOutputName } from '../types/tools';
-import { useSchemaDictionary } from '../hooks/schema';
+import { useSchemaDictionary } from '../hooks/schema/useSchemaDictionary';
 import { SchemaManager } from '../hooks/schema/types';
 import WorkflowConfig from './WorkflowConfig';
-import { toolApi } from '../lib/api';
+import { toolApi, workflowApi } from '../lib/api';
 import StepDetail from './StepDetail';
+import { useWorkflows } from '../context/WorkflowContext';
 
-interface WorkflowProps {
-    workflow: WorkflowType;
-}
-
-const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
+const Workflow: React.FC = () => {
+    const { workflowId } = useParams();
     const navigate = useNavigate();
+    const { setCurrentWorkflow, updateCurrentWorkflow, currentWorkflow, hasUnsavedChanges, saveWorkflow, createWorkflow } = useWorkflows();
     const [activeStep, setActiveStep] = useState(0);
-    const [localWorkflow, setLocalWorkflow] = useState<WorkflowType | null>(null);
     const [tools, setTools] = useState<Tool[]>([]);
     const stateManager: SchemaManager = useSchemaDictionary();
     const [stepExecuted, setStepExecuted] = useState(false);
@@ -23,6 +22,67 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
     const [showConfig, setShowConfig] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(true);
+
+    // Initialize workflow based on URL parameter
+    useEffect(() => {
+        const initializeWorkflow = async () => {
+            if (!workflowId) {
+                navigate('/');
+                return;
+            }
+
+            try {
+                if (workflowId === 'new') {
+                    createWorkflow();
+                } else {
+                    const response = await workflowApi.getWorkflow(workflowId);
+                    // Convert workflow_id to id for frontend
+                    const workflow = {
+                        ...response,
+                        id: response.workflow_id
+                    };
+                    setCurrentWorkflow(workflow);
+                }
+            } catch (err) {
+                console.error('Error initializing workflow:', err);
+                setError('Failed to load workflow');
+                navigate('/');
+            }
+        };
+
+        initializeWorkflow();
+    }, [workflowId, navigate, setCurrentWorkflow, createWorkflow]);
+
+    // Initialize schema manager when workflow changes
+    useEffect(() => {
+        if (!currentWorkflow) return;
+
+        // Sync workflow variables with schema manager
+        if (currentWorkflow.inputs?.length > 0) {
+            currentWorkflow.inputs.forEach(input => {
+                stateManager.setSchema(input.name, input.schema, 'input');
+            });
+        }
+
+        if (currentWorkflow.outputs?.length > 0) {
+            currentWorkflow.outputs.forEach(output => {
+                stateManager.setSchema(output.name, output.schema, 'output');
+            });
+        }
+    }, [currentWorkflow, stateManager]);
+
+    // Prompt user before leaving if there are unsaved changes
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasUnsavedChanges]);
 
     // Fetch available tools
     useEffect(() => {
@@ -39,71 +99,49 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
         fetchTools();
     }, []);
 
-    // Initialize local workflow and schemas
-    useEffect(() => {
-        // console.log('localWorkflow', localWorkflow);
-        // console.log('stateManager.schemas', stateManager.schemas);
-        // console.log('stateManager.values', stateManager.values);
-        if (!localWorkflow && initialWorkflow) {
-            setLocalWorkflow(initialWorkflow);
-
-            // Sync initial workflow variables with schema manager
-            if (initialWorkflow.inputs?.length > 0) {
-                initialWorkflow.inputs.forEach(input => {
-                    stateManager.setSchema(input.name, input.schema, 'input');
-                });
-            }
-
-            if (initialWorkflow.outputs?.length > 0) {
-                initialWorkflow.outputs.forEach(output => {
-                    stateManager.setSchema(output.name, output.schema, 'output');
-                });
-            }
-        };
-    }, [initialWorkflow, localWorkflow, stateManager]);
-
-    const workflow = localWorkflow || initialWorkflow;
-
-    // Redirect to home if workflow not found
-    useEffect(() => {
-        if (!workflow) {
-            navigate('/');
-        }
-    }, [workflow, navigate]);
-
     // Reset stepExecuted when active step changes
     useEffect(() => {
         setStepExecuted(false);
     }, [activeStep]);
 
-    if (!workflow) {
-        return null;
-    }
+    // Handle saving workflow
+    const handleSave = async () => {
+        try {
+            setIsLoading(true);
+            await saveWorkflow();
+            // After saving, if this was a new workflow, update the URL with the new ID
+            if (workflowId === 'new' && currentWorkflow?.id) {
+                navigate(`/workflow/${currentWorkflow.id}`, { replace: true });
+            }
+        } catch (err) {
+            console.error('Error saving workflow:', err);
+            setError('Failed to save workflow');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleAddStep = () => {
-        if (!localWorkflow) return;
+        if (!currentWorkflow) return;
 
         const newStep: WorkflowStep = {
-            id: `step-${localWorkflow.steps.length + 1}`,
-            label: `Step ${localWorkflow.steps.length + 1}`,
+            id: `step-${currentWorkflow.steps.length + 1}`,
+            label: `Step ${currentWorkflow.steps.length + 1}`,
             description: 'New step description',
             stepType: WorkflowStepType.ACTION
         };
 
-        setLocalWorkflow({
-            ...localWorkflow,
-            steps: [...localWorkflow.steps, newStep]
+        updateCurrentWorkflow({
+            steps: [...currentWorkflow.steps, newStep]
         });
         setActiveStep(workflowSteps.length);
     };
 
     const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {
-        console.log('handleStepUpdate', step);
-        if (!localWorkflow) return;
+        if (!currentWorkflow) return;
 
-        setLocalWorkflow({
-            ...localWorkflow,
-            steps: localWorkflow.steps.map(s => s.id === step.id ? step : s)
+        updateCurrentWorkflow({
+            steps: currentWorkflow.steps.map(s => s.id === step.id ? step : s)
         });
     };
 
@@ -197,13 +235,10 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
     };
 
     const handleInputChange = (inputs: WorkflowVariable[]) => {
-        if (!localWorkflow) return;
+        if (!currentWorkflow) return;
 
-        // Update local workflow state
-        setLocalWorkflow({
-            ...localWorkflow,
-            inputs
-        });
+        // Update workflow state
+        updateCurrentWorkflow({ inputs });
 
         // Sync with schema manager
         const currentSchemas = stateManager.schemas;
@@ -224,13 +259,10 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
     };
 
     const handleOutputChange = (outputs: WorkflowVariable[]) => {
-        if (!localWorkflow) return;
+        if (!currentWorkflow) return;
 
-        // Update local workflow state
-        setLocalWorkflow({
-            ...localWorkflow,
-            outputs
-        });
+        // Update workflow state
+        updateCurrentWorkflow({ outputs });
 
         // Sync with schema manager
         const currentSchemas = stateManager.schemas;
@@ -250,8 +282,10 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
         });
     };
 
+    if (!currentWorkflow) return null;
+
     // Convert workflow steps to RuntimeWorkflowStep interface
-    const workflowSteps: RuntimeWorkflowStep[] = workflow.steps.map(step => ({
+    const workflowSteps: RuntimeWorkflowStep[] = currentWorkflow.steps.map(step => ({
         ...step,
         action: handleExecuteTool,
         actionButtonText: () => stepExecuted ? 'Next Step' : 'Execute Tool',
@@ -287,7 +321,17 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                     <div className="flex items-center space-x-4">
                         {/* Back to Workflows Button */}
                         <button
-                            onClick={() => navigate('/')}
+                            onClick={() => {
+                                if (hasUnsavedChanges) {
+                                    if (window.confirm('You have unsaved changes. Do you want to save before leaving?')) {
+                                        handleSave().then(() => navigate('/'));
+                                    } else {
+                                        navigate('/');
+                                    }
+                                } else {
+                                    navigate('/');
+                                }
+                            }}
                             className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                         >
                             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -296,25 +340,25 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                             Back to Workflows
                         </button>
                         <span className="text-gray-600 dark:text-gray-300">
-                            {workflow.name}
+                            {currentWorkflow.name || 'Untitled Workflow'}
+                            {hasUnsavedChanges && ' *'}
                         </span>
                     </div>
 
                     <div className="flex items-center space-x-4">
-                        {/* Schema Toggle Button */}
+                        {/* Save Button */}
                         <button
-                            onClick={() => setShowConfig(!showConfig)}
-                            className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors
-                                ${showConfig
-                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-                                }`}
+                            onClick={handleSave}
+                            disabled={!hasUnsavedChanges || isLoading}
+                            className={`px-4 py-2 rounded-lg ${!hasUnsavedChanges || isLoading
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-green-600 text-white hover:bg-green-700'
+                                } transition-colors flex items-center space-x-2`}
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                             </svg>
-                            <span>Schema</span>
+                            <span>{isLoading ? 'Saving...' : 'Save'}</span>
                         </button>
 
                         {/* Mode Toggle Button */}
@@ -423,8 +467,8 @@ const Workflow: React.FC<WorkflowProps> = ({ workflow: initialWorkflow }) => {
                     <div className="flex-1">
                         {showConfig ? (
                             <WorkflowConfig
-                                inputs={workflow.inputs}
-                                outputs={workflow.outputs}
+                                inputs={currentWorkflow.inputs}
+                                outputs={currentWorkflow.outputs}
                                 onInputChange={handleInputChange}
                                 onOutputChange={handleOutputChange}
                             />

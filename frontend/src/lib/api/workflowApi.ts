@@ -1,8 +1,5 @@
 import { api, handleApiError } from './index';
 import { Workflow } from '../../types/workflows';
-import { StreamUpdate } from './streamUtils';
-import { makeStreamRequest } from './streamUtils';
-import { WORKFLOWS } from '../../data';
 
 export interface WorkflowExecutionState {
     workflowId: string;
@@ -14,17 +11,64 @@ export interface WorkflowExecutionState {
 
 export const workflowApi = {
     getWorkflows: async (): Promise<Workflow[]> => {
-        // Return hardcoded workflows for now
-        return Promise.resolve([...WORKFLOWS]);
+        try {
+            const response = await api.get('/api/workflows');
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
     },
 
     getWorkflow: async (workflowId: string): Promise<Workflow> => {
-        // Find workflow in hardcoded data
-        const workflow = WORKFLOWS.find(w => w.id === workflowId);
-        if (!workflow) {
-            throw new Error(`Workflow not found: ${workflowId}`);
+        try {
+            const response = await api.get(`/api/workflows/${workflowId}`);
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
         }
-        return Promise.resolve(workflow);
     },
 
+    createWorkflow: async (workflow: Omit<Workflow, 'id'>): Promise<Workflow> => {
+        try {
+            const response = await api.post('/api/workflows', workflow);
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
+    updateWorkflow: async (workflowId: string, workflow: Partial<Workflow>): Promise<Workflow> => {
+        try {
+            const response = await api.put(`/api/workflows/${workflowId}`, workflow);
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
+    deleteWorkflow: async (workflowId: string): Promise<void> => {
+        try {
+            await api.delete(`/api/workflows/${workflowId}`);
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
+    addWorkflowStep: async (workflowId: string, step: any): Promise<any> => {
+        try {
+            const response = await api.post(`/api/workflows/${workflowId}/steps`, step);
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
+    executeWorkflow: async (workflowId: string, executionData: any): Promise<any> => {
+        try {
+            const response = await api.post(`/api/workflows/${workflowId}/execute`, executionData);
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    }
 }; 

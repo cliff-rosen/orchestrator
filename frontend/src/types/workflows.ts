@@ -41,7 +41,6 @@ export interface Workflow {
     name: string;
     description: string;
     status: WorkflowStatus;
-    path: string;
     inputs: WorkflowVariable[];
     outputs: WorkflowVariable[];
     steps: WorkflowStep[];
