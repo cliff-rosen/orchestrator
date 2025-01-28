@@ -19,8 +19,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     }
 
     // Get input and output variable names from parameter and output mappings
-    const inputVarNames = actionStep.tool.parameterMappings ? Object.values(actionStep.tool.parameterMappings) : [];
-    const outputVarNames = actionStep.tool.outputMappings ? Object.values(actionStep.tool.outputMappings) : [];
+    const inputVarNames = actionStep.parameterMappings ? Object.values(actionStep.parameterMappings) : [];
+    const outputVarNames = actionStep.outputMappings ? Object.values(actionStep.outputMappings) : [];
 
     // Get current values for input and output variables
     const inputValues = inputVarNames.reduce((acc, varName) => {
@@ -55,7 +55,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                             Parameter Mappings
                         </h5>
                         <div className="space-y-2">
-                            {actionStep.tool.parameterMappings && Object.entries(actionStep.tool.parameterMappings).map(([paramName, varName]) => (
+                            {actionStep.parameterMappings && Object.entries(actionStep.parameterMappings).map(([paramName, varName]) => (
                                 <div key={paramName} className="flex justify-between items-center text-sm">
                                     <span className="font-medium text-gray-700 dark:text-gray-300">{paramName}:</span>
                                     <span className="text-gray-600 dark:text-gray-400 font-mono">{String(varName)}</span>
@@ -93,7 +93,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                             Output Mappings
                         </h5>
                         <div className="space-y-2">
-                            {actionStep.tool.outputMappings && Object.entries(actionStep.tool.outputMappings).map(([outputName, varName]) => (
+                            {actionStep.outputMappings && Object.entries(actionStep.outputMappings).map(([outputName, varName]) => (
                                 <div key={outputName} className="flex justify-between items-center text-sm">
                                     <span className="font-medium text-gray-700 dark:text-gray-300">{outputName}:</span>
                                     <span className="text-gray-600 dark:text-gray-400 font-mono">{String(varName)}</span>
