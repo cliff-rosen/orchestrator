@@ -39,13 +39,18 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const createWorkflow = useCallback(() => {
         const newWorkflow: Workflow = {
-            workflow_id: '', // Changed from id to workflow_id
+            workflow_id: 'new',
             name: 'Untitled Workflow',
             description: 'A new custom workflow',
             status: WorkflowStatus.DRAFT,
             inputs: [],
             outputs: [],
-            steps: [{ id: 'new', label: 'New Step Label', description: 'New Step Description', stepType: WorkflowStepType.ACTION }]
+            steps: [{
+                id: `step-1`,
+                label: 'Step 1',
+                description: 'Configure this step by selecting a tool and setting up its parameters',
+                stepType: WorkflowStepType.ACTION
+            }]
         };
         setCurrentWorkflow(newWorkflow);
         setHasUnsavedChanges(true);
@@ -56,18 +61,18 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         try {
             let savedWorkflow: Workflow;
-            if (currentWorkflow.id === 'new') {
+            if (currentWorkflow.workflow_id === 'new') {
                 // Create new workflow
-                const { id, ...workflowData } = currentWorkflow;
+                const { workflow_id, ...workflowData } = currentWorkflow;
                 savedWorkflow = await workflowApi.createWorkflow(workflowData);
                 // Update workflows list with new workflow
                 setWorkflows(prev => [...prev, savedWorkflow]);
             } else {
                 // Update existing workflow
-                savedWorkflow = await workflowApi.updateWorkflow(currentWorkflow.id, currentWorkflow);
+                savedWorkflow = await workflowApi.updateWorkflow(currentWorkflow.workflow_id, currentWorkflow);
                 // Update workflows list with updated workflow
                 setWorkflows(prev =>
-                    prev.map(w => w.id === savedWorkflow.id ? savedWorkflow : w)
+                    prev.map(w => w.workflow_id === savedWorkflow.workflow_id ? savedWorkflow : w)
                 );
             }
             // Update current workflow with saved version

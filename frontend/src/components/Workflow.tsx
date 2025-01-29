@@ -109,10 +109,12 @@ const Workflow: React.FC = () => {
     const handleSave = async () => {
         try {
             setIsLoading(true);
+            console.log('saved workflowm before save', currentWorkflow);
             await saveWorkflow();
             // After saving, if this was a new workflow, update the URL with the new ID
-            if (workflowId === 'new' && currentWorkflow?.id) {
-                navigate(`/workflow/${currentWorkflow.id}`, { replace: true });
+            console.log('saved workflow after savefs', currentWorkflow);
+            if (workflowId === 'new' && currentWorkflow?.workflow_id) {
+                navigate(`/workflow/${currentWorkflow.workflow_id}`, { replace: true });
             }
         } catch (err) {
             console.error('Error saving workflow:', err);
@@ -128,7 +130,7 @@ const Workflow: React.FC = () => {
         const newStep: WorkflowStep = {
             id: `step-${currentWorkflow.steps.length + 1}`,
             label: `Step ${currentWorkflow.steps.length + 1}`,
-            description: 'New step description',
+            description: 'Configure this step by selecting a tool and setting up its parameters',
             stepType: WorkflowStepType.ACTION
         };
 
@@ -313,7 +315,7 @@ const Workflow: React.FC = () => {
         console.log('currentStep does not exist');
         // Reset to first step if current step doesn't exist
         // setActiveStep(0);
-        return null;
+        // return null;
     }
 
     return (
@@ -324,11 +326,22 @@ const Workflow: React.FC = () => {
                     <div className="flex items-center space-x-4">
                         {/* Back to Workflows Button */}
                         <button
-                            onClick={() => {
+                            onClick={async () => {
                                 if (hasUnsavedChanges) {
-                                    if (window.confirm('You have unsaved changes. Do you want to save before leaving?')) {
-                                        handleSave().then(() => navigate('/'));
+                                    const shouldSave = window.confirm('You have unsaved changes. Do you want to save before leaving?');
+                                    if (shouldSave) {
+                                        try {
+                                            await handleSave();
+                                            navigate('/');
+                                        } catch (err) {
+                                            console.error('Error saving workflow:', err);
+                                            // If save fails, ask if they want to leave anyway
+                                            if (window.confirm('Failed to save changes. Leave anyway?')) {
+                                                navigate('/');
+                                            }
+                                        }
                                     } else {
+                                        // User chose not to save, just exit
                                         navigate('/');
                                     }
                                 } else {
@@ -342,10 +355,24 @@ const Workflow: React.FC = () => {
                             </svg>
                             Back to Workflows
                         </button>
-                        <span className="text-gray-600 dark:text-gray-300">
-                            {currentWorkflow.name || 'Untitled Workflow'}
-                            {hasUnsavedChanges && ' *'}
-                        </span>
+                        {isEditMode ? (
+                            <input
+                                type="text"
+                                value={currentWorkflow.name}
+                                onChange={(e) => updateCurrentWorkflow({ name: e.target.value })}
+                                placeholder="Enter workflow name"
+                                className="px-3 py-1 border border-gray-300 dark:border-gray-600 
+                                         rounded-md bg-white dark:bg-gray-700 
+                                         text-gray-900 dark:text-gray-100
+                                         focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                                         min-w-[200px]"
+                            />
+                        ) : (
+                            <span className="text-gray-600 dark:text-gray-300">
+                                {currentWorkflow.name || 'Untitled Workflow'}
+                                {hasUnsavedChanges && ' *'}
+                            </span>
+                        )}
                     </div>
 
                     <div className="flex items-center space-x-4">
@@ -486,8 +513,8 @@ const Workflow: React.FC = () => {
                     <div className="flex-1">
                         {showConfig ? (
                             <WorkflowConfig
-                                inputs={currentWorkflow.inputs}
-                                outputs={currentWorkflow.outputs}
+                                inputs={currentWorkflow.inputs || []}
+                                outputs={currentWorkflow.outputs || []}
                                 onInputChange={handleInputChange}
                                 onOutputChange={handleOutputChange}
                             />
