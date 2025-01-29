@@ -45,7 +45,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             status: WorkflowStatus.DRAFT,
             inputs: [],
             outputs: [],
-            steps: []
+            steps: [{ id: 'new', label: 'New Step Label', description: 'New Step Description', stepType: WorkflowStepType.ACTION }]
         };
         setCurrentWorkflow(newWorkflow);
         setHasUnsavedChanges(true);
