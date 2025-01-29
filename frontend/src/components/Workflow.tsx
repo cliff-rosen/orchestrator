@@ -23,8 +23,10 @@ const Workflow: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(true);
 
+    console.log('entered workflow');
     // Initialize workflow based on URL parameter
     useEffect(() => {
+        console.log('Initializing workflow with ID:', workflowId);
         const initializeWorkflow = async () => {
             if (!workflowId) {
                 navigate('/');
@@ -35,12 +37,7 @@ const Workflow: React.FC = () => {
                 if (workflowId === 'new') {
                     createWorkflow();
                 } else {
-                    const response = await workflowApi.getWorkflow(workflowId);
-                    // Convert workflow_id to id for frontend
-                    const workflow = {
-                        ...response,
-                        id: response.workflow_id
-                    };
+                    const workflow = await workflowApi.getWorkflow(workflowId);
                     setCurrentWorkflow(workflow);
                 }
             } catch (err) {
@@ -51,10 +48,11 @@ const Workflow: React.FC = () => {
         };
 
         initializeWorkflow();
-    }, [workflowId, navigate, setCurrentWorkflow, createWorkflow]);
+    }, [workflowId]);
 
     // Initialize schema manager when workflow changes
     useEffect(() => {
+        console.log('Initializing schema manager with workflow:', currentWorkflow);
         if (!currentWorkflow) return;
 
         // Sync workflow variables with schema manager
@@ -73,6 +71,7 @@ const Workflow: React.FC = () => {
 
     // Prompt user before leaving if there are unsaved changes
     useEffect(() => {
+        console.log('hasUnsavedChanges', hasUnsavedChanges);
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if (hasUnsavedChanges) {
                 e.preventDefault();
@@ -86,6 +85,7 @@ const Workflow: React.FC = () => {
 
     // Fetch available tools
     useEffect(() => {
+        console.log('fetching tools');
         const fetchTools = async () => {
             try {
                 const availableTools = await toolApi.getAvailableTools();
@@ -101,6 +101,7 @@ const Workflow: React.FC = () => {
 
     // Reset stepExecuted when active step changes
     useEffect(() => {
+        console.log('resetting stepExecuted');
         setStepExecuted(false);
     }, [activeStep]);
 
@@ -283,6 +284,7 @@ const Workflow: React.FC = () => {
     };
 
     if (!currentWorkflow) return null;
+    console.log('currentWorkflow', currentWorkflow);
 
     // Convert workflow steps to RuntimeWorkflowStep interface
     const workflowSteps: RuntimeWorkflowStep[] = currentWorkflow.steps.map(step => ({
@@ -308,8 +310,9 @@ const Workflow: React.FC = () => {
     // Get current step
     const currentStep = allSteps[activeStep];
     if (!currentStep) {
+        console.log('currentStep does not exist');
         // Reset to first step if current step doesn't exist
-        setActiveStep(0);
+        // setActiveStep(0);
         return null;
     }
 
@@ -359,6 +362,22 @@ const Workflow: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                             </svg>
                             <span>{isLoading ? 'Saving...' : 'Save'}</span>
+                        </button>
+
+                        {/* Schema Toggle Button */}
+                        <button
+                            onClick={() => setShowConfig(!showConfig)}
+                            className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors
+                                ${showConfig
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                }`}
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>Schema</span>
                         </button>
 
                         {/* Mode Toggle Button */}

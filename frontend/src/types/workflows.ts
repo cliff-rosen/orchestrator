@@ -37,12 +37,12 @@ export interface WorkflowStep {
 }
 
 export interface Workflow {
-    id: string;
+    workflow_id: string;
     name: string;
-    description: string;
+    description?: string;
     status: WorkflowStatus;
-    inputs: WorkflowVariable[];
-    outputs: WorkflowVariable[];
+    inputs?: WorkflowVariable[];
+    outputs?: WorkflowVariable[];
     steps: WorkflowStep[];
 }
 

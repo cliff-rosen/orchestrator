@@ -57,8 +57,8 @@ const WorkflowsManager: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {workflows.map((workflow) => (
                         <div
-                            key={workflow.id}
-                            onClick={() => navigate(`/workflow/${workflow.id}`)}
+                            key={workflow.workflow_id}
+                            onClick={() => navigate(`/workflow/${workflow.workflow_id}`)}
                             className="bg-white dark:bg-gray-800/50 rounded-lg shadow-lg p-6 
                                      border border-gray-200 dark:border-gray-700
                                      hover:border-blue-500 dark:hover:border-blue-400

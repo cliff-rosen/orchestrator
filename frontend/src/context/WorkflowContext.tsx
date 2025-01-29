@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Workflow, WorkflowStepType, WorkflowStatus } from '../types';
 import { workflowApi } from '../lib/api';
 
@@ -37,92 +37,55 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     };
 
-    const createWorkflow = () => {
-        // Create a new workflow in memory only (not saved to backend)
+    const createWorkflow = useCallback(() => {
         const newWorkflow: Workflow = {
-            id: '', // Empty ID since it's not saved yet
+            workflow_id: '', // Changed from id to workflow_id
             name: 'Untitled Workflow',
             description: 'A new custom workflow',
             status: WorkflowStatus.DRAFT,
             inputs: [],
             outputs: [],
-            steps: [
-                {
-                    id: 'step-1',
-                    label: 'Step 1',
-                    description: 'Step 1 description',
-                    stepType: WorkflowStepType.ACTION,
-                }
-            ]
+            steps: []
         };
-
         setCurrentWorkflow(newWorkflow);
         setHasUnsavedChanges(true);
-    };
+    }, []);
 
-    const updateCurrentWorkflow = (updates: Partial<Workflow>) => {
-        if (!currentWorkflow) return;
-
-        setCurrentWorkflow(prev => ({
-            ...prev!,
-            ...updates
-        }));
-        setHasUnsavedChanges(true);
-    };
-
-    const saveWorkflow = async () => {
+    const saveWorkflow = useCallback(async () => {
         if (!currentWorkflow) return;
 
         try {
-            setLoading(true);
             let savedWorkflow: Workflow;
-
-            if (!currentWorkflow.id) {
-                // This is a new workflow that hasn't been saved yet
-                const { id, ...workflowWithoutId } = currentWorkflow;
-                const response = await workflowApi.createWorkflow(workflowWithoutId);
-                // Convert workflow_id to id for frontend
-                savedWorkflow = {
-                    ...response,
-                    id: response.workflow_id
-                };
+            if (currentWorkflow.id === 'new') {
+                // Create new workflow
+                const { id, ...workflowData } = currentWorkflow;
+                savedWorkflow = await workflowApi.createWorkflow(workflowData);
+                // Update workflows list with new workflow
+                setWorkflows(prev => [...prev, savedWorkflow]);
             } else {
-                // This is an existing workflow being updated
-                const response = await workflowApi.updateWorkflow(currentWorkflow.id, currentWorkflow);
-                // Convert workflow_id to id for frontend
-                savedWorkflow = {
-                    ...response,
-                    id: response.workflow_id
-                };
+                // Update existing workflow
+                savedWorkflow = await workflowApi.updateWorkflow(currentWorkflow.id, currentWorkflow);
+                // Update workflows list with updated workflow
+                setWorkflows(prev =>
+                    prev.map(w => w.id === savedWorkflow.id ? savedWorkflow : w)
+                );
             }
-
-            // Update workflows list
-            setWorkflows(prevWorkflows => {
-                const index = prevWorkflows.findIndex(w => w.id === currentWorkflow.id);
-                if (index >= 0) {
-                    // Replace existing workflow
-                    return [
-                        ...prevWorkflows.slice(0, index),
-                        savedWorkflow,
-                        ...prevWorkflows.slice(index + 1)
-                    ];
-                } else {
-                    // Add new workflow
-                    return [...prevWorkflows, savedWorkflow];
-                }
-            });
-
             // Update current workflow with saved version
             setCurrentWorkflow(savedWorkflow);
             setHasUnsavedChanges(false);
-        } catch (err) {
-            setError('Failed to save workflow');
-            console.error('Error saving workflow:', err);
-            throw err;
-        } finally {
-            setLoading(false);
+        } catch (error) {
+            console.error('Error saving workflow:', error);
+            throw error;
         }
-    };
+    }, [currentWorkflow]);
+
+    const updateCurrentWorkflow = useCallback((updates: Partial<Workflow>) => {
+        setCurrentWorkflow(prev => {
+            if (!prev) return prev;
+            return { ...prev, ...updates };
+        });
+        setHasUnsavedChanges(true);
+    }, []);
 
     useEffect(() => {
         refreshWorkflows();
