@@ -39,7 +39,32 @@ export const workflowApi = {
 
     updateWorkflow: async (workflowId: string, workflow: Partial<Workflow>): Promise<Workflow> => {
         try {
-            const response = await api.put(`/api/workflows/${workflowId}`, workflow);
+            // Transform the workflow data to match backend schema
+            const transformedWorkflow = {
+                name: workflow.name,
+                description: workflow.description,
+                status: workflow.status,
+                steps: workflow.steps?.map(step => ({
+                    label: step.label,
+                    description: step.description,
+                    step_type: step.stepType,
+                    tool_id: step.tool?.id,
+                    parameters: step.parameterMappings || {},
+                    outputs: step.outputMappings || {},
+                })),
+                inputs: workflow.inputs?.map(input => ({
+                    name: input.name,
+                    description: input.description,
+                    schema: input.schema,
+                })),
+                outputs: workflow.outputs?.map(output => ({
+                    name: output.name,
+                    description: output.description,
+                    schema: output.schema,
+                })),
+            };
+
+            const response = await api.put(`/api/workflows/${workflowId}`, transformedWorkflow);
             return response.data;
         } catch (error) {
             throw handleApiError(error);
