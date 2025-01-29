@@ -297,6 +297,9 @@ class WorkflowUpdate(BaseModel):
     name: Optional[str] = Field(None, description="New name for the workflow")
     description: Optional[str] = Field(None, description="New description for the workflow")
     status: Optional[str] = Field(None, description="New status for the workflow")
+    steps: Optional[List[WorkflowStepCreate]] = Field(None, description="Updated steps for the workflow")
+    inputs: Optional[List[WorkflowVariableCreate]] = Field(None, description="Updated input variables for the workflow")
+    outputs: Optional[List[WorkflowVariableCreate]] = Field(None, description="Updated output variables for the workflow")
 
 class WorkflowResponse(WorkflowBase):
     """Schema for workflow responses"""

@@ -37,8 +37,10 @@ const Workflow: React.FC = () => {
                 if (workflowId === 'new') {
                     createWorkflow();
                 } else {
+                    setIsLoading(true);
                     const workflow = await workflowApi.getWorkflow(workflowId);
                     setCurrentWorkflow(workflow);
+                    setIsLoading(false);
                 }
             } catch (err) {
                 console.error('Error initializing workflow:', err);
@@ -316,6 +318,10 @@ const Workflow: React.FC = () => {
         // Reset to first step if current step doesn't exist
         // setActiveStep(0);
         // return null;
+    }
+
+    if (isLoading) {
+        return <div className="flex flex-col h-full">Loading...</div>;
     }
 
     return (

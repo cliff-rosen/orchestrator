@@ -60,16 +60,66 @@ class WorkflowService:
         """Update a workflow."""
         workflow = self.get_workflow(workflow_id, user_id)
         
-        update_data = workflow_data.dict(exclude_unset=True)
-        for key, value in update_data.items():
-            setattr(workflow, key, value)
-        
-        workflow.updated_at = datetime.utcnow()
-        
         try:
+            # Begin transaction
+            update_data = workflow_data.dict(exclude_unset=True)
+            
+            # Update basic workflow properties
+            basic_props = {k: v for k, v in update_data.items() 
+                         if k not in ['steps', 'inputs', 'outputs']}
+            for key, value in basic_props.items():
+                setattr(workflow, key, value)
+            
+            # Update steps if provided
+            if 'steps' in update_data:
+                # Delete existing steps
+                self.db.query(WorkflowStep).filter(
+                    WorkflowStep.workflow_id == workflow_id
+                ).delete()
+                
+                # Create new steps
+                for step_data in update_data['steps']:
+                    step = WorkflowStep(
+                        step_id=str(uuid4()),
+                        workflow_id=workflow_id,
+                        **step_data.dict()
+                    )
+                    self.db.add(step)
+            
+            # Update variables if provided
+            if 'inputs' in update_data or 'outputs' in update_data:
+                # Delete existing variables
+                self.db.query(WorkflowVariable).filter(
+                    WorkflowVariable.workflow_id == workflow_id
+                ).delete()
+                
+                # Create new input variables
+                if 'inputs' in update_data:
+                    for var_data in update_data['inputs']:
+                        var = WorkflowVariable(
+                            variable_id=str(uuid4()),
+                            workflow_id=workflow_id,
+                            variable_type='input',
+                            **var_data.dict()
+                        )
+                        self.db.add(var)
+                
+                # Create new output variables
+                if 'outputs' in update_data:
+                    for var_data in update_data['outputs']:
+                        var = WorkflowVariable(
+                            variable_id=str(uuid4()),
+                            workflow_id=workflow_id,
+                            variable_type='output',
+                            **var_data.dict()
+                        )
+                        self.db.add(var)
+            
+            workflow.updated_at = datetime.utcnow()
             self.db.commit()
             self.db.refresh(workflow)
             return workflow
+            
         except SQLAlchemyError as e:
             self.db.rollback()
             raise WorkflowExecutionError(str(e), workflow_id)
