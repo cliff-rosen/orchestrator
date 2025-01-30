@@ -19,6 +19,7 @@ import WorkflowConfig from './WorkflowConfig';
 import MenuBar from './MenuBar';
 import WorkflowStepsList from './WorkflowStepsList';
 import StepDetail from './StepDetail';
+import WorkflowNavigation from './WorkflowNavigation';
 
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
@@ -388,52 +389,18 @@ const Workflow: React.FC = () => {
                                     />
                                 </div>
 
-                                {/* Navigation - Only show in run mode */}
-                                {!isEditMode && (
-                                    <div className="mt-4 flex justify-between">
-                                        <button
-                                            onClick={handleBack}
-                                            disabled={activeStep === 0}
-                                            className={`px-4 py-2 rounded-lg ${activeStep === 0
-                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                                : 'bg-blue-600 text-white hover:bg-blue-700'
-                                                }`}
-                                        >
-                                            Back
-                                        </button>
-                                        <div className="flex gap-2">
-                                            {currentStep.stepType === 'ACTION' && (
-                                                <button
-                                                    onClick={handleExecuteTool}
-                                                    disabled={isLoading || stepExecuted}
-                                                    className={`px-4 py-2 rounded-lg ${isLoading || stepExecuted
-                                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                                                        }`}
-                                                >
-                                                    {isLoading ? 'Processing...' : 'Execute Tool'}
-                                                </button>
-                                            )}
-                                            {(currentStep.stepType === 'INPUT' || stepExecuted) && (
-                                                activeStep === allSteps.length - 1 ? (
-                                                    <button
-                                                        onClick={handleNewQuestion}
-                                                        className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
-                                                    >
-                                                        Restart Flow
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={handleNext}
-                                                        className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
-                                                    >
-                                                        Next Step
-                                                    </button>
-                                                )
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
+                                <WorkflowNavigation
+                                    isEditMode={isEditMode}
+                                    activeStep={activeStep}
+                                    totalSteps={allSteps.length}
+                                    stepType={currentStep?.stepType || WorkflowStepType.ACTION}
+                                    isLoading={isLoading}
+                                    stepExecuted={stepExecuted}
+                                    onBack={handleBack}
+                                    onNext={handleNext}
+                                    onExecute={handleExecuteTool}
+                                    onRestart={handleNewQuestion}
+                                />
                             </>
                         )}
                     </div>

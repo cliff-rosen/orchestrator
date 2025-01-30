@@ -1,3 +1,5 @@
+import { Workflow, WorkflowStatus, WorkflowStepType } from "../frontend/src/types/workflows";
+
 const exampleWorkflow: Workflow = {
   workflow_id: "doc_search_workflow",
   name: "Document Search",
@@ -6,13 +8,13 @@ const exampleWorkflow: Workflow = {
     id: "query",
     name: "Search Query",
     description: "What to search for",
-    schema: { type: "string" }
+    schema: { name: "query", type: "string" }
   }],
   outputs: [{
     id: "results",
     name: "Search Results",
     description: "Found documents",
-    schema: { type: "string[]" }
+    schema: { name: "results", type: "array", items: { name: "document", type: "string" } }
   }],
   steps: [{
     id: "search_step",
