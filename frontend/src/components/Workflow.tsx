@@ -26,9 +26,9 @@ const Workflow: React.FC = () => {
     const navigate = useNavigate();
 
     // State
+    const stateManager: SchemaManager = useSchemaDictionary();
     const { setCurrentWorkflow, updateCurrentWorkflow, currentWorkflow, hasUnsavedChanges, saveWorkflow, createWorkflow } = useWorkflows();
     const [activeStep, setActiveStep] = useState(0);
-    const stateManager: SchemaManager = useSchemaDictionary();
     const [stepExecuted, setStepExecuted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [showConfig, setShowConfig] = useState(false);

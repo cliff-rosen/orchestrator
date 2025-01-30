@@ -8,12 +8,12 @@ export function useSchemaDictionary(initialState: SchemaState = {}) {
 
     const setSchema = useCallback((key: string, schema: SchemaValue, role: SchemaRole) => {
         manager.setSchema(key, schema, role);
-        setVersion(v => v + 1);
+        //setVersion(v => v + 1);
     }, [manager]);
 
     const setValues = useCallback((key: string, value: any) => {
         manager.setValues(key, value);
-        setVersion(v => v + 1);
+        //setVersion(v => v + 1);
     }, [manager]);
 
     const getValue = useCallback((key: string) => {
@@ -22,7 +22,7 @@ export function useSchemaDictionary(initialState: SchemaState = {}) {
 
     const removeSchema = useCallback((key: string) => {
         manager.removeSchema(key);
-        setVersion(v => v + 1);
+        //setVersion(v => v + 1);
     }, [manager]);
 
     return {
