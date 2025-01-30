@@ -123,6 +123,9 @@ const Workflow: React.FC = () => {
         setStepExecuted(false);
     }, [activeStep]);
 
+
+    //////////////////////// Handlers ////////////////////////
+
     // Handle saving workflow
     const handleSave = async () => {
         try {
@@ -304,6 +307,8 @@ const Workflow: React.FC = () => {
         });
     };
 
+    ///////////////////////// Workflow preparation /////////////////////////
+
     if (!currentWorkflow) return null;
     console.log('currentWorkflow', currentWorkflow);
 
@@ -336,6 +341,9 @@ const Workflow: React.FC = () => {
         // setActiveStep(0);
         // return null;
     }
+
+
+    ///////////////////////// Render /////////////////////////
 
     if (isLoading) {
         return <div className="flex flex-col h-full">Loading...</div>;
