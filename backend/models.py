@@ -40,13 +40,26 @@ class Tool(Base):
     tool_id = Column(String(36), primary_key=True)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    tool_type = Column(String(50), nullable=False)
+    tool_type = Column(String(50), nullable=False)  # 'llm', 'search', 'retrieve', 'utility'
     signature = Column(JSON, nullable=False)  # Contains parameters and outputs schema
+    prompt_template_id = Column(String(36), nullable=True)  # ID of the selected prompt template
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     workflow_steps = relationship("WorkflowStep", back_populates="tool")
+
+class PromptTemplate(Base):
+    __tablename__ = "prompt_templates"
+    
+    template_id = Column(String(36), primary_key=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    template = Column(Text, nullable=False)
+    tokens = Column(JSON, nullable=False)  # List of tokens
+    output_schema = Column(JSON, nullable=False)  # Output type and schema definition
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class WorkflowStep(Base):
     __tablename__ = "workflow_steps"
@@ -55,11 +68,11 @@ class WorkflowStep(Base):
     workflow_id = Column(String(36), ForeignKey("workflows.workflow_id"), nullable=False)
     label = Column(String(255), nullable=False)
     description = Column(Text)
-    step_type = Column(String(50), nullable=False)
+    step_type = Column(String(50), nullable=False)  # 'ACTION' or 'INPUT'
     tool_id = Column(String(36), ForeignKey("tools.tool_id"), nullable=True)
     next_step_id = Column(String(36), ForeignKey("workflow_steps.step_id"), nullable=True)
-    parameters = Column(JSON, nullable=False, default=dict)
-    outputs = Column(JSON, nullable=False, default=dict)
+    parameter_mappings = Column(JSON, nullable=False, default=dict)  # Maps tool parameters to workflow variables
+    output_mappings = Column(JSON, nullable=False, default=dict)  # Maps tool outputs to workflow variables
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -75,7 +88,7 @@ class WorkflowVariable(Base):
     workflow_id = Column(String(36), ForeignKey("workflows.workflow_id"), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    schema = Column(JSON, nullable=False)
+    schema = Column(JSON, nullable=False)  # JSON Schema of the variable
     variable_type = Column(String(50), nullable=False)  # 'input' or 'output'
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -90,7 +103,7 @@ class Workflow(Base):
     user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    status = Column(String(50), nullable=False, default="draft")
+    status = Column(String(50), nullable=False, default="draft")  # draft, running, completed, failed
     error = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

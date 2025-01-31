@@ -50,10 +50,9 @@ export interface Workflow {
 Explanation of inputs, outputs and parameter mappings:
 - inputs: variables that are collected from the user
 - outputs: variables that are produced by the workflow
-- parameter mappings: maps the inputs and outputs to the variables
-note: outputs produced by workflow can be used as inputs for other steps
-
-
+- collectively, inputs and outputs are the state variables for the workflow
+- parameter mappings: maps state variables to tool inputs parameters
+- output mappings: maps tool outputs to state variables
 
 */
 
