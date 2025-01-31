@@ -1,7 +1,7 @@
 import { Workflow, WorkflowStatus, WorkflowStepType } from "../frontend/src/types/workflows";
 
 const exampleWorkflow: Workflow = {
-  workflow_id: "doc_search_workflow",
+  workflow_id: "071707f3-684d-4ab7-9bd5-11cd91c1744d",
   name: "Document Search",
   status: WorkflowStatus.DRAFT,
   inputs: [{
@@ -20,7 +20,7 @@ const exampleWorkflow: Workflow = {
     id: "search_step",
     label: "Search Documents",
     description: "Search through document database",
-    stepType: WorkflowStepType.ACTION,
+    step_type: WorkflowStepType.ACTION,
     tool: {
       id: "search_tool",
       type: "search",

@@ -61,8 +61,8 @@ class WorkflowService:
         workflow = self.get_workflow(workflow_id, user_id)
         
         try:
-            # Begin transaction
-            update_data = workflow_data.dict(exclude_unset=True)
+            # Convert Pydantic model to dict
+            update_data = workflow_data.__dict__
             
             # Update basic workflow properties
             basic_props = {k: v for k, v in update_data.items() 
@@ -82,7 +82,7 @@ class WorkflowService:
                     step = WorkflowStep(
                         step_id=str(uuid4()),
                         workflow_id=workflow_id,
-                        **step_data.dict()
+                        **step_data
                     )
                     self.db.add(step)
             
@@ -100,7 +100,7 @@ class WorkflowService:
                             variable_id=str(uuid4()),
                             workflow_id=workflow_id,
                             variable_type='input',
-                            **var_data.dict()
+                            **var_data
                         )
                         self.db.add(var)
                 
@@ -111,7 +111,7 @@ class WorkflowService:
                             variable_id=str(uuid4()),
                             workflow_id=workflow_id,
                             variable_type='output',
-                            **var_data.dict()
+                            **var_data
                         )
                         self.db.add(var)
             

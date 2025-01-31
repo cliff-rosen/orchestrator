@@ -248,13 +248,12 @@ class WorkflowVariableBase(BaseModel):
 
 class WorkflowVariableCreate(WorkflowVariableBase):
     """Schema for creating workflow variables"""
-    pass
+    id: str = Field(description="Unique identifier for the variable")
 
 class WorkflowVariableResponse(WorkflowVariableBase):
     """Schema for workflow variable responses"""
-    variable_id: str = Field(description="Unique identifier for the variable")
+    id: str = Field(description="Unique identifier for the variable")
     workflow_id: str = Field(description="ID of the workflow this variable belongs to")
-    variable_type: str = Field(description="Type of variable (input/output)")
     created_at: datetime
     updated_at: datetime
 
@@ -264,20 +263,20 @@ class WorkflowStepBase(BaseModel):
     """Base schema for workflow steps"""
     label: str = Field(description="Label for the step")
     description: str = Field(description="Description of the step")
-    step_type: str = Field(description="Type of step (e.g., ACTION, INPUT)")
+    step_type: str = Field(description="Type of step (ACTION or INPUT)")
     tool_id: Optional[str] = Field(None, description="ID of the tool to use for this step")
-    next_step_id: Optional[str] = Field(None, description="ID of the next step in the workflow")
-    parameters: Dict[str, Any] = Field(default_factory=dict, description="Parameters for the step")
-    outputs: Dict[str, Any] = Field(default_factory=dict, description="Output mappings for the step")
+    parameter_mappings: Dict[str, str] = Field(default_factory=dict, description="Maps tool parameters to workflow variables")
+    output_mappings: Dict[str, str] = Field(default_factory=dict, description="Maps tool outputs to workflow variables")
 
 class WorkflowStepCreate(WorkflowStepBase):
     """Schema for creating workflow steps"""
-    pass
+    id: str = Field(description="Unique identifier for the step")
 
 class WorkflowStepResponse(WorkflowStepBase):
     """Schema for workflow step responses"""
-    step_id: str = Field(description="Unique identifier for the step")
+    id: str = Field(description="Unique identifier for the step")
     workflow_id: str = Field(description="ID of the workflow this step belongs to")
+    tool: Optional[Dict[str, Any]] = Field(None, description="Tool configuration if step is an action")
     created_at: datetime
     updated_at: datetime
 
@@ -286,11 +285,14 @@ class WorkflowStepResponse(WorkflowStepBase):
 class WorkflowBase(BaseModel):
     """Base schema for workflows"""
     name: str = Field(description="Name of the workflow")
-    description: str = Field(description="Description of the workflow")
+    description: Optional[str] = Field(None, description="Description of the workflow")
+    status: str = Field(description="Current status of the workflow")
 
 class WorkflowCreate(WorkflowBase):
     """Schema for creating workflows"""
-    pass
+    inputs: Optional[List[WorkflowVariableCreate]] = Field(default_factory=list)
+    outputs: Optional[List[WorkflowVariableCreate]] = Field(default_factory=list)
+    steps: List[WorkflowStepCreate] = Field(default_factory=list)
 
 class WorkflowUpdate(BaseModel):
     """Schema for updating workflows"""
@@ -305,12 +307,12 @@ class WorkflowResponse(WorkflowBase):
     """Schema for workflow responses"""
     workflow_id: str = Field(description="Unique identifier for the workflow")
     user_id: int = Field(description="ID of the user who owns this workflow")
-    status: str = Field(description="Current status of the workflow")
     error: Optional[str] = Field(None, description="Error message if workflow failed")
     created_at: datetime
     updated_at: datetime
     steps: List[WorkflowStepResponse] = Field(default_factory=list)
-    variables: List[WorkflowVariableResponse] = Field(default_factory=list)
+    inputs: List[WorkflowVariableResponse] = Field(default_factory=list)
+    outputs: List[WorkflowVariableResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
