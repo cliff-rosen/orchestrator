@@ -34,7 +34,7 @@ const ParameterMapper: React.FC<ParameterMapperProps> = ({
                             </span>
                         )}
                         <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                            Type: {param.type}
+                            Type: {param.schema.type}
                         </span>
                     </label>
                     <select
@@ -45,7 +45,7 @@ const ParameterMapper: React.FC<ParameterMapperProps> = ({
                     >
                         <option value="">Select variable...</option>
                         {Object.entries(stateManager.schemas)
-                            .filter(([_, schema]) => schema.schema.type === param.type)
+                            .filter(([_, schema]) => schema.schema.type === param.schema.type)
                             .map(([varName]) => (
                                 <option key={varName} value={varName}
                                     className="text-gray-900 dark:text-gray-100">

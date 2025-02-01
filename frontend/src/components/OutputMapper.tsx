@@ -45,7 +45,7 @@ const OutputMapper: React.FC<OutputMapperProps> = ({
                     >
                         <option value="">Select a variable...</option>
                         {Object.entries(stateManager.schemas)
-                            .filter(([_, schema]) => schema.schema.type === output.type)
+                            .filter(([_, schema]) => schema.schema.type === output.schema.type)
                             .map(([name, schema]) => (
                                 <option key={name} value={name}
                                     className="text-gray-900 dark:text-gray-100">

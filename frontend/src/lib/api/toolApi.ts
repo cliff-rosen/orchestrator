@@ -12,15 +12,21 @@ const utilityTools: Tool[] = [
             parameters: [
                 {
                     name: 'input',
-                    type: 'string',
-                    description: 'The input to echo'
+                    description: 'The input to echo',
+                    schema: {
+                        name: 'input',
+                        type: 'string'
+                    }
                 }
             ],
             outputs: [
                 {
                     name: 'output',
-                    type: 'string',
-                    description: 'The echoed output'
+                    description: 'The echoed output',
+                    schema: {
+                        name: 'output',
+                        type: 'string'
+                    }
                 }
             ]
         }
@@ -34,20 +40,29 @@ const utilityTools: Tool[] = [
             parameters: [
                 {
                     name: 'first',
-                    type: 'string',
-                    description: 'First string'
+                    description: 'First string',
+                    schema: {
+                        name: 'first',
+                        type: 'string'
+                    }
                 },
                 {
                     name: 'second',
-                    type: 'string',
-                    description: 'Second string'
+                    description: 'Second string',
+                    schema: {
+                        name: 'second',
+                        type: 'string'
+                    }
                 }
             ],
             outputs: [
                 {
                     name: 'result',
-                    type: 'string',
-                    description: 'Concatenated result'
+                    description: 'Concatenated result',
+                    schema: {
+                        name: 'result',
+                        type: 'string'
+                    }
                 }
             ]
         }

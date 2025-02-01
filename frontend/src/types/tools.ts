@@ -1,9 +1,11 @@
+import { SchemaValue } from '../hooks/schema/types';
+
 export type ToolType = 'llm' | 'search' | 'retrieve' | 'utility';
 
 export interface ToolParameter {
     name: string;
-    type: 'string' | 'number' | 'boolean' | 'string[]';
     description?: string;
+    schema: SchemaValue;
 }
 
 export interface ToolSignature {

@@ -1,7 +1,7 @@
 // Rename from InputStepContent.tsx
 // This is for collecting input values in run mode 
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SchemaManager } from '../hooks/schema/types';
 import SchemaForm from './SchemaForm';
 
@@ -13,13 +13,15 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
     stateManager
 }) => {
     // Get all input schemas from the state manager
-    const inputSchemas = Object.entries(stateManager.schemas)
-        .filter(([_, entry]) => entry.role === 'input')
-        .map(([key, entry]) => ({
-            key,
-            schema: entry.schema,
-            value: stateManager.getValue(key)
-        }));
+    const inputSchemas = useMemo(() => {
+        return Object.entries(stateManager.schemas)
+            .filter(([_, entry]) => entry.role === 'input')
+            .map(([key, entry]) => ({
+                key,
+                schema: entry.schema,
+                value: stateManager.getValue(key)
+            }));
+    }, [stateManager.version]); // Re-run when version changes
 
     return (
         <div className="space-y-6">

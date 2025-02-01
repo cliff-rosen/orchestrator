@@ -42,6 +42,7 @@ export type SchemaState = Record<string, SchemaEntry>;
 export interface SchemaManager {
     schemas: SchemaState;
     values: Record<string, any>;
+    version: number;
     setSchema: (key: string, schema: SchemaValue, role: SchemaRole) => void;
     setValues: (key: string, value: any) => void;
     getValue: (key: string) => any;
@@ -55,6 +56,7 @@ export interface SchemaManager {
 // SchemaManager -> {
 //      schemas: SchemaState,
 //      values: Record<string, any>,
+//      version: number,
 //      setSchema: (key: string, schema: SchemaValue, role: SchemaRole) => void,
 //      setValues: (key: string, value: any) => void,
 //      getValue: (key: string) => any,

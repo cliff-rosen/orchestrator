@@ -9,6 +9,7 @@ interface SchemaFormProps {
 
 const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
     if (schema.type === 'object') {
+        const objectValue = value || {};
         return (
             <div className="space-y-4">
                 {Object.entries(schema.fields).map(([fieldName, fieldSchema]) => (
@@ -18,9 +19,9 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
                         </label>
                         <SchemaForm
                             schema={fieldSchema}
-                            value={value?.[fieldName]}
+                            value={objectValue[fieldName]}
                             onChange={newValue => onChange({
-                                ...value,
+                                ...objectValue,
                                 [fieldName]: newValue
                             })}
                         />
@@ -70,7 +71,7 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
             return (
                 <input
                     type="text"
-                    value={value || ''}
+                    value={value === undefined ? '' : value}
                     onChange={e => onChange(e.target.value)}
                     className="w-full px-3 py-2 
                              border border-gray-300 dark:border-gray-600
@@ -84,8 +85,8 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
             return (
                 <input
                     type="number"
-                    value={value || ''}
-                    onChange={e => onChange(Number(e.target.value))}
+                    value={value === undefined ? '' : value}
+                    onChange={e => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
                     className="w-full px-3 py-2 
                              border border-gray-300 dark:border-gray-600
                              bg-white dark:bg-gray-700 
@@ -98,7 +99,7 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
             return (
                 <input
                     type="checkbox"
-                    checked={value || false}
+                    checked={Boolean(value)}
                     onChange={e => onChange(e.target.checked)}
                     className="h-4 w-4 text-blue-600 rounded 
                              border-gray-300 dark:border-gray-600

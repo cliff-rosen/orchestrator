@@ -324,6 +324,8 @@ const WorkflowConfig: React.FC<WorkflowConfigProps> = ({
 }) => {
     const [activeTab, setActiveTab] = useState<'inputs' | 'outputs'>('inputs');
 
+    console.log('WorkflowConfig');
+
     return (
         <div className="space-y-6">
             {/* Tab Navigation */}

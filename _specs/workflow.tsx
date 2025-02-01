@@ -29,11 +29,13 @@ const exampleWorkflow: Workflow = {
       signature: {
         parameters: [{
           name: "searchQuery",
-          type: "string"
+          description: "The query to search for",
+          schema: { name: "searchQuery", type: "string" }
         }],
         outputs: [{
           name: "documents",
-          type: "string[]"
+          description: "The documents found",
+          schema: { name: "documents", type: "array", items: { name: "document", type: "string" } }
         }]
       }
     },

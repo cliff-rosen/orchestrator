@@ -67,7 +67,7 @@ const Workflow: React.FC = () => {
 
     // Initialize schema manager when workflow changes
     useEffect(() => {
-        console.log('Initializing schema manager with workflow:', currentWorkflow);
+        console.log('Initializing schema manager with workflow');
         if (!currentWorkflow) return;
 
         // Sync workflow variables with schema manager
@@ -85,7 +85,7 @@ const Workflow: React.FC = () => {
                 stateManager.setSchema(output.name, output.schema, 'output');
             });
         }
-    }, [currentWorkflow, stateManager]);
+    }, [currentWorkflow]);
 
     // Prompt user before leaving if there are unsaved changes
     useEffect(() => {
@@ -310,7 +310,7 @@ const Workflow: React.FC = () => {
     ///////////////////////// Workflow preparation /////////////////////////
 
     if (!currentWorkflow) return null;
-    console.log('currentWorkflow', currentWorkflow);
+    // console.log('currentWorkflow', currentWorkflow);
 
     // Convert workflow steps to RuntimeWorkflowStep interface
     const workflowSteps: RuntimeWorkflowStep[] = currentWorkflow.steps.map(step => ({

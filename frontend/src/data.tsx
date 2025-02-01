@@ -11,27 +11,36 @@ export const getLLMToolSignature = (promptTemplate?: string): ToolSignature => {
         return { parameters: [], outputs: [] };
     }
 
+    // Convert prompt tokens to tool parameters
+    const parameters = template.tokens.map(token => ({
+        name: token,
+        description: `Value for {{${token}}} in the prompt`,
+        schema: {
+            name: token,
+            type: 'string'
+        }
+    }));
+
     // Convert prompt output schema to tool output parameters
-    const outputParams: ToolParameter[] = template.output.type === 'object' && template.output.schema
+    const outputs = template.output.type === 'object' && template.output.schema
         ? Object.entries(template.output.schema.fields).map(([key, field]) => ({
             name: key,
-            type: field.type,
-            description: field.description || ''
+            description: field.description || '',
+            schema: {
+                name: key,
+                type: field.type
+            }
         }))
         : [{
             name: 'response',
-            type: template.output.type,
-            description: template.output.description
+            description: template.output.description,
+            schema: {
+                name: 'response',
+                type: template.output.type
+            }
         }];
 
-    return {
-        parameters: template.tokens.map(token => ({
-            name: token,
-            type: 'string',
-            description: `Value for {{${token}}} in the prompt`
-        })),
-        outputs: outputParams
-    };
+    return { parameters, outputs };
 };
 
 export const TOOL_SIGNATURES: Record<Exclude<ToolType, 'llm'>, ToolSignature> & {
@@ -40,25 +49,49 @@ export const TOOL_SIGNATURES: Record<Exclude<ToolType, 'llm'>, ToolSignature> & 
     search: {
         parameters: [{
             name: 'query',
-            type: 'string',
-            description: 'The search query text'
+            description: 'The search query text',
+            schema: {
+                name: 'query',
+                type: 'string'
+            }
         }],
         outputs: [{
             name: 'results',
-            type: 'string[]',
-            description: 'List of search results'
+            description: 'List of search results',
+            schema: {
+                name: 'results',
+                type: 'array',
+                items: {
+                    name: 'result',
+                    type: 'string'
+                }
+            }
         }]
     },
     retrieve: {
         parameters: [{
             name: 'urls',
-            type: 'string[]',
-            description: 'List of URLs to retrieve content from'
+            description: 'List of URLs to retrieve content from',
+            schema: {
+                name: 'urls',
+                type: 'array',
+                items: {
+                    name: 'url',
+                    type: 'string'
+                }
+            }
         }],
         outputs: [{
             name: 'contents',
-            type: 'string[]',
-            description: 'Retrieved content from each URL'
+            description: 'Retrieved content from each URL',
+            schema: {
+                name: 'contents',
+                type: 'array',
+                items: {
+                    name: 'content',
+                    type: 'string'
+                }
+            }
         }]
     },
     llm: getLLMToolSignature
