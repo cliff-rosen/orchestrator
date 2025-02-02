@@ -2,6 +2,7 @@ import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolParameterName
 import { PromptTemplate } from '../../types/prompts';
 import { api, handleApiError } from './index';
 import { PrimitiveValue, ValueType } from '../../hooks/schema/types';
+import { executeLLM } from './llmExecutor';
 
 // Cache for tools and prompt templates
 let toolsCache: Tool[] | null = null;
@@ -48,37 +49,7 @@ const registerUtilityTools = () => {
     });
 
     // LLM tool
-    registerToolExecutor('llm', async (parameters: ResolvedParameters) => {
-        // Get the template ID from parameters
-        const templateId = parameters['templateId' as ToolParameterName] as string;
-        const templates = await toolApi.getPromptTemplates();
-        const template = templates.find(t => t.template_id === templateId);
-
-        if (!template) {
-            throw new Error(`Template not found: ${templateId}`);
-        }
-
-        // Get the parameter values based on the template's tokens
-        const paramValues = template.tokens.map(token =>
-            parameters[token as ToolParameterName] as string
-        );
-
-        // Create mock output based on the template's output schema
-        let mockOutput: any;
-        if (template.output_schema.type === 'object' && template.output_schema.schema) {
-            mockOutput = {};
-            Object.entries(template.output_schema.schema.fields).forEach(([key, field]) => {
-                mockOutput[key] = `Mock ${field.description || key} for template ${templateId} with params: ${paramValues.join(', ')}`;
-            });
-        } else {
-            mockOutput = `Mock ${template.output_schema.description || 'response'} for template ${templateId} with params: ${paramValues.join(', ')}`;
-        }
-
-        // Return the output with the correct output name
-        return {
-            ['response' as ToolOutputName]: mockOutput
-        };
-    });
+    registerToolExecutor('llm', executeLLM);
 };
 
 // Function to register a tool's execution method

@@ -407,3 +407,16 @@ class PromptTemplateResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class LLMExecuteRequest(BaseModel):
+    """Request schema for LLM execution"""
+    prompt_template_id: str = Field(description="ID of the prompt template to use")
+    parameters: Dict[str, Any] = Field(description="Parameters to fill in the prompt template")
+    model: Optional[str] = Field(None, description="Optional model to use (defaults to provider's default)")
+    max_tokens: Optional[int] = Field(None, description="Optional maximum tokens for response")
+    provider: Optional[str] = Field(None, description="Optional LLM provider to use (defaults to system default)")
+
+class LLMExecuteResponse(BaseModel):
+    """Response schema for LLM execution"""
+    response: str = Field(description="The LLM's response")
+    usage: Dict[str, int] = Field(description="Token usage statistics")
