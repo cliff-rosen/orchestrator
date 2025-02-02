@@ -30,7 +30,7 @@ export type ToolOutputs = Record<ToolOutputName, string | number | boolean | str
 
 export interface Tool {
     tool_id: string;
-    type: ToolType;
+    tool_type: ToolType;
     name: string;
     description: string;
     signature: ToolSignature;

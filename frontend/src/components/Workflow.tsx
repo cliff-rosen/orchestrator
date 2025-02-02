@@ -188,7 +188,7 @@ const Workflow: React.FC = () => {
                 }
 
                 // Add templateId for LLM tools
-                if (currentStep.tool.type === 'llm') {
+                if (currentStep.tool.tool_type === 'llm') {
                     if (!currentStep.tool.promptTemplate) {
                         throw new Error('No prompt template selected for LLM tool');
                     }
@@ -197,7 +197,7 @@ const Workflow: React.FC = () => {
 
                 console.log('Executing tool with parameters:', resolvedParameters);
                 // Get the correct tool ID
-                const toolId = (currentStep.tool as any).tool_id || currentStep.tool.id;
+                const toolId = currentStep.tool.tool_id;
                 // Execute the tool
                 const outputs = await toolApi.executeTool(toolId, resolvedParameters);
                 console.log('Tool execution outputs:', outputs);
@@ -214,7 +214,7 @@ const Workflow: React.FC = () => {
                             // Register the output schema if not already registered
                             stateManager.setSchema(varName, {
                                 name: varName,
-                                type: outputParam.type as any
+                                type: outputParam.schema.type as any
                             }, 'output');
                         }
                     }

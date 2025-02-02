@@ -52,7 +52,7 @@ const registerUtilityTools = () => {
         // Get the template ID from parameters
         const templateId = parameters['templateId' as ToolParameterName] as string;
         const templates = await toolApi.getPromptTemplates();
-        const template = templates.find(t => t.id === templateId);
+        const template = templates.find(t => t.template_id === templateId);
 
         if (!template) {
             throw new Error(`Template not found: ${templateId}`);

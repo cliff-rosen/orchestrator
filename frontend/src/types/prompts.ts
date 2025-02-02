@@ -13,7 +13,7 @@ export interface PromptTemplateOutputSchema {
 }
 
 export interface PromptTemplate {
-    id: string;
+    template_id: string;
     name: string;
     description: string;
     template: string;
