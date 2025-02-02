@@ -176,7 +176,7 @@ const Workflow: React.FC = () => {
             const currentStep = allSteps[activeStep];
             console.log('Executing step:', currentStep);
 
-            if (currentStep.tool?.id) {
+            if (currentStep.tool?.tool_id) {
                 // Get resolved parameters from state manager
                 const resolvedParameters: ResolvedParameters = {};
                 if (currentStep.parameterMappings) {
@@ -196,8 +196,10 @@ const Workflow: React.FC = () => {
                 }
 
                 console.log('Executing tool with parameters:', resolvedParameters);
+                // Get the correct tool ID
+                const toolId = (currentStep.tool as any).tool_id || currentStep.tool.id;
                 // Execute the tool
-                const outputs = await toolApi.executeTool(currentStep.tool.id, resolvedParameters);
+                const outputs = await toolApi.executeTool(toolId, resolvedParameters);
                 console.log('Tool execution outputs:', outputs);
 
                 // Store outputs in state manager

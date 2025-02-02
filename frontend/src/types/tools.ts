@@ -29,7 +29,7 @@ export type ResolvedParameters = Record<ToolParameterName, string | number | boo
 export type ToolOutputs = Record<ToolOutputName, string | number | boolean | string[]>;
 
 export interface Tool {
-    id: string;
+    tool_id: string;
     type: ToolType;
     name: string;
     description: string;
