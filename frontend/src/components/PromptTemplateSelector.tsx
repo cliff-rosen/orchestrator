@@ -13,12 +13,13 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
     promptTemplates,
     onTemplateChange
 }) => {
-    if (tool.type !== 'llm') {
+    if (tool.tool_type !== 'llm') {
         return null;
     }
 
     return (
         <div className="space-y-2">
+            hello
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Prompt Template
             </label>
@@ -28,9 +29,9 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                          bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
-                <option value="" disabled>Select a prompt template</option>
+                <option key="default" value="" disabled>Select a prompt template</option>
                 {promptTemplates.map(template => (
-                    <option key={template.id} value={template.id}
+                    <option key={template.template_id} value={template.template_id}
                         className="text-sm text-gray-900 dark:text-gray-100">
                         {template.name}
                     </option>

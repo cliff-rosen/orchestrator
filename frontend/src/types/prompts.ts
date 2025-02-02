@@ -18,7 +18,7 @@ export interface PromptTemplate {
     description: string;
     template: string;
     tokens: string[];
-    output: PromptTemplateOutputSchema;
+    output_schema: PromptTemplateOutputSchema;
     created_at: string;
     updated_at: string;
 } 

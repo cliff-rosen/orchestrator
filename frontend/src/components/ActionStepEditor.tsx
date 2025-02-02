@@ -24,9 +24,9 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     onStepUpdate
 }) => {
     const [tools, setTools] = useState<Tool[]>([]);
+    const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
 
     useEffect(() => {
         const fetchTools = async () => {
@@ -65,10 +65,10 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         });
     };
 
-    const handleTemplateChange = (templateId: string) => {
+    const handleTemplateChange = async (templateId: string) => {
         if (!step.tool) return;
 
-        const newSignature = toolApi.updateLLMSignature(templateId);
+        const newSignature = await toolApi.updateLLMSignature(templateId);
         onStepUpdate({
             ...step,
             tool: {

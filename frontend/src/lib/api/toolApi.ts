@@ -65,13 +65,13 @@ const registerUtilityTools = () => {
 
         // Create mock output based on the template's output schema
         let mockOutput: any;
-        if (template.output.type === 'object' && template.output.schema) {
+        if (template.output_schema.type === 'object' && template.output_schema.schema) {
             mockOutput = {};
-            Object.entries(template.output.schema.fields).forEach(([key, field]) => {
+            Object.entries(template.output_schema.schema.fields).forEach(([key, field]) => {
                 mockOutput[key] = `Mock ${field.description || key} for template ${templateId} with params: ${paramValues.join(', ')}`;
             });
         } else {
-            mockOutput = `Mock ${template.output.description || 'response'} for template ${templateId} with params: ${paramValues.join(', ')}`;
+            mockOutput = `Mock ${template.output_schema.description || 'response'} for template ${templateId} with params: ${paramValues.join(', ')}`;
         }
 
         // Return the output with the correct output name
@@ -155,7 +155,7 @@ export const toolApi = {
     // Update LLM tool signature based on selected template
     updateLLMSignature: async (templateId: string): Promise<ToolSignature> => {
         const templates = await toolApi.getPromptTemplates();
-        const template = templates.find((t: PromptTemplate) => t.id === templateId);
+        const template = templates.find((t: PromptTemplate) => t.template_id === templateId);
         if (!template) {
             throw new Error(`Template not found: ${templateId}`);
         }
@@ -171,8 +171,8 @@ export const toolApi = {
         }));
 
         // Convert prompt output schema to tool output parameters
-        const outputs = template.output.type === 'object' && template.output.schema
-            ? Object.entries(template.output.schema.fields).map(([key, field]: [string, { description?: string; type: string }]) => ({
+        const outputs = template.output_schema.type === 'object' && template.output_schema.schema
+            ? Object.entries(template.output_schema.schema.fields).map(([key, field]: [string, { description?: string; type: string }]) => ({
                 name: key,
                 description: field.description || '',
                 schema: {
@@ -182,10 +182,10 @@ export const toolApi = {
             }))
             : [{
                 name: 'response',
-                description: template.output.description,
+                description: template.output_schema.description,
                 schema: {
                     name: 'response',
-                    type: template.output.type as ValueType
+                    type: template.output_schema.type as ValueType
                 } as PrimitiveValue
             }];
 

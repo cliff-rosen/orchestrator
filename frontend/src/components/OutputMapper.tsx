@@ -22,6 +22,7 @@ const OutputMapper: React.FC<OutputMapperProps> = ({
         });
     };
 
+
     return (
         <div className="space-y-4">
             {tool.signature.outputs.map((output) => (
