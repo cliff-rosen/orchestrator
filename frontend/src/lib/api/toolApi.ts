@@ -1,97 +1,11 @@
 import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolParameterName, ToolOutputName } from '../../types';
-import { TOOL_SIGNATURES, PROMPT_TEMPLATES } from '../../data';
+import { PromptTemplate } from '../../types/prompts';
+import { api, handleApiError } from './index';
+import { PrimitiveValue, ValueType } from '../../hooks/schema/types';
 
-// Utility tools and core tools combined
-const utilityTools: Tool[] = [
-    {
-        id: 'echo',
-        type: 'utility',
-        name: 'Echo Tool',
-        description: 'Echoes back the input with a prefix',
-        signature: {
-            parameters: [
-                {
-                    name: 'input',
-                    description: 'The input to echo',
-                    schema: {
-                        name: 'input',
-                        type: 'string'
-                    }
-                }
-            ],
-            outputs: [
-                {
-                    name: 'output',
-                    description: 'The echoed output',
-                    schema: {
-                        name: 'output',
-                        type: 'string'
-                    }
-                }
-            ]
-        }
-    },
-    {
-        id: 'concatenate',
-        type: 'utility',
-        name: 'Concatenate Tool',
-        description: 'Concatenates two strings',
-        signature: {
-            parameters: [
-                {
-                    name: 'first',
-                    description: 'First string',
-                    schema: {
-                        name: 'first',
-                        type: 'string'
-                    }
-                },
-                {
-                    name: 'second',
-                    description: 'Second string',
-                    schema: {
-                        name: 'second',
-                        type: 'string'
-                    }
-                }
-            ],
-            outputs: [
-                {
-                    name: 'result',
-                    description: 'Concatenated result',
-                    schema: {
-                        name: 'result',
-                        type: 'string'
-                    }
-                }
-            ]
-        }
-    },
-    {
-        id: 'search',
-        type: 'search',
-        name: 'Search Tool',
-        description: 'Performs a web search',
-        signature: TOOL_SIGNATURES.search
-    },
-    {
-        id: 'retrieve',
-        type: 'retrieve',
-        name: 'Retrieve Tool',
-        description: 'Retrieves content from URLs',
-        signature: TOOL_SIGNATURES.retrieve
-    },
-    {
-        id: 'llm',
-        type: 'llm',
-        name: 'Language Model',
-        description: 'Executes prompts using a language model',
-        signature: {
-            parameters: [],  // Will be populated when template is selected
-            outputs: []     // Will be populated when template is selected
-        }
-    }
-];
+// Cache for tools and prompt templates
+let toolsCache: Tool[] | null = null;
+let promptTemplatesCache: PromptTemplate[] | null = null;
 
 // Tool registry to store tool execution methods
 const toolRegistry = new Map<string, (parameters: ResolvedParameters) => Promise<ToolOutputs>>();
@@ -137,7 +51,8 @@ const registerUtilityTools = () => {
     registerToolExecutor('llm', async (parameters: ResolvedParameters) => {
         // Get the template ID from parameters
         const templateId = parameters['templateId' as ToolParameterName] as string;
-        const template = PROMPT_TEMPLATES.find(t => t.id === templateId);
+        const templates = await toolApi.getPromptTemplates();
+        const template = templates.find(t => t.id === templateId);
 
         if (!template) {
             throw new Error(`Template not found: ${templateId}`);
@@ -147,9 +62,6 @@ const registerUtilityTools = () => {
         const paramValues = template.tokens.map(token =>
             parameters[token as ToolParameterName] as string
         );
-
-        // Get the signature for this template
-        const signature = TOOL_SIGNATURES.llm(templateId);
 
         // Create mock output based on the template's output schema
         let mockOutput: any;
@@ -162,10 +74,9 @@ const registerUtilityTools = () => {
             mockOutput = `Mock ${template.output.description || 'response'} for template ${templateId} with params: ${paramValues.join(', ')}`;
         }
 
-        // Return the output with the correct output name from the signature
-        const outputName = signature.outputs[0].name;
+        // Return the output with the correct output name
         return {
-            [outputName as ToolOutputName]: mockOutput
+            ['response' as ToolOutputName]: mockOutput
         };
     });
 };
@@ -183,11 +94,27 @@ export const getToolExecutor = (toolId: string) => {
 export const toolApi = {
     // Get all available tools with their signatures
     getAvailableTools: async (): Promise<Tool[]> => {
-        // Register utility tools if not already registered
-        if (toolRegistry.size === 0) {
-            registerUtilityTools();
+        // Use cache if available
+        if (toolsCache) {
+            return toolsCache;
         }
-        return Promise.resolve(utilityTools);
+
+        try {
+            const response = await api.get('/api/tools');
+            const tools = response.data;
+
+            // Register tool executors if not already registered
+            if (toolRegistry.size === 0) {
+                registerUtilityTools();
+            }
+
+            // Cache the tools
+            toolsCache = tools;
+            return tools;
+        } catch (error) {
+            console.error('Error fetching tools:', handleApiError(error));
+            throw error;
+        }
     },
 
     // Execute a tool
@@ -200,12 +127,68 @@ export const toolApi = {
     },
 
     // Get available prompt templates
-    getPromptTemplates: async () => {
-        return Promise.resolve(PROMPT_TEMPLATES);
+    getPromptTemplates: async (): Promise<PromptTemplate[]> => {
+        // Use cache if available
+        if (promptTemplatesCache) {
+            return promptTemplatesCache;
+        }
+
+        try {
+            const response = await api.get('/api/prompt-templates');
+            const templates = response.data;
+
+            // Cache the templates
+            promptTemplatesCache = templates;
+            return templates;
+        } catch (error) {
+            console.error('Error fetching prompt templates:', handleApiError(error));
+            throw error;
+        }
+    },
+
+    // Clear the cache (useful when we need to force a refresh)
+    clearCache: () => {
+        toolsCache = null;
+        promptTemplatesCache = null;
     },
 
     // Update LLM tool signature based on selected template
-    updateLLMSignature: (templateId: string): ToolSignature => {
-        return TOOL_SIGNATURES.llm(templateId);
+    updateLLMSignature: async (templateId: string): Promise<ToolSignature> => {
+        const templates = await toolApi.getPromptTemplates();
+        const template = templates.find((t: PromptTemplate) => t.id === templateId);
+        if (!template) {
+            throw new Error(`Template not found: ${templateId}`);
+        }
+
+        // Convert prompt tokens to tool parameters
+        const parameters = template.tokens.map((token: string) => ({
+            name: token,
+            description: `Value for {{${token}}} in the prompt`,
+            schema: {
+                name: token,
+                type: 'string' as const
+            } as PrimitiveValue
+        }));
+
+        // Convert prompt output schema to tool output parameters
+        const outputs = template.output.type === 'object' && template.output.schema
+            ? Object.entries(template.output.schema.fields).map(([key, field]: [string, { description?: string; type: string }]) => ({
+                name: key,
+                description: field.description || '',
+                schema: {
+                    name: key,
+                    type: field.type as ValueType
+                } as PrimitiveValue
+            }))
+            : [{
+                name: 'response',
+                description: template.output.description,
+                schema: {
+                    name: 'response',
+                    type: template.output.type as ValueType
+                } as PrimitiveValue
+            }];
+
+        return { parameters, outputs };
     }
 }; 

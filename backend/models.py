@@ -42,7 +42,6 @@ class Tool(Base):
     description = Column(Text)
     tool_type = Column(String(50), nullable=False)  # 'llm', 'search', 'retrieve', 'utility'
     signature = Column(JSON, nullable=False)  # Contains parameters and outputs schema
-    prompt_template_id = Column(String(36), nullable=True)  # ID of the selected prompt template
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

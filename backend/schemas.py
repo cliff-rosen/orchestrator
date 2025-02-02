@@ -346,16 +346,26 @@ class ToolOutput(BaseModel):
     type: str = Field(description="Type of the output (string, number, boolean, etc.)")
     description: str = Field(description="Description of the output")
 
+class SchemaValue(BaseModel):
+    name: str
+    type: str
+    description: Optional[str] = None
+    items: Optional['SchemaValue'] = None
+    fields: Optional[Dict[str, 'SchemaValue']] = None
+
+class ParameterSchema(BaseModel):
+    name: str
+    description: str
+    schema: SchemaValue
+
+class OutputSchema(BaseModel):
+    name: str
+    description: str
+    schema: SchemaValue
+
 class ToolSignature(BaseModel):
-    """Schema for tool signature"""
-    parameters: List[ToolParameter] = Field(
-        default_factory=list,
-        description="Parameters accepted by the tool"
-    )
-    outputs: List[ToolOutput] = Field(
-        default_factory=list,
-        description="Outputs produced by the tool"
-    )
+    parameters: List[ParameterSchema]
+    outputs: List[OutputSchema]
 
 class ToolBase(BaseModel):
     """Base schema for tools"""
@@ -374,9 +384,25 @@ class ToolUpdate(BaseModel):
     description: Optional[str] = Field(None, description="New description for the tool")
     signature: Optional[ToolSignature] = Field(None, description="New signature for the tool")
 
-class ToolResponse(ToolBase):
+class ToolResponse(BaseModel):
     """Schema for tool responses"""
     tool_id: str = Field(description="Unique identifier for the tool")
+    name: str = Field(description="Name of the tool")
+    description: str = Field(description="Description of the tool")
+    tool_type: str = Field(description="Type of tool")
+    signature: ToolSignature = Field(description="Tool's parameter and output signature")
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PromptTemplateResponse(BaseModel):
+    template_id: str
+    name: str
+    description: str
+    template: str
+    tokens: List[str]
+    output_schema: Dict[str, Any]  # Using Any for flexibility with different schema structures
     created_at: datetime
     updated_at: datetime
 

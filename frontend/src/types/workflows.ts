@@ -30,7 +30,7 @@ export interface WorkflowStep {
     id: string;
     label: string;
     description: string;
-    stepType: WorkflowStepType;
+    stepType: 'ACTION' | 'INPUT';
     tool?: Tool;
     parameterMappings?: Record<string, string>;
     outputMappings?: Record<string, string>;
@@ -76,7 +76,7 @@ export const exampleWorkflow: Workflow = {
         id: "search_step",
         label: "Search Documents",
         description: "Search through document database",
-        stepType: WorkflowStepType.ACTION,
+        stepType: 'ACTION',
         tool: {
             id: "search_tool",
             type: "search",
@@ -85,11 +85,13 @@ export const exampleWorkflow: Workflow = {
             signature: {
                 parameters: [{
                     name: "searchQuery",
-                    type: "string"
+                    description: "The search query",
+                    schema: { name: "searchQuery", type: "string" }
                 }],
                 outputs: [{
                     name: "documents",
-                    type: "string[]"
+                    description: "Found documents",
+                    schema: { name: "documents", type: "array", items: { name: "document", type: "string" } }
                 }]
             }
         },
