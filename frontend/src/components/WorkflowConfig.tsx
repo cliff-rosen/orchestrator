@@ -324,18 +324,17 @@ const WorkflowConfig: React.FC<WorkflowConfigProps> = ({
 }) => {
     const [activeTab, setActiveTab] = useState<'inputs' | 'outputs'>('inputs');
 
-    console.log('WorkflowConfig');
-
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 rounded-lg border-2 border-blue-500 bg-blue-50 dark:border-blue-400 
+                      dark:bg-blue-900/30 p-6 transition-all animate-fade-in">
             {/* Tab Navigation */}
-            <div className="flex gap-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex gap-4 border-b border-blue-200 dark:border-blue-700">
                 <button
                     onClick={() => setActiveTab('inputs')}
                     className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors
                         ${activeTab === 'inputs'
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            ? 'border-blue-500 text-blue-700 dark:text-blue-300'
+                            : 'border-transparent text-blue-600/60 dark:text-blue-400/60 hover:text-blue-700 dark:hover:text-blue-300'
                         }`}
                 >
                     Input Variables
@@ -344,8 +343,8 @@ const WorkflowConfig: React.FC<WorkflowConfigProps> = ({
                     onClick={() => setActiveTab('outputs')}
                     className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors
                         ${activeTab === 'outputs'
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            ? 'border-blue-500 text-blue-700 dark:text-blue-300'
+                            : 'border-transparent text-blue-600/60 dark:text-blue-400/60 hover:text-blue-700 dark:hover:text-blue-300'
                         }`}
                 >
                     Output Variables

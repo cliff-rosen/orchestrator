@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import TopBar from './components/TopBar';
 import { ThemeProvider } from './context/ThemeContext';
-import LoginForm from './components/auth/LoginForm';
 import { useAuth } from './context/AuthContext';
+import { WorkflowProvider, useWorkflows } from './context/WorkflowContext';
 import { setStreamSessionExpiredHandler } from './lib/api/streamUtils';
 import WorkflowsManager from './components/WorkflowsManager';
 import Workflow from './components/Workflow';
-import { WorkflowProvider, useWorkflows } from './context/WorkflowContext';
+import TopBar from './components/TopBar';
+import LoginForm from './components/auth/LoginForm';
 
 
 // Main app content when authenticated
