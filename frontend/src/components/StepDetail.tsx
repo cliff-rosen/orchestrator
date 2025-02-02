@@ -1,14 +1,14 @@
 import React from 'react';
-import { RuntimeWorkflowStep } from '../types';
-import { SchemaManager } from '../hooks/schema/types';
-import { Tool } from '../types';
+import { StateManager } from '../hooks/schema/types';
+import { Tool } from '../types/tools';
+import { RuntimeWorkflowStep, WorkflowStep, WorkflowStepType } from '../types/workflows';
 import ActionStepEditor from './ActionStepEditor';
 import InputStepRunner from './InputStepRunner';
 import ActionStepRunner from './ActionStepRunner';
 
 interface StepDetailProps {
     step: RuntimeWorkflowStep;
-    stateManager: SchemaManager;
+    stateManager: StateManager;
     isEditMode: boolean;
     tools: Tool[];
     onStepUpdate: (step: RuntimeWorkflowStep) => void;

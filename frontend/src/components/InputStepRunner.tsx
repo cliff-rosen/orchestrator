@@ -2,11 +2,11 @@
 // This is for collecting input values in run mode 
 
 import React, { useMemo } from 'react';
-import { SchemaManager } from '../hooks/schema/types';
+import { StateManager } from '../hooks/schema/types';
 import SchemaForm from './SchemaForm';
 
 interface InputStepRunnerProps {
-    stateManager: SchemaManager;
+    stateManager: StateManager;
 }
 
 const InputStepRunner: React.FC<InputStepRunnerProps> = ({

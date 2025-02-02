@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { WorkflowStep, WorkflowVariable, WorkflowStepType, RuntimeWorkflowStep } from '../types/workflows';
 import { Tool } from '../types/tools';
 import { ResolvedParameters, ToolParameterName, ToolOutputName } from '../types/tools';
-import { SchemaManager } from '../hooks/schema/types';
+import { StateManager } from '../hooks/schema/types';
 
 // Context
 import { useWorkflows } from '../context/WorkflowContext';
@@ -26,7 +26,7 @@ const Workflow: React.FC = () => {
     const navigate = useNavigate();
 
     // State
-    const stateManager: SchemaManager = useSchemaDictionary();
+    const stateManager: StateManager = useSchemaDictionary();
     const { setCurrentWorkflow, updateCurrentWorkflow, currentWorkflow, hasUnsavedChanges, saveWorkflow, createWorkflow } = useWorkflows();
     const [activeStep, setActiveStep] = useState(0);
     const [stepExecuted, setStepExecuted] = useState(false);

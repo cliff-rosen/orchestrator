@@ -2,12 +2,13 @@
 // This is for executing action steps in run mode 
 
 import React from 'react';
-import { SchemaManager } from '../hooks/schema/types';
+import { StateManager } from '../hooks/schema/types';
+import { Tool } from '../types/tools';
 import { RuntimeWorkflowStep } from '../types/workflows';
 
 interface ActionStepRunnerProps {
     actionStep: RuntimeWorkflowStep;
-    stateManager: SchemaManager;
+    stateManager: StateManager;
 }
 
 const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({

@@ -1,11 +1,11 @@
 import React from 'react';
+import { StateManager } from '../hooks/schema/types';
 import { Tool } from '../types/tools';
-import { SchemaManager } from '../hooks/schema/types';
 
 interface OutputMapperProps {
     tool: Tool;
     outputMappings: Record<string, string>;
-    stateManager: SchemaManager;
+    stateManager: StateManager;
     onChange: (mappings: Record<string, string>) => void;
 }
 

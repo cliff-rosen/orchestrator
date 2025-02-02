@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tool } from '../types/tools';
 import { WorkflowStep } from '../types/workflows';
-import { SchemaManager } from '../hooks/schema/types';
+import { StateManager } from '../hooks/schema/types';
 import { PromptTemplate } from '../types/prompts';
 import { toolApi } from '../lib/api/toolApi';
 import ToolSelector from './ToolSelector';
@@ -13,7 +13,7 @@ import OutputMapper from './OutputMapper';
 
 interface ActionStepEditorProps {
     step: WorkflowStep;
-    stateManager: SchemaManager;
+    stateManager: StateManager;
     onStepUpdate: (step: WorkflowStep) => void;
 }
 

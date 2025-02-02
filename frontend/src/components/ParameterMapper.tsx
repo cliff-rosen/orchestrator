@@ -1,11 +1,12 @@
 import React from 'react';
+import { StateManager } from '../hooks/schema/types';
+import { ToolParameter } from '../types/tools';
 import { Tool } from '../types/tools';
-import { SchemaManager } from '../hooks/schema/types';
 
 interface ParameterMapperProps {
     tool: Tool;
     parameterMappings: Record<string, string>;
-    stateManager: SchemaManager;
+    stateManager: StateManager;
     onChange: (mappings: Record<string, string>) => void;
 }
 

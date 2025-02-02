@@ -39,7 +39,7 @@ export interface SchemaEntry {
 export type SchemaState = Record<string, SchemaEntry>;
 
 // Schema manager interface
-export interface SchemaManager {
+export interface StateManager {
     schemas: SchemaState;
     values: Record<string, any>;
     version: number;
@@ -53,7 +53,7 @@ export interface SchemaManager {
 // SchemaValue -> {name: string, type: string, required: boolean, items: SchemaValue, fields: Record<string, SchemaValue>}
 // SchemaEntry -> {role: 'input' | 'output', schema: SchemaValue}
 // SchemaState -> Record<string, SchemaEntry>
-// SchemaManager -> {
+// StateManager -> {
 //      schemas: SchemaState,
 //      values: Record<string, any>,
 //      version: number,
