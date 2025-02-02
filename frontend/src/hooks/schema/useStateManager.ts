@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { SchemaDictionary } from './SchemaDictionary';
 import { SchemaRole, SchemaState, SchemaValue, StateManager } from './types';
 
-export function useSchemaDictionary(initialState: SchemaState = {}): StateManager {
+export function useStateManager(initialState: SchemaState = {}): StateManager {
     const [schemaDictionary] = useState(() => new SchemaDictionary(initialState));
     const [version, setVersion] = useState(0);
 

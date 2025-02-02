@@ -1,7 +1,7 @@
 import React from 'react';
 import { StateManager } from '../hooks/schema/types';
 import { Tool } from '../types/tools';
-import { RuntimeWorkflowStep, WorkflowStep, WorkflowStepType } from '../types/workflows';
+import { RuntimeWorkflowStep } from '../types/workflows';
 import ActionStepEditor from './ActionStepEditor';
 import InputStepRunner from './InputStepRunner';
 import ActionStepRunner from './ActionStepRunner';

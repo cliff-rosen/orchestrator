@@ -1,4 +1,4 @@
-import { Tool, ToolSignature, ToolType, ResolvedParameters, ToolOutputs, ToolParameterName, ToolOutputName } from '../../types';
+import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolParameterName, ToolOutputName } from '../../types';
 import { TOOL_SIGNATURES, PROMPT_TEMPLATES } from '../../data';
 
 // Utility tools and core tools combined

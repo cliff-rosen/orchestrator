@@ -10,6 +10,7 @@ import { toolApi } from '../lib/api/toolApi';
 import ToolSelector from './ToolSelector';
 import ParameterMapper from './ParameterMapper';
 import OutputMapper from './OutputMapper';
+import PromptTemplateSelector from './PromptTemplateSelector';
 
 interface ActionStepEditorProps {
     step: WorkflowStep;
@@ -122,101 +123,103 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     }
 
     return (
-        <div className="space-y-6">
-            {/* Step Label */}
-            <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Step Label
-                </label>
-                <input
-                    type="text"
-                    value={step.label}
-                    onChange={(e) => handleLabelChange(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
-                             bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    placeholder="Enter step label"
-                />
-            </div>
-
-            {/* Step Description */}
-            <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Step Description
-                </label>
-                <textarea
-                    value={step.description}
-                    onChange={(e) => handleDescriptionChange(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
-                             bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    rows={3}
-                    placeholder="Enter step description"
-                />
-            </div>
-
-            {/* Tool Selection */}
-            <div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    Select Tool
+        <div className="space-y-8">
+            {/* Basic Info Section */}
+            <div className="space-y-6">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                    Basic Information
                 </h3>
-                <ToolSelector
-                    tools={tools}
-                    selectedTool={step.tool}
-                    onSelect={handleToolSelect}
-                />
+                <div className="space-y-4">
+                    {/* Step Label */}
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Step Label
+                        </label>
+                        <input
+                            type="text"
+                            value={step.label}
+                            onChange={(e) => handleLabelChange(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
+                                     bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                            placeholder="Enter step label"
+                        />
+                    </div>
+
+                    {/* Step Description */}
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Step Description
+                        </label>
+                        <textarea
+                            value={step.description}
+                            onChange={(e) => handleDescriptionChange(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
+                                     bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                            rows={3}
+                            placeholder="Enter step description"
+                        />
+                    </div>
+                </div>
             </div>
 
-            {/* Prompt Template Selection for LLM tools */}
-            {step.tool?.type === 'llm' && (
-                <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Prompt Template
-                    </label>
-                    <select
-                        value={step.tool.promptTemplate || ''}
-                        onChange={(e) => handleTemplateChange(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
-                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    >
-                        <option value="" disabled>Select a prompt template</option>
-                        {promptTemplates.map(template => (
-                            <option key={template.id} value={template.id}
-                                className="text-gray-900 dark:text-gray-100">
-                                {template.name}
-                            </option>
-                        ))}
-                    </select>
+            {/* Tool Configuration Section */}
+            <div className="space-y-6">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                    Tool Configuration
+                </h3>
+                <div className="space-y-6">
+                    {/* Tool Selection */}
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Select Tool
+                        </label>
+                        <ToolSelector
+                            tools={tools}
+                            selectedTool={step.tool}
+                            onSelect={handleToolSelect}
+                        />
+                    </div>
+
+                    {/* Prompt Template Selection for LLM tools */}
+                    {step.tool && (
+                        <PromptTemplateSelector
+                            tool={step.tool}
+                            promptTemplates={promptTemplates}
+                            onTemplateChange={handleTemplateChange}
+                        />
+                    )}
+
+                    {step.tool && (
+                        <>
+                            {/* Parameter Mappings */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Parameter Mappings
+                                </label>
+                                <ParameterMapper
+                                    tool={step.tool}
+                                    parameterMappings={step.parameterMappings || {}}
+                                    stateManager={stateManager}
+                                    onChange={handleParameterMappingChange}
+                                />
+                            </div>
+
+                            {/* Output Mappings */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Output Mappings
+                                </label>
+                                <OutputMapper
+                                    tool={step.tool}
+                                    outputMappings={step.outputMappings || {}}
+                                    stateManager={stateManager}
+                                    onChange={handleOutputMappingChange}
+                                />
+                            </div>
+                        </>
+                    )}
                 </div>
-            )}
-
-            {step.tool && (
-                <>
-                    {/* Parameter Mappings */}
-                    <div>
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                            Parameter Mappings
-                        </h3>
-                        <ParameterMapper
-                            tool={step.tool}
-                            parameterMappings={step.parameterMappings || {}}
-                            stateManager={stateManager}
-                            onChange={handleParameterMappingChange}
-                        />
-                    </div>
-
-                    {/* Output Mappings */}
-                    <div>
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                            Output Mappings
-                        </h3>
-                        <OutputMapper
-                            tool={step.tool}
-                            outputMappings={step.outputMappings || {}}
-                            stateManager={stateManager}
-                            onChange={handleOutputMappingChange}
-                        />
-                    </div>
-                </>
-            )}
+            </div>
         </div>
     );
 };

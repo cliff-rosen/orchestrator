@@ -1,4 +1,4 @@
-import { ToolType, ToolParameter, ToolSignature, Tool, PromptTemplate, Workflow } from './types';
+import { ToolType, ToolSignature, PromptTemplate, Workflow } from './types';
 
 // Update LLM tool signature to be dynamic based on prompt template
 export const getLLMToolSignature = (promptTemplate?: string): ToolSignature => {
@@ -69,18 +69,19 @@ export const TOOL_SIGNATURES: Record<Exclude<ToolType, 'llm'>, ToolSignature> & 
         }]
     },
     retrieve: {
-        parameters: [{
-            name: 'urls',
-            description: 'List of URLs to retrieve content from',
-            schema: {
+        parameters: [
+            {
                 name: 'urls',
-                type: 'array',
-                items: {
-                    name: 'url',
-                    type: 'string'
+                description: 'List of URLs to retrieve content from',
+                schema: {
+                    name: 'urls',
+                    type: 'array',
+                    items: {
+                        name: 'url',
+                        type: 'string'
+                    }
                 }
-            }
-        }],
+            }],
         outputs: [{
             name: 'contents',
             description: 'Retrieved content from each URL',

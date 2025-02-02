@@ -9,7 +9,7 @@ import { StateManager } from '../hooks/schema/types';
 
 // Context
 import { useWorkflows } from '../context/WorkflowContext';
-import { useSchemaDictionary } from '../hooks/schema/useSchemaDictionary';
+import { useStateManager } from '../hooks/schema/useStateManager';
 
 // API
 import { toolApi, workflowApi } from '../lib/api';
@@ -26,7 +26,7 @@ const Workflow: React.FC = () => {
     const navigate = useNavigate();
 
     // State
-    const stateManager: StateManager = useSchemaDictionary();
+    const stateManager: StateManager = useStateManager();
     const { setCurrentWorkflow, updateCurrentWorkflow, currentWorkflow, hasUnsavedChanges, saveWorkflow, createWorkflow } = useWorkflows();
     const [activeStep, setActiveStep] = useState(0);
     const [stepExecuted, setStepExecuted] = useState(false);

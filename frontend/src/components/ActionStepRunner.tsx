@@ -3,7 +3,6 @@
 
 import React from 'react';
 import { StateManager } from '../hooks/schema/types';
-import { Tool } from '../types/tools';
 import { RuntimeWorkflowStep } from '../types/workflows';
 
 interface ActionStepRunnerProps {

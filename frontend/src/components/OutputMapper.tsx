@@ -34,21 +34,21 @@ const OutputMapper: React.FC<OutputMapperProps> = ({
                             </span>
                         )}
                         <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                            Type: {output.type}
+                            Type: {output.schema.type}
                         </span>
                     </label>
                     <select
                         value={outputMappings[output.name] || ''}
                         onChange={(e) => handleChange(output.name, e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                                  bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     >
-                        <option value="">Select a variable...</option>
+                        <option value="" className="text-sm">Select a variable...</option>
                         {Object.entries(stateManager.schemas)
                             .filter(([_, schema]) => schema.schema.type === output.schema.type)
                             .map(([name, schema]) => (
                                 <option key={name} value={name}
-                                    className="text-gray-900 dark:text-gray-100">
+                                    className="text-sm text-gray-900 dark:text-gray-100">
                                     {name} ({schema.schema.type})
                                 </option>
                             ))}
