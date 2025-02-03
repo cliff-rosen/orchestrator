@@ -32,7 +32,7 @@ const Workflow: React.FC = () => {
     const [stepExecuted, setStepExecuted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [_error, setError] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(true);
     const [tools, setTools] = useState<Tool[]>([]);
 
@@ -149,7 +149,7 @@ const Workflow: React.FC = () => {
         if (!currentWorkflow) return;
 
         const newStep: WorkflowStep = {
-            id: `step-${currentWorkflow.steps.length + 1}`,
+            step_id: `step-${currentWorkflow.steps.length + 1}`,
             label: `Step ${currentWorkflow.steps.length + 1}`,
             description: 'Configure this step by selecting a tool and setting up its parameters',
             stepType: WorkflowStepType.ACTION
@@ -166,7 +166,7 @@ const Workflow: React.FC = () => {
         if (!currentWorkflow) return;
 
         updateCurrentWorkflow({
-            steps: currentWorkflow.steps.map(s => s.id === step.id ? step : s)
+            steps: currentWorkflow.steps.map(s => s.step_id === step.step_id ? step : s)
         });
     };
 
@@ -403,7 +403,7 @@ const Workflow: React.FC = () => {
                                     isEditMode={isEditMode}
                                     activeStep={activeStep}
                                     totalSteps={allSteps.length}
-                                    stepType={currentStep?.stepType || WorkflowStepType.ACTION}
+                                    stepType={currentStep?.stepType as WorkflowStepType || WorkflowStepType.ACTION}
                                     isLoading={isLoading}
                                     stepExecuted={stepExecuted}
                                     onBack={handleBack}

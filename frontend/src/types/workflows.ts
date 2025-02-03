@@ -27,7 +27,7 @@ export interface WorkflowVariable {
 }
 
 export interface WorkflowStep {
-    id: string;
+    step_id: string;
     label: string;
     description: string;
     stepType: 'ACTION' | 'INPUT';
@@ -73,13 +73,13 @@ export const exampleWorkflow: Workflow = {
         schema: { name: "results", type: "array", items: { name: "document", type: "string" } }
     }],
     steps: [{
-        id: "search_step",
+        step_id: "search_step",
         label: "Search Documents",
         description: "Search through document database",
         stepType: 'ACTION',
         tool: {
-            id: "search_tool",
-            type: "search",
+            tool_id: "search_tool",
+            tool_type: "search",
             name: "Document Search",
             description: "Searches document database",
             signature: {

@@ -28,7 +28,7 @@ export const workflowApi = {
         }
     },
 
-    createWorkflow: async (workflow: Omit<Workflow, 'id'>): Promise<Workflow> => {
+    createWorkflow: async (workflow: Omit<Workflow, 'workflow_id'>): Promise<Workflow> => {
         try {
             const response = await api.post('/api/workflows', workflow);
             return response.data;
