@@ -79,9 +79,15 @@ class WorkflowService:
                 
                 # Create new steps
                 for step_data in update_data['steps']:
+                    step_dict = step_data.model_dump()
+                    # Extract tool_id from nested tool object if it exists
+                    if 'tool' in step_dict and step_dict['tool']:
+                        step_dict['tool_id'] = step_dict['tool']['tool_id']
+                    step_dict.pop('tool', None)  # Remove the tool object as it's not in the model
+                    
                     step = WorkflowStep(
                         workflow_id=workflow_id,
-                        **step_data.model_dump()
+                        **step_dict
                     )
                     self.db.add(step)
             

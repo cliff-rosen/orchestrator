@@ -32,6 +32,7 @@ export interface WorkflowStep {
     description: string;
     step_type: WorkflowStepType;
     tool?: Tool;
+    tool_id?: string;
     parameterMappings?: Record<string, string>;
     outputMappings?: Record<string, string>;
 }

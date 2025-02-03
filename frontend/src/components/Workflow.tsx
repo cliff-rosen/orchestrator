@@ -165,8 +165,14 @@ const Workflow: React.FC = () => {
     const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {
         if (!currentWorkflow) return;
 
+        // Ensure tool_id is set if tool exists
+        const updatedStep = {
+            ...step,
+            tool_id: step.tool?.tool_id
+        };
+
         updateCurrentWorkflow({
-            steps: currentWorkflow.steps.map(s => s.step_id === step.step_id ? step : s)
+            steps: currentWorkflow.steps.map(s => s.step_id === step.step_id ? updatedStep : s)
         });
     };
 
