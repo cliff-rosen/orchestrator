@@ -276,7 +276,6 @@ class WorkflowStepResponse(WorkflowStepBase):
     """Schema for workflow step responses"""
     step_id: str = Field(description="Unique identifier for the step")
     workflow_id: str = Field(description="ID of the workflow this step belongs to")
-    tool: Optional[Dict[str, Any]] = Field(None, description="Tool configuration if step is an action")
     created_at: datetime
     updated_at: datetime
 

@@ -1,5 +1,6 @@
 import { api, handleApiError } from './index';
 import { Workflow } from '../../types/workflows';
+import { toolApi } from './toolApi';
 
 export interface WorkflowExecutionState {
     workflowId: string;
@@ -9,11 +10,39 @@ export interface WorkflowExecutionState {
     error?: string;
 }
 
+// Cache tools to avoid repeated fetches
+let toolsCache: Record<string, any> = {};
+
+const reconstructWorkflowWithTools = async (workflow: any): Promise<Workflow> => {
+    // Fetch tools if cache is empty
+    if (Object.keys(toolsCache).length === 0) {
+        const tools = await toolApi.getAvailableTools();
+        toolsCache = tools.reduce((acc: Record<string, any>, tool: any) => {
+            acc[tool.tool_id] = tool;
+            return acc;
+        }, {});
+    }
+
+    // Reconstruct steps with tool objects
+    const stepsWithTools = workflow.steps?.map((step: any) => ({
+        ...step,
+        tool: step.tool_id ? toolsCache[step.tool_id] : undefined
+    }));
+
+    return {
+        ...workflow,
+        steps: stepsWithTools || []
+    };
+};
+
 export const workflowApi = {
     getWorkflows: async (): Promise<Workflow[]> => {
         try {
             const response = await api.get('/api/workflows');
-            return response.data;
+            const workflows = await Promise.all(
+                response.data.map(reconstructWorkflowWithTools)
+            );
+            return workflows;
         } catch (error) {
             throw handleApiError(error);
         }
@@ -22,7 +51,7 @@ export const workflowApi = {
     getWorkflow: async (workflowId: string): Promise<Workflow> => {
         try {
             const response = await api.get(`/api/workflows/${workflowId}`);
-            return response.data;
+            return await reconstructWorkflowWithTools(response.data);
         } catch (error) {
             throw handleApiError(error);
         }
