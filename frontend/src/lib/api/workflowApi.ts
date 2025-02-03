@@ -45,12 +45,8 @@ export const workflowApi = {
                 description: workflow.description,
                 status: workflow.status,
                 steps: workflow.steps?.map(step => ({
-                    label: step.label,
-                    description: step.description,
-                    step_type: step.stepType,
-                    tool_id: step.tool?.id,
-                    parameters: step.parameterMappings || {},
-                    outputs: step.outputMappings || {},
+                    ...step,
+                    step_type: step.step_type,
                 })),
                 inputs: workflow.inputs?.map(input => ({
                     name: input.name,

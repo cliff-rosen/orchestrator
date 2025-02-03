@@ -79,7 +79,7 @@ class WorkflowStep(Base):
     workflow = relationship("Workflow", back_populates="steps")
     tool = relationship("Tool", back_populates="workflow_steps")
     next_step = relationship("WorkflowStep", remote_side=[step_id])
-
+  
 class WorkflowVariable(Base):
     __tablename__ = "workflow_variables"
 

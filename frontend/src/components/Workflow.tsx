@@ -152,7 +152,7 @@ const Workflow: React.FC = () => {
             step_id: `step-${currentWorkflow.steps.length + 1}`,
             label: `Step ${currentWorkflow.steps.length + 1}`,
             description: 'Configure this step by selecting a tool and setting up its parameters',
-            stepType: WorkflowStepType.ACTION
+            step_type: WorkflowStepType.ACTION
         };
 
         updateCurrentWorkflow({
@@ -319,15 +319,15 @@ const Workflow: React.FC = () => {
         ...step,
         action: handleExecuteTool,
         actionButtonText: () => stepExecuted ? 'Next Step' : 'Execute Tool',
-        isDisabled: () => step.stepType === WorkflowStepType.ACTION && stepExecuted,
+        isDisabled: () => step.step_type === WorkflowStepType.ACTION && stepExecuted,
     }));
 
     // Add input step at the beginning when in run mode
     const inputStep: RuntimeWorkflowStep = {
-        id: 'input-step',
+        step_id: 'input-step',
         label: 'Input Values',
         description: 'Provide values for workflow inputs',
-        stepType: WorkflowStepType.INPUT,
+        step_type: WorkflowStepType.INPUT,
         action: handleExecuteTool,
         actionButtonText: () => 'Next Step',
         isDisabled: () => false,
@@ -403,7 +403,7 @@ const Workflow: React.FC = () => {
                                     isEditMode={isEditMode}
                                     activeStep={activeStep}
                                     totalSteps={allSteps.length}
-                                    stepType={currentStep?.stepType as WorkflowStepType || WorkflowStepType.ACTION}
+                                    step_type={currentStep?.step_type as WorkflowStepType || WorkflowStepType.ACTION}
                                     isLoading={isLoading}
                                     stepExecuted={stepExecuted}
                                     onBack={handleBack}

@@ -5,6 +5,7 @@ import { RuntimeWorkflowStep } from '../types/workflows';
 import ActionStepEditor from './ActionStepEditor';
 import InputStepRunner from './InputStepRunner';
 import ActionStepRunner from './ActionStepRunner';
+import { WorkflowStepType } from '../types/workflows';
 
 interface StepDetailProps {
     step: RuntimeWorkflowStep;
@@ -25,7 +26,7 @@ const StepDetail: React.FC<StepDetailProps> = ({
         return <div>Error: No step provided</div>;
     }
 
-    const isInputStep = step.stepType === 'INPUT';
+    const isInputStep = step.step_type === WorkflowStepType.INPUT;
 
     // In edit mode, input steps are configured in WorkflowConfig
     if (isEditMode && isInputStep) {

@@ -46,10 +46,10 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             inputs: [],
             outputs: [],
             steps: [{
-                id: `step-1`,
+                step_id: 'step-1',
                 label: 'Step 1',
-                description: 'Configure this step by selecting a tool and setting up its parameters',
-                stepType: WorkflowStepType.ACTION
+                description: 'First step',
+                step_type: WorkflowStepType.ACTION
             }]
         };
         setCurrentWorkflow(newWorkflow);

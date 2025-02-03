@@ -5,7 +5,7 @@ interface WorkflowNavigationProps {
     isEditMode: boolean;
     activeStep: number;
     totalSteps: number;
-    stepType: WorkflowStepType;
+    step_type: WorkflowStepType;
     isLoading: boolean;
     stepExecuted: boolean;
     onBack: () => void;
@@ -18,7 +18,7 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
     isEditMode,
     activeStep,
     totalSteps,
-    stepType,
+    step_type,
     isLoading,
     stepExecuted,
     onBack,
@@ -30,52 +30,50 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
     if (isEditMode) return null;
 
     return (
-        <div className="mt-4 flex justify-between">
-            {/* Back Button */}
-            <button
-                onClick={onBack}
-                disabled={activeStep === 0}
-                className={`px-4 py-2 rounded-lg ${activeStep === 0
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-            >
-                Back
-            </button>
+        <div className="flex justify-between mt-4">
+            {/* Back button */}
+            <div>
+                {activeStep > 0 && (
+                    <button
+                        onClick={onBack}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                        Back
+                    </button>
+                )}
+            </div>
 
-            {/* Right Side Actions */}
+            {/* Action buttons */}
             <div className="flex gap-2">
-                {/* Execute Tool Button */}
-                {stepType === WorkflowStepType.ACTION && (
+                {step_type === WorkflowStepType.ACTION && (
                     <button
                         onClick={onExecute}
                         disabled={isLoading || stepExecuted}
-                        className={`px-4 py-2 rounded-lg ${isLoading || stepExecuted
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md ${isLoading || stepExecuted ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
                             }`}
                     >
-                        {isLoading ? 'Processing...' : 'Execute Tool'}
+                        {isLoading ? 'Running...' : 'Execute Tool'}
                     </button>
                 )}
 
-                {/* Next/Restart Button */}
-                {(stepType === WorkflowStepType.INPUT || stepExecuted) && (
-                    activeStep === totalSteps - 1 ? (
-                        <button
-                            onClick={onRestart}
-                            className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
-                        >
-                            Restart Flow
-                        </button>
-                    ) : (
-                        <button
-                            onClick={onNext}
-                            className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
-                        >
-                            Next Step
-                        </button>
-                    )
+                {(step_type === WorkflowStepType.INPUT || stepExecuted) && (
+                    <button
+                        onClick={onNext}
+                        disabled={isLoading || activeStep === totalSteps - 1}
+                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md ${isLoading || activeStep === totalSteps - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+                            }`}
+                    >
+                        {activeStep === totalSteps - 1 ? 'Finish' : 'Next'}
+                    </button>
+                )}
+
+                {activeStep === totalSteps - 1 && stepExecuted && (
+                    <button
+                        onClick={onRestart}
+                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                    >
+                        New Question
+                    </button>
                 )}
             </div>
         </div>

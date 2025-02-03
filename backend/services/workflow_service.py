@@ -63,7 +63,7 @@ class WorkflowService:
         try:
             # Convert Pydantic model to dict
             update_data = workflow_data.__dict__
-            
+                                       
             # Update basic workflow properties
             basic_props = {k: v for k, v in update_data.items() 
                          if k not in ['steps', 'inputs', 'outputs']}
@@ -80,9 +80,8 @@ class WorkflowService:
                 # Create new steps
                 for step_data in update_data['steps']:
                     step = WorkflowStep(
-                        step_id=str(uuid4()),
                         workflow_id=workflow_id,
-                        **step_data
+                        **step_data.model_dump()
                     )
                     self.db.add(step)
             

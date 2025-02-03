@@ -30,7 +30,7 @@ export interface WorkflowStep {
     step_id: string;
     label: string;
     description: string;
-    stepType: 'ACTION' | 'INPUT';
+    step_type: WorkflowStepType;
     tool?: Tool;
     parameterMappings?: Record<string, string>;
     outputMappings?: Record<string, string>;
@@ -76,7 +76,7 @@ export const exampleWorkflow: Workflow = {
         step_id: "search_step",
         label: "Search Documents",
         description: "Search through document database",
-        stepType: 'ACTION',
+        step_type: WorkflowStepType.ACTION,
         tool: {
             tool_id: "search_tool",
             tool_type: "search",

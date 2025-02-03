@@ -270,7 +270,7 @@ class WorkflowStepBase(BaseModel):
 
 class WorkflowStepCreate(WorkflowStepBase):
     """Schema for creating workflow steps"""
-    id: str = Field(description="Unique identifier for the step")
+    step_id: str = Field(description="Unique identifier for the step")
 
 class WorkflowStepResponse(WorkflowStepBase):
     """Schema for workflow step responses"""
