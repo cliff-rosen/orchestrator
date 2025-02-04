@@ -13,7 +13,17 @@ export const executeLLM = async (parameters: ResolvedParameters): Promise<ToolOu
             // We could optionally pass model and max_tokens here if needed
         });
 
-        // Return the LLM response with the correct output name
+        // If the response is a JSON object, return it directly as the outputs
+        // This assumes the JSON keys match the expected output names
+        if (typeof response.data.response === 'object') {
+            return Object.entries(response.data.response).reduce((acc, [key, value]) => {
+                // Assert that value is one of the allowed types for ToolOutputs
+                acc[key as ToolOutputName] = value as string | number | boolean | string[];
+                return acc;
+            }, {} as ToolOutputs);
+        }
+
+        // If it's a string, return it under the 'response' key
         return {
             ['response' as ToolOutputName]: response.data.response
         };
