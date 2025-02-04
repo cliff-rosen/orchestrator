@@ -205,8 +205,8 @@ const Workflow: React.FC = () => {
             if (currentStep.tool?.tool_id) {
                 // Get resolved parameters from state manager
                 const resolvedParameters: ResolvedParameters = {};
-                if (currentStep.parameterMappings) {
-                    for (const [paramName, varName] of Object.entries(currentStep.parameterMappings)) {
+                if (currentStep.parameter_mappings) {
+                    for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
                         const value = stateManager.getValue(varName);
                         console.log(`Resolving parameter ${paramName} from ${varName}:`, value);
                         resolvedParameters[paramName as ToolParameterName] = value;
@@ -229,9 +229,9 @@ const Workflow: React.FC = () => {
                 console.log('Tool execution outputs:', outputs);
 
                 // Store outputs in state manager
-                if (currentStep.outputMappings) {
+                if (currentStep.output_mappings) {
                     // First ensure the output variables are registered in the schema manager
-                    for (const [outputName, varName] of Object.entries(currentStep.outputMappings)) {
+                    for (const [outputName, varName] of Object.entries(currentStep.output_mappings)) {
                         const outputParam = currentStep.tool.signature.outputs.find(
                             p => p.name === outputName
                         );
@@ -246,7 +246,7 @@ const Workflow: React.FC = () => {
                     }
 
                     // Then set the values
-                    for (const [outputName, varName] of Object.entries(currentStep.outputMappings)) {
+                    for (const [outputName, varName] of Object.entries(currentStep.output_mappings)) {
                         const value = outputs[outputName as ToolOutputName];
                         console.log(`Setting output ${outputName} to ${varName}:`, value);
                         stateManager.setValues(varName, value);

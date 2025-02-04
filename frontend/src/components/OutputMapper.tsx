@@ -4,20 +4,20 @@ import { Tool } from '../types/tools';
 
 interface OutputMapperProps {
     tool: Tool;
-    outputMappings: Record<string, string>;
+    output_mappings: Record<string, string>;
     stateManager: StateManager;
     onChange: (mappings: Record<string, string>) => void;
 }
 
 const OutputMapper: React.FC<OutputMapperProps> = ({
     tool,
-    outputMappings,
+    output_mappings,
     stateManager,
     onChange
 }) => {
     const handleChange = (outputName: string, value: string) => {
         onChange({
-            ...outputMappings,
+            ...output_mappings,
             [outputName]: value
         });
     };
@@ -39,7 +39,7 @@ const OutputMapper: React.FC<OutputMapperProps> = ({
                         </span>
                     </label>
                     <select
-                        value={outputMappings[output.name] || ''}
+                        value={output_mappings[output.name] || ''}
                         onChange={(e) => handleChange(output.name, e.target.value)}
                         className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                                  bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"

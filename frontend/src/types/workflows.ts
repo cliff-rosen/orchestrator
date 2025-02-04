@@ -33,8 +33,8 @@ export interface WorkflowStep {
     step_type: WorkflowStepType;
     tool?: Tool;
     tool_id?: string;
-    parameterMappings?: Record<string, string>;
-    outputMappings?: Record<string, string>;
+    parameter_mappings?: Record<string, string>;
+    output_mappings?: Record<string, string>;
 }
 
 export interface Workflow {
@@ -52,8 +52,8 @@ Explanation of inputs, outputs and parameter mappings:
 - inputs: variables that are collected from the user
 - outputs: variables that are produced by the workflow
 - collectively, inputs and outputs are the state variables for the workflow
-- parameter mappings: maps state variables to tool inputs parameters
-- output mappings: maps tool outputs to state variables
+- parameter_mappings: maps state variables to tool inputs parameters
+- output_mappings: maps tool outputs to state variables
 
 */
 
@@ -96,10 +96,10 @@ export const exampleWorkflow: Workflow = {
                 }]
             }
         },
-        parameterMappings: {
+        parameter_mappings: {
             "searchQuery": "query"  // Maps workflow input to tool parameter
         },
-        outputMappings: {
+        output_mappings: {
             "documents": "results"  // Maps tool output to workflow output
         }
     }]

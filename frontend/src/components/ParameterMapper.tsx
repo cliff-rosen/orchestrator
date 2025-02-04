@@ -4,20 +4,20 @@ import { Tool } from '../types/tools';
 
 interface ParameterMapperProps {
     tool: Tool;
-    parameterMappings: Record<string, string>;
+    parameter_mappings: Record<string, string>;
     stateManager: StateManager;
     onChange: (mappings: Record<string, string>) => void;
 }
 
 const ParameterMapper: React.FC<ParameterMapperProps> = ({
     tool,
-    parameterMappings,
+    parameter_mappings,
     stateManager,
     onChange
 }) => {
     const handleChange = (paramName: string, value: string) => {
         onChange({
-            ...parameterMappings,
+            ...parameter_mappings,
             [paramName]: value
         });
     };
@@ -38,7 +38,7 @@ const ParameterMapper: React.FC<ParameterMapperProps> = ({
                         </span>
                     </label>
                     <select
-                        value={parameterMappings[param.name] || ''}
+                        value={parameter_mappings[param.name] || ''}
                         onChange={(e) => handleChange(param.name, e.target.value)}
                         className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                                  bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"

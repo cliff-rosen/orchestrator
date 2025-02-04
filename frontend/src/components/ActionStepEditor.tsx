@@ -62,8 +62,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
             ...step,
             tool,
             // Reset mappings when tool changes
-            parameterMappings: {},
-            outputMappings: {}
+            parameter_mappings: {},
+            output_mappings: {}
         });
     };
 
@@ -79,8 +79,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                 promptTemplate: templateId
             },
             // Reset mappings when template changes
-            parameterMappings: {},
-            outputMappings: {}
+            parameter_mappings: {},
+            output_mappings: {}
         });
     };
 
@@ -99,20 +99,16 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     };
 
     const handleParameterMappingChange = (mappings: Record<string, string>) => {
-        if (!step.tool) return;
-
         onStepUpdate({
             ...step,
-            parameterMappings: mappings
+            parameter_mappings: mappings
         });
     };
 
     const handleOutputMappingChange = (mappings: Record<string, string>) => {
-        if (!step.tool) return;
-
         onStepUpdate({
             ...step,
-            outputMappings: mappings
+            output_mappings: mappings
         });
     };
 
@@ -211,7 +207,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                                 </label>
                                 <ParameterMapper
                                     tool={step.tool}
-                                    parameterMappings={step.parameterMappings || {}}
+                                    parameter_mappings={step.parameter_mappings || {}}
                                     stateManager={stateManager}
                                     onChange={handleParameterMappingChange}
                                 />
@@ -224,7 +220,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                                 </label>
                                 <OutputMapper
                                     tool={step.tool}
-                                    outputMappings={step.outputMappings || {}}
+                                    output_mappings={step.output_mappings || {}}
                                     stateManager={stateManager}
                                     onChange={handleOutputMappingChange}
                                 />
