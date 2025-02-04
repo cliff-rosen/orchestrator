@@ -16,12 +16,14 @@ interface ActionStepEditorProps {
     step: WorkflowStep;
     stateManager: StateManager;
     onStepUpdate: (step: WorkflowStep) => void;
+    onDeleteRequest: () => void;
 }
 
 const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     step,
     stateManager,
-    onStepUpdate
+    onStepUpdate,
+    onDeleteRequest
 }) => {
     const [tools, setTools] = useState<Tool[]>([]);
     const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
@@ -126,9 +128,20 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         <div className="space-y-8">
             {/* Basic Info Section */}
             <div className="space-y-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                    Basic Information
-                </h3>
+                <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                        Basic Information
+                    </h3>
+                    <button
+                        onClick={onDeleteRequest}
+                        className="px-3 py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 
+                                 border border-red-600 dark:border-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 
+                                 transition-colors duration-200"
+                        aria-label="Delete step"
+                    >
+                        Delete Step
+                    </button>
+                </div>
                 <div className="space-y-4">
                     {/* Step Label */}
                     <div className="space-y-2">

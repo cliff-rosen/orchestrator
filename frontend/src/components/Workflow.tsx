@@ -176,6 +176,26 @@ const Workflow: React.FC = () => {
         });
     };
 
+    const handleStepDelete = (stepId: string) => {
+        if (!currentWorkflow) return;
+
+        const stepIndex = currentWorkflow.steps.findIndex(s => s.step_id === stepId);
+        if (stepIndex === -1) return;
+
+        // Update workflow with filtered steps
+        updateCurrentWorkflow({
+            steps: currentWorkflow.steps.filter(s => s.step_id !== stepId)
+        });
+
+        // Adjust activeStep if needed
+        if (stepIndex <= activeStep) {
+            // If we deleted the current step or a step before it, move activeStep back
+            // But don't go below 0
+            setActiveStep(Math.max(0, activeStep - 1));
+        }
+        // No need to adjust if we deleted a step after the current one
+    };
+
     const handleExecuteTool = async (): Promise<void> => {
         setIsLoading(true);
         try {
@@ -402,6 +422,7 @@ const Workflow: React.FC = () => {
                                         isEditMode={isEditMode}
                                         tools={tools}
                                         onStepUpdate={handleStepUpdate}
+                                        onStepDelete={handleStepDelete}
                                     />
                                 </div>
 

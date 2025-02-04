@@ -13,14 +13,15 @@ interface StepDetailProps {
     isEditMode: boolean;
     tools: Tool[];
     onStepUpdate: (step: RuntimeWorkflowStep) => void;
+    onStepDelete: (stepId: string) => void;
 }
 
 const StepDetail: React.FC<StepDetailProps> = ({
     step,
     stateManager,
     isEditMode,
-    tools,
-    onStepUpdate
+    onStepUpdate,
+    onStepDelete
 }) => {
     if (!step) {
         return <div>Error: No step provided</div>;
@@ -35,12 +36,22 @@ const StepDetail: React.FC<StepDetailProps> = ({
 
     // In edit mode, action steps use the editor
     if (isEditMode) {
+        // Convert RuntimeWorkflowStep to WorkflowStep for ActionStepEditor
+        const { action, actionButtonText, isDisabled, ...workflowStep } = step;
         return (
             <ActionStepEditor
-                step={step}
-                tools={tools}
+                step={workflowStep}
                 stateManager={stateManager}
-                onStepUpdate={onStepUpdate}
+                onStepUpdate={(updatedStep) => {
+                    // Add back runtime properties when updating
+                    onStepUpdate({
+                        ...updatedStep,
+                        action,
+                        actionButtonText,
+                        isDisabled
+                    });
+                }}
+                onDeleteRequest={() => onStepDelete(step.step_id)}
             />
         );
     }
