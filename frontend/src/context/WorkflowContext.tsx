@@ -75,8 +75,9 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     prev.map(w => w.workflow_id === savedWorkflow.workflow_id ? savedWorkflow : w)
                 );
             }
-            // Update current workflow with saved version
-            setCurrentWorkflow(savedWorkflow);
+            // Reconstruct the workflow with full tool objects before setting it as current
+            const reconstructedWorkflow = await workflowApi.reconstructWorkflowWithTools(savedWorkflow);
+            setCurrentWorkflow(reconstructedWorkflow);
             setHasUnsavedChanges(false);
         } catch (error) {
             console.error('Error saving workflow:', error);

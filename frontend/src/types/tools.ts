@@ -34,5 +34,4 @@ export interface Tool {
     name: string;
     description: string;
     signature: ToolSignature;
-    promptTemplate?: string;  // ID of the selected prompt template
 } 

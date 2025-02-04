@@ -76,8 +76,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
             tool: {
                 ...step.tool,
                 signature: newSignature,
-                promptTemplate: templateId
             },
+            prompt_template: templateId,
             // Reset mappings when template changes
             parameter_mappings: {},
             output_mappings: {}
@@ -192,7 +192,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     {/* Prompt Template Selection for LLM tools */}
                     {step.tool && (
                         <PromptTemplateSelector
-                            tool={step.tool}
+                            step={step}
                             promptTemplates={promptTemplates}
                             onTemplateChange={handleTemplateChange}
                         />

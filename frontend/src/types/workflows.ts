@@ -14,9 +14,9 @@ export enum WorkflowStepType {
 }
 
 export interface RuntimeWorkflowStep extends WorkflowStep {
-    action: (data?: any) => Promise<void>;
-    actionButtonText: (state?: any) => string;
-    isDisabled?: (state?: any) => boolean;
+    action: () => Promise<void>;
+    actionButtonText: () => string;
+    isDisabled: () => boolean;
 }
 
 export interface WorkflowVariable {
@@ -32,9 +32,10 @@ export interface WorkflowStep {
     description: string;
     step_type: WorkflowStepType;
     tool?: Tool;
-    tool_id?: string;
-    parameter_mappings?: Record<string, string>;
-    output_mappings?: Record<string, string>;
+    tool_id?: string;  // ID of the tool to use for this step
+    prompt_template?: string;  // ID of the prompt template to use for LLM tools
+    parameter_mappings: Record<string, string>;
+    output_mappings: Record<string, string>;
 }
 
 export interface Workflow {

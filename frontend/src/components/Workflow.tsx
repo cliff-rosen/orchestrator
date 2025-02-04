@@ -215,10 +215,10 @@ const Workflow: React.FC = () => {
 
                 // Add templateId for LLM tools
                 if (currentStep.tool.tool_type === 'llm') {
-                    if (!currentStep.tool.promptTemplate) {
+                    if (!currentStep.prompt_template) {
                         throw new Error('No prompt template selected for LLM tool');
                     }
-                    resolvedParameters['templateId' as ToolParameterName] = currentStep.tool.promptTemplate;
+                    resolvedParameters['templateId' as ToolParameterName] = currentStep.prompt_template;
                 }
 
                 console.log('Executing tool with parameters:', resolvedParameters);

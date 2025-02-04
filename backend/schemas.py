@@ -265,6 +265,7 @@ class WorkflowStepBase(BaseModel):
     description: str = Field(description="Description of the step")
     step_type: str = Field(description="Type of step (ACTION or INPUT)")
     tool_id: Optional[str] = Field(None, description="ID of the tool to use for this step")
+    prompt_template: Optional[str] = Field(None, description="ID of the prompt template to use for LLM tools")
     parameter_mappings: Dict[str, str] = Field(default_factory=dict, description="Maps tool parameters to workflow variables")
     output_mappings: Dict[str, str] = Field(default_factory=dict, description="Maps tool outputs to workflow variables")
 

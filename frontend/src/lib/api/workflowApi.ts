@@ -27,6 +27,7 @@ const reconstructWorkflowWithTools = async (workflow: any): Promise<Workflow> =>
     const stepsWithTools = workflow.steps?.map((step: any) => ({
         ...step,
         tool: step.tool_id ? toolsCache[step.tool_id] : undefined
+        // prompt_template stays at the step level, not added to tool
     }));
 
     return {
@@ -76,6 +77,8 @@ export const workflowApi = {
                 steps: workflow.steps?.map(step => ({
                     ...step,
                     step_type: step.step_type,
+                    tool_id: step.tool?.tool_id,
+                    prompt_template: step.prompt_template,
                 })),
                 inputs: workflow.inputs?.map(input => ({
                     name: input.name,
@@ -120,5 +123,8 @@ export const workflowApi = {
         } catch (error) {
             throw handleApiError(error);
         }
-    }
+    },
+
+    // Export the reconstructWorkflowWithTools function
+    reconstructWorkflowWithTools
 }; 
