@@ -6,12 +6,12 @@ from database import get_db
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
 
-from models import Workflow, WorkflowStep, WorkflowVariable, Tool
+from models import Workflow, WorkflowStep, WorkflowVariable, Tool, PromptTemplate
 from schemas import (
     WorkflowCreate, WorkflowUpdate, WorkflowStepCreate,
     WorkflowVariableCreate, WorkflowExecuteRequest,
     WorkflowResponse, WorkflowStepResponse, WorkflowVariableResponse,
-    ToolResponse
+    ToolResponse, ToolSignature, ParameterSchema, OutputSchema, SchemaValue
 )
 from exceptions import (
     WorkflowNotFoundError, InvalidWorkflowError, WorkflowExecutionError,
@@ -55,10 +55,6 @@ class WorkflowService:
 
         # Fetch workflow variables
         workflow_variables = self.db.query(WorkflowVariable).filter(WorkflowVariable.workflow_id == workflow_id).all()
-        print(f"Workflow variables: {workflow_variables}")
-        for wv in workflow_variables:
-            for key, value in wv.__dict__.items():
-                print(f"{key}: {value}")
         
         # Split into inputs and outputs
         print("Getting inputs")
@@ -74,7 +70,7 @@ class WorkflowService:
             )
             for var in workflow_variables if var.variable_type == "input"
         ]
-        print(f"Inputs: {inputs}")
+        print(f"Input count: {len(inputs)}")
 
         print("Getting outputs")
         outputs = [
@@ -89,22 +85,79 @@ class WorkflowService:
             )
             for var in workflow_variables if var.variable_type == "output"
         ]
-        print(f"Outputs: {outputs}")
+        print(f"Output count: {len(outputs)}")
 
-        # Fetch workflow steps with eager loading of tools
-        steps = self.db.query(WorkflowStep).options(joinedload(WorkflowStep.tool)).filter(
+        # Fetch workflow steps
+        steps = self.db.query(WorkflowStep).filter(
             WorkflowStep.workflow_id == workflow_id
         ).all()
-        print(f"Steps: {steps}")
+        print(f"Step count: {len(steps)}")
 
         step_data = []
         for step in steps:
-            # Tool is already loaded through joinedload
-            tool = step.tool
             print(f"Processing step {step.step_id}")
-            print(f"Tool for step: {tool}")
-            if tool:
-                print(f"Tool attributes: {tool.__dict__}")
+            
+            # Explicitly retrieve the tool with its complete data
+            tool = None
+            if step.tool_id:
+                tool = self.db.query(Tool).filter(Tool.tool_id == step.tool_id).first()
+                if tool:
+                    print(f"Found tool: {tool.tool_id}")
+                    print(f"Tool type: {tool.tool_type}")
+                    
+                    # For LLM tools, derive signature from prompt template
+                    if tool.tool_type == 'llm' and step.prompt_template:
+                        tool.signature = self._get_llm_signature(step.prompt_template)
+                        print(f"Derived LLM signature: {tool.signature}")
+                    else:
+                        print(f"Tool signature type: {type(tool.signature)}")
+                        print(f"Tool signature content: {tool.signature}")
+                else:
+                    print(f"No tool found for tool_id: {step.tool_id}")
+
+            def create_schema_value(schema_dict: Dict) -> SchemaValue:
+                """Helper function to create a SchemaValue object from a dictionary."""
+                schema_copy = schema_dict.copy()
+                if 'items' in schema_copy:
+                    schema_copy['items'] = create_schema_value(schema_copy['items'])
+                if 'fields' in schema_copy:
+                    schema_copy['fields'] = {
+                        k: create_schema_value(v) for k, v in schema_copy['fields'].items()
+                    }
+                return SchemaValue(**schema_copy)
+
+            tool_response = None
+            if tool and tool.signature:
+                try:
+                    tool_response = ToolResponse(
+                        tool_id=tool.tool_id,
+                        name=tool.name,
+                        description=tool.description,
+                        tool_type=tool.tool_type,
+                        signature=ToolSignature(
+                            parameters=[
+                                ParameterSchema(
+                                    name=param['name'],
+                                    description=param.get('description', ''),
+                                    schema=create_schema_value(param['schema'])
+                                )
+                                for param in tool.signature.get('parameters', [])
+                            ],
+                            outputs=[
+                                OutputSchema(
+                                    name=output['name'],
+                                    description=output.get('description', ''),
+                                    schema=create_schema_value(output['schema'])
+                                )
+                                for output in tool.signature.get('outputs', [])
+                            ]
+                        ),
+                        created_at=tool.created_at,
+                        updated_at=tool.updated_at
+                    )
+                except Exception as e:
+                    print(f"Error creating tool response: {str(e)}")
+                    print(f"Tool data: {tool.__dict__}")
 
             step_response = WorkflowStepResponse(
                 step_id=step.step_id,
@@ -118,20 +171,12 @@ class WorkflowService:
                 output_mappings=step.output_mappings,
                 created_at=step.created_at,
                 updated_at=step.updated_at,
-                tool=ToolResponse(
-                    tool_id=tool.tool_id,
-                    name=tool.name,
-                    description=tool.description,
-                    tool_type=tool.tool_type,
-                    signature=tool.signature,
-                    created_at=tool.created_at,
-                    updated_at=tool.updated_at
-                ) if tool else None
+                tool=tool_response
             )
             step_data.append(step_response)
 
         # Construct response
-        print(f"Step data: {step_data}")
+
         return WorkflowResponse(
             workflow_id=workflow.workflow_id,
             user_id=workflow.user_id,
@@ -150,13 +195,13 @@ class WorkflowService:
         """List all workflows for a user."""
         return self.db.query(Workflow).filter(Workflow.user_id == user_id).all()
 
-    def update_workflow(self, workflow_id: str, workflow_data: WorkflowUpdate, user_id: int) -> Workflow:
+    def update_workflow(self, workflow_id: str, workflow_data: WorkflowUpdate, user_id: int) -> WorkflowResponse:
         """Update a workflow."""
         workflow = self.get_workflow(workflow_id, user_id)
         
         try:
             # Convert Pydantic model to dict
-            update_data = workflow_data.__dict__
+            update_data = workflow_data.model_dump(exclude_unset=True)
                                        
             # Update basic workflow properties
             basic_props = {k: v for k, v in update_data.items() 
@@ -178,6 +223,12 @@ class WorkflowService:
                     if 'tool' in step_dict and step_dict['tool']:
                         step_dict['tool_id'] = step_dict['tool']['tool_id']
                     step_dict.pop('tool', None)  # Remove the tool object as it's not in the model
+                    
+                    # Ensure parameter_mappings and output_mappings are present
+                    if 'parameter_mappings' not in step_dict:
+                        step_dict['parameter_mappings'] = {}
+                    if 'output_mappings' not in step_dict:
+                        step_dict['output_mappings'] = {}
                     
                     step = WorkflowStep(
                         workflow_id=workflow_id,
@@ -223,7 +274,9 @@ class WorkflowService:
             workflow.updated_at = datetime.utcnow()
             self.db.commit()
             self.db.refresh(workflow)
-            return workflow
+            
+            # Return the updated workflow using get_workflow to ensure proper response format
+            return self.get_workflow(workflow_id, user_id)
             
         except SQLAlchemyError as e:
             self.db.rollback()
@@ -350,10 +403,10 @@ class WorkflowService:
                 context["step_outputs"][current_step.step_id] = step_result
                 
                 # Update context with step outputs
-                if current_step.outputs:
-                    for output_key, output_mapping in current_step.outputs.items():
-                        if output_mapping in workflow.outputs:
-                            context["output"][output_mapping] = step_result[output_key]
+                if current_step.output_mappings:
+                    for output_name, var_name in current_step.output_mappings.items():
+                        if output_name in step_result:
+                            context["output"][var_name] = step_result[output_name]
                 
                 # Move to next step
                 current_step = next(
@@ -387,7 +440,7 @@ class WorkflowService:
             
             # Validate parameters against tool signature
             tool_params = {param.name: param for param in tool.signature.parameters}
-            for param_name, param_mapping in step.parameters.items():
+            for param_name, param_mapping in step.parameter_mappings.items():
                 if param_name not in tool_params:
                     raise InvalidStepConfigurationError(
                         f"Parameter '{param_name}' not found in tool signature"
@@ -395,14 +448,14 @@ class WorkflowService:
             
             # Check required parameters
             for param in tool.signature.parameters:
-                if param.required and param.name not in step.parameters:
+                if param.required and param.name not in step.parameter_mappings:
                     raise InvalidStepConfigurationError(
                         f"Required parameter '{param.name}' not provided"
                     )
             
             # Prepare tool parameters
             parameters = {}
-            for param_name, param_mapping in step.parameters.items():
+            for param_name, param_mapping in step.parameter_mappings.items():
                 param_spec = tool_params[param_name]
                 if param_mapping.startswith("input."):
                     _, input_name = param_mapping.split(".", 1)
@@ -431,8 +484,61 @@ class WorkflowService:
             # Input steps just pass through their mapped inputs
             return {
                 output_name: context["input"].get(input_name)
-                for output_name, input_name in step.outputs.items()
+                for output_name, input_name in step.output_mappings.items()
             }
         
         else:
-            raise InvalidStepConfigurationError(f"Unknown step type: {step.step_type}") 
+            raise InvalidStepConfigurationError(f"Unknown step type: {step.step_type}")
+
+    def _get_llm_signature(self, prompt_template_id: str) -> Dict:
+        """Get the signature for an LLM tool based on its prompt template."""
+        prompt_template = self.db.query(PromptTemplate).filter(
+            PromptTemplate.template_id == prompt_template_id
+        ).first()
+        
+        if not prompt_template:
+            print(f"No prompt template found for id: {prompt_template_id}")
+            return {'parameters': [], 'outputs': []}
+            
+        print(f"Found prompt template: {prompt_template.template_id}")
+        
+        # Convert prompt tokens to parameters
+        parameters = [
+            {
+                'name': token,
+                'description': f'Value for {{{{{token}}}}} in the prompt',
+                'schema': {
+                    'name': token,
+                    'type': 'string'
+                }
+            }
+            for token in prompt_template.tokens
+        ]
+        
+        # Convert output schema to outputs
+        if prompt_template.output_schema['type'] == 'object' and 'schema' in prompt_template.output_schema:
+            outputs = [
+                {
+                    'name': key,
+                    'description': field.get('description', ''),
+                    'schema': {
+                        'name': key,
+                        'type': field['type']
+                    }
+                }
+                for key, field in prompt_template.output_schema['schema']['fields'].items()
+            ]
+        else:
+            outputs = [{
+                'name': 'response',
+                'description': prompt_template.output_schema.get('description', ''),
+                'schema': {
+                    'name': 'response',
+                    'type': prompt_template.output_schema['type']
+                }
+            }]
+        
+        return {
+            'parameters': parameters,
+            'outputs': outputs
+        } 
