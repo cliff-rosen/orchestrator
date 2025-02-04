@@ -124,25 +124,46 @@ const MenuBar: React.FC<MenuBarProps> = ({
                     <div className="mr-6">
                         <button
                             onClick={onToggleConfig}
-                            className={`group relative px-3 py-2 rounded-lg flex items-center space-x-2 border-2 transition-all
+                            className={`group relative inline-flex h-9 w-[5.5rem] items-center rounded-lg transition-all
                                 ${showConfig
-                                    ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300'
-                                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-500'
+                                    ? 'bg-blue-500 dark:bg-blue-500 shadow-sm'
+                                    : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700'
                                 }`}
                             title="Configure workflow inputs and outputs"
                         >
-                            <svg className={`w-5 h-5 transition-transform ${showConfig ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                            {/* Toggle Circle */}
+                            <span
+                                className={`absolute flex h-7 w-7 items-center justify-center rounded-md 
+                                    transition-all duration-200 ease-in-out
+                                    ${showConfig
+                                        ? 'left-[2.75rem] bg-white dark:bg-gray-900 shadow-sm'
+                                        : 'left-0.5 bg-white dark:bg-gray-700'}`}
                             >
-                                <path strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 9l-7 7-7-7"
-                                />
-                            </svg>
-                            <span className="font-medium">Configure I/O</span>
+                                <svg
+                                    className={`h-4 w-4 transition-all
+                                        ${showConfig
+                                            ? 'rotate-180 text-blue-600 dark:text-blue-400'
+                                            : 'text-gray-500 dark:text-gray-400'}`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M19 9l-7 7-7-7"
+                                    />
+                                </svg>
+                            </span>
+
+                            {/* Labels */}
+                            <span className={`absolute font-medium transition-all duration-200
+                                ${showConfig
+                                    ? 'left-2 text-white dark:text-white'
+                                    : 'left-9 text-gray-600 dark:text-gray-400'}`}>
+                                I/O
+                            </span>
 
                             {/* Tooltip */}
                             <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-xs
