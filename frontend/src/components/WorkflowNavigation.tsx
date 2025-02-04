@@ -49,10 +49,17 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                     <button
                         onClick={onExecute}
                         disabled={isLoading || stepExecuted}
-                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md ${isLoading || stepExecuted ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md flex items-center space-x-2 ${isLoading || stepExecuted ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
                             }`}
                     >
-                        {isLoading ? 'Running...' : 'Execute Tool'}
+                        {isLoading ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                <span>Running...</span>
+                            </>
+                        ) : (
+                            <span>Execute Tool</span>
+                        )}
                     </button>
                 )}
 
@@ -60,10 +67,17 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                     <button
                         onClick={onNext}
                         disabled={isLoading || activeStep === totalSteps - 1}
-                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md ${isLoading || activeStep === totalSteps - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md flex items-center space-x-2 ${isLoading || activeStep === totalSteps - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
                             }`}
                     >
-                        {activeStep === totalSteps - 1 ? 'Finish' : 'Next'}
+                        {isLoading ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                <span>Processing...</span>
+                            </>
+                        ) : (
+                            <span>{activeStep === totalSteps - 1 ? 'Finish' : 'Next'}</span>
+                        )}
                     </button>
                 )}
 

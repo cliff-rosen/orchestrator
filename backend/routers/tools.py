@@ -65,17 +65,36 @@ async def execute_llm(
             prompt = prompt.replace(f"{{{{{token}}}}}", str(request.parameters[token]))
 
         # Execute the LLM request
-        response = await ai_service.provider.generate(
+        llm_response = await ai_service.provider.generate(
             prompt=prompt,
             model=request.model,
             max_tokens=request.max_tokens
         )
 
+        # Process response based on schema type
+        response = llm_response  # Default to raw text response
+        if template.output_schema.get("type") == "object":
+            try:
+                import json
+                from jsonschema import validate
+                
+                parsed_response = json.loads(llm_response)
+                # validate(instance=parsed_response, schema=template.output_schema)
+                response = parsed_response  # Use parsed JSON object
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=422,
+                    detail="LLM response was not valid JSON as required by the template"
+                )
+            except Exception as schema_error:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"LLM response did not match expected schema: {str(schema_error)}"
+                )
+
         # Get usage statistics
-        # Note: This assumes the LLM provider returns usage stats
-        # You may need to modify this based on your provider implementation
         usage = {
-            "prompt_tokens": 0,  # Replace with actual values from your provider
+            "prompt_tokens": 0,
             "completion_tokens": 0,
             "total_tokens": 0
         }

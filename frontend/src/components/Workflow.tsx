@@ -374,7 +374,27 @@ const Workflow: React.FC = () => {
     ///////////////////////// Render /////////////////////////
 
     if (isLoading) {
-        return <div className="flex flex-col h-full">Loading...</div>;
+        return (
+            <div className="flex flex-col h-full">
+                <MenuBar
+                    currentWorkflow={currentWorkflow}
+                    isEditMode={isEditMode}
+                    showConfig={showConfig}
+                    hasUnsavedChanges={hasUnsavedChanges}
+                    isLoading={isLoading}
+                    onSave={handleSave}
+                    onToggleConfig={() => setShowConfig(!showConfig)}
+                    onToggleEditMode={() => setIsEditMode(!isEditMode)}
+                    updateCurrentWorkflow={updateCurrentWorkflow}
+                />
+                <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent dark:border-blue-400 dark:border-t-transparent mx-auto"></div>
+                        <p className="mt-4 text-gray-600 dark:text-gray-400">Loading workflow...</p>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (

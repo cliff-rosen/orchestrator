@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from enum import Enum
 
 ##### USER SCHEMA #####
@@ -417,5 +417,5 @@ class LLMExecuteRequest(BaseModel):
 
 class LLMExecuteResponse(BaseModel):
     """Response schema for LLM execution"""
-    response: str = Field(description="The LLM's response")
+    response: Union[str, Dict[str, Any]] = Field(description="The LLM's response - either a string or JSON object")
     usage: Dict[str, int] = Field(description="Token usage statistics")
