@@ -85,12 +85,25 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, [currentWorkflow]);
 
     const updateCurrentWorkflow = useCallback((updates: Partial<Workflow>) => {
-        setCurrentWorkflow(prev => {
-            if (!prev) return prev;
-            return { ...prev, ...updates };
-        });
+        if (!currentWorkflow) return;
+
+        // Ensure all inputs and outputs have IDs
+        const updatedWorkflow = {
+            ...currentWorkflow,
+            ...updates,
+            inputs: updates.inputs?.map(input => ({
+                ...input,
+                id: input.id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            })) || currentWorkflow.inputs,
+            outputs: updates.outputs?.map(output => ({
+                ...output,
+                id: output.id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            })) || currentWorkflow.outputs
+        };
+
+        setCurrentWorkflow(updatedWorkflow);
         setHasUnsavedChanges(true);
-    }, []);
+    }, [currentWorkflow]);
 
     useEffect(() => {
         refreshWorkflows();
