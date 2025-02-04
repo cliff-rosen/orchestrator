@@ -49,7 +49,9 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 step_id: 'step-1',
                 label: 'Step 1',
                 description: 'First step',
-                step_type: WorkflowStepType.ACTION
+                step_type: WorkflowStepType.ACTION,
+                parameter_mappings: {},
+                output_mappings: {}
             }]
         };
         setCurrentWorkflow(newWorkflow);
@@ -94,11 +96,11 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             ...updates,
             inputs: updates.inputs?.map(input => ({
                 ...input,
-                id: input.id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+                variable_id: input.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
             })) || currentWorkflow.inputs,
             outputs: updates.outputs?.map(output => ({
                 ...output,
-                id: output.id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+                variable_id: output.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
             })) || currentWorkflow.outputs
         };
 

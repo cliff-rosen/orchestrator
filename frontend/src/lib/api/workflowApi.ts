@@ -1,6 +1,5 @@
 import { api, handleApiError } from './index';
 import { Workflow } from '../../types/workflows';
-import { toolApi } from './toolApi';
 
 export interface WorkflowExecutionState {
     workflowId: string;
@@ -10,40 +9,15 @@ export interface WorkflowExecutionState {
     error?: string;
 }
 
-// Cache tools to avoid repeated fetches
-let toolsCache: Record<string, any> = {};
-
-const reconstructWorkflowWithTools = async (workflow: any): Promise<Workflow> => {
-    // Fetch tools if cache is empty
-    if (Object.keys(toolsCache).length === 0) {
-        const tools = await toolApi.getAvailableTools();
-        toolsCache = tools.reduce((acc: Record<string, any>, tool: any) => {
-            acc[tool.tool_id] = tool;
-            return acc;
-        }, {});
-    }
-
-    // Reconstruct steps with tool objects
-    const stepsWithTools = workflow.steps?.map((step: any) => ({
-        ...step,
-        tool: step.tool_id ? toolsCache[step.tool_id] : undefined
-        // prompt_template stays at the step level, not added to tool
-    }));
-
-    return {
-        ...workflow,
-        steps: stepsWithTools || []
-    };
-};
-
 export const workflowApi = {
     getWorkflows: async (): Promise<Workflow[]> => {
         try {
             const response = await api.get('/api/workflows');
-            const workflows = await Promise.all(
-                response.data.map(reconstructWorkflowWithTools)
-            );
-            return workflows;
+            return response.data.map((workflow: any) => ({
+                ...workflow,
+                inputs: workflow.variables?.filter((v: any) => v.variable_type === 'input') || [],
+                outputs: workflow.variables?.filter((v: any) => v.variable_type === 'output') || []
+            }));
         } catch (error) {
             throw handleApiError(error);
         }
@@ -52,7 +26,7 @@ export const workflowApi = {
     getWorkflow: async (workflowId: string): Promise<Workflow> => {
         try {
             const response = await api.get(`/api/workflows/${workflowId}`);
-            return await reconstructWorkflowWithTools(response.data);
+            return response.data
         } catch (error) {
             throw handleApiError(error);
         }
@@ -81,11 +55,13 @@ export const workflowApi = {
                     prompt_template: step.prompt_template,
                 })),
                 inputs: workflow.inputs?.map(input => ({
+                    variable_id: input.variable_id,
                     name: input.name,
                     description: input.description,
                     schema: input.schema,
                 })),
                 outputs: workflow.outputs?.map(output => ({
+                    variable_id: output.variable_id,
                     name: output.name,
                     description: output.description,
                     schema: output.schema,
@@ -93,7 +69,11 @@ export const workflowApi = {
             };
 
             const response = await api.put(`/api/workflows/${workflowId}`, transformedWorkflow);
-            return response.data;
+            return {
+                ...response.data,
+                inputs: response.data.variables?.filter((v: any) => v.variable_type === 'input') || [],
+                outputs: response.data.variables?.filter((v: any) => v.variable_type === 'output') || []
+            };
         } catch (error) {
             throw handleApiError(error);
         }
@@ -123,8 +103,5 @@ export const workflowApi = {
         } catch (error) {
             throw handleApiError(error);
         }
-    },
-
-    // Export the reconstructWorkflowWithTools function
-    reconstructWorkflowWithTools
+    }
 }; 

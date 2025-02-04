@@ -20,7 +20,7 @@ export interface RuntimeWorkflowStep extends WorkflowStep {
 }
 
 export interface WorkflowVariable {
-    id: string;
+    variable_id: string;
     name: string;
     description: string;
     schema: SchemaValue;
@@ -63,13 +63,13 @@ export const exampleWorkflow: Workflow = {
     name: "Document Search",
     status: WorkflowStatus.DRAFT,
     inputs: [{
-        id: "query",
+        variable_id: "query",
         name: "Search Query",
         description: "What to search for",
         schema: { name: "query", type: "string" }
     }],
     outputs: [{
-        id: "results",
+        variable_id: "results",
         name: "Search Results",
         description: "Found documents",
         schema: { name: "results", type: "array", items: { name: "document", type: "string" } }
@@ -104,4 +104,15 @@ export const exampleWorkflow: Workflow = {
             "documents": "results"  // Maps tool output to workflow output
         }
     }]
+}
+
+export const exampleWorkflow2: Workflow = {
+    "name": "Hello Workflow 1",
+    "description": "A new custom workflow",
+    "status": WorkflowStatus.DRAFT,
+    "steps": [
+        {
+            "label": "Improve question",
+            "description": "Configure this step by selecting a tool and setting up its parameters", "step_type": WorkflowStepType.ACTION, "tool_id": "llm", "prompt_template": "question-improver", "parameter_mappings": {}, "output_mappings": {}, "step_id": "step-1", "workflow_id": "e4cd87e3-9d58-4be0-8270-d996c57e9a6a", "created_at": "2025-02-04T16:51:52", "updated_at": "2025-02-04T16:51:52", "tool": { "tool_id": "llm", "name": "Language Model", "description": "Executes prompts using a language model", "tool_type": "llm", "signature": { "parameters": [], "outputs": [] }, "created_at": "2025-02-02T05:10:06", "updated_at": "2025-02-02T05:10:06" }
+        }, { "label": "Generate answer", "description": "Configure this step by selecting a tool and setting up its parameters", "step_type": "ACTION", "tool_id": "llm", "prompt_template": "answer-generator", "parameter_mappings": {}, "output_mappings": {}, "step_id": "step-2", "workflow_id": "e4cd87e3-9d58-4be0-8270-d996c57e9a6a", "created_at": "2025-02-04T16:51:52", "updated_at": "2025-02-04T16:51:52", "tool": { "tool_id": "llm", "name": "Language Model", "description": "Executes prompts using a language model", "tool_type": "llm", "signature": { "parameters": [], "outputs": [] }, "created_at": "2025-02-02T05:10:06", "updated_at": "2025-02-02T05:10:06" } }], "inputs": [{ "variable_id": "var-1738689200900-rrjspuoia", "name": "question", "description": "", "schema": { "name": "question", "type": "string" } }], "outputs": []
 }

@@ -248,11 +248,11 @@ class WorkflowVariableBase(BaseModel):
 
 class WorkflowVariableCreate(WorkflowVariableBase):
     """Schema for creating workflow variables"""
-    id: str = Field(description="Unique identifier for the variable")
+    variable_id: str = Field(description="Unique identifier for the variable")
 
 class WorkflowVariableResponse(WorkflowVariableBase):
     """Schema for workflow variable responses"""
-    id: str = Field(description="Unique identifier for the variable")
+    variable_id: str = Field(description="Unique identifier for the variable")
     workflow_id: str = Field(description="ID of the workflow this variable belongs to")
     created_at: datetime
     updated_at: datetime

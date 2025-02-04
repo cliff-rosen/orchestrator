@@ -354,6 +354,8 @@ const Workflow: React.FC = () => {
         label: 'Input Values',
         description: 'Provide values for workflow inputs',
         step_type: WorkflowStepType.INPUT,
+        parameter_mappings: {},
+        output_mappings: {},
         action: handleExecuteTool,
         actionButtonText: () => 'Next Step',
         isDisabled: () => false,

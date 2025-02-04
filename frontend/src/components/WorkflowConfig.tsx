@@ -158,7 +158,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
     const handleAddVariable = () => {
         if (newVarName) {
             const newVar: WorkflowVariable = {
-                id: `var-${Date.now()}`,
+                variable_id: `var-${Date.now()}`,
                 name: newVarName,
                 description: '',
                 schema: {
@@ -167,21 +167,21 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                 }
             };
             onChange([...(variables || []), newVar]);
-            setSelectedVar(newVar.id);
+            setSelectedVar(newVar.variable_id);
             setNewVarName('');
         }
     };
 
-    const handleRemoveVariable = (id: string) => {
-        onChange((variables || []).filter(v => v.id !== id));
-        if (selectedVar === id) {
+    const handleRemoveVariable = (variable_id: string) => {
+        onChange((variables || []).filter(v => v.variable_id !== variable_id));
+        if (selectedVar === variable_id) {
             setSelectedVar(null);
         }
     };
 
-    const handleVariableChange = (id: string, updates: Partial<WorkflowVariable>) => {
+    const handleVariableChange = (variable_id: string, updates: Partial<WorkflowVariable>) => {
         onChange((variables || []).map(v => {
-            if (v.id !== id) return v;
+            if (v.variable_id !== variable_id) return v;
 
             // If name is being updated, also update the schema name
             if (updates.name) {
@@ -238,13 +238,13 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                     <div className="space-y-2">
                         {variables.map((variable) => (
                             <div
-                                key={variable.id}
+                                key={variable.variable_id}
                                 className="flex justify-between items-center p-2 
                                          hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded"
                             >
                                 <button
-                                    onClick={() => setSelectedVar(variable.id)}
-                                    className={`flex-1 text-left ${selectedVar === variable.id
+                                    onClick={() => setSelectedVar(variable.variable_id)}
+                                    className={`flex-1 text-left ${selectedVar === variable.variable_id
                                         ? 'text-blue-600 dark:text-blue-400'
                                         : 'text-gray-700 dark:text-gray-300'
                                         }`}
@@ -252,7 +252,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                                     {variable.name}
                                 </button>
                                 <button
-                                    onClick={() => handleRemoveVariable(variable.id)}
+                                    onClick={() => handleRemoveVariable(variable.variable_id)}
                                     className="text-red-600 dark:text-red-400 
                                              hover:text-red-700 dark:hover:text-red-300"
                                 >
@@ -268,16 +268,16 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                     <div className="col-span-2 border border-gray-200 dark:border-gray-700 
                                   bg-white dark:bg-gray-800/50 rounded-md p-4">
                         {variables.map(variable => {
-                            if (variable.id !== selectedVar) return null;
+                            if (variable.variable_id !== selectedVar) return null;
                             return (
-                                <div key={variable.id} className="space-y-4">
+                                <div key={variable.variable_id} className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Variable Name
                                         </label>
                                         <input
                                             value={variable.name}
-                                            onChange={e => handleVariableChange(variable.id, { name: e.target.value })}
+                                            onChange={e => handleVariableChange(variable.variable_id, { name: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 
                                                      bg-white dark:bg-gray-800 rounded-md 
                                                      text-gray-900 dark:text-gray-100"
@@ -289,7 +289,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                                         </label>
                                         <textarea
                                             value={variable.description}
-                                            onChange={e => handleVariableChange(variable.id, { description: e.target.value })}
+                                            onChange={e => handleVariableChange(variable.variable_id, { description: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 
                                                      bg-white dark:bg-gray-800 rounded-md 
                                                      text-gray-900 dark:text-gray-100"
@@ -302,7 +302,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                                         </label>
                                         <SchemaField
                                             value={variable.schema}
-                                            onChange={schema => handleVariableChange(variable.id, { schema })}
+                                            onChange={schema => handleVariableChange(variable.variable_id, { schema })}
                                             onRemove={() => { }}
                                         />
                                     </div>

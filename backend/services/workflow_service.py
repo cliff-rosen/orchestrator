@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from database import get_db
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
 
 from models import Workflow, WorkflowStep, WorkflowVariable, Tool
@@ -43,14 +43,81 @@ class WorkflowService:
 
     def get_workflow(self, workflow_id: str, user_id: int) -> Workflow:
         """Get a workflow by ID."""
-        workflow = self.db.query(Workflow).filter(
-            Workflow.workflow_id == workflow_id,
-            Workflow.user_id == user_id
-        ).first()
-        
+        workflow = self.db.query(Workflow).filter(Workflow.workflow_id == workflow_id and Workflow.user_id == user_id).first()
         if not workflow:
+            print(f"Workflow {workflow_id} not found for user {user_id}")
             raise WorkflowNotFoundError(workflow_id)
-        return workflow
+        print(f"Workflow {workflow_id} found for user {user_id}")
+        # Fetch workflow variables
+        workflow_variables = self.db.query(WorkflowVariable).filter(WorkflowVariable.workflow_id == workflow_id).all()
+        
+        # Split into inputs and outputs
+        inputs = [
+            {
+                "variable_id": var.variable_id,
+                "workflow_id": workflow_id,
+                "name": var.name,
+                "description": var.description,
+                "schema": var.schema,
+                "created_at": var.created_at,
+                "updated_at": var.updated_at
+            }
+            for var in workflow_variables if var.variable_type == "input"
+        ]
+
+        outputs = [
+            {
+                "variable_id": var.variable_id,
+                "workflow_id": workflow_id,
+                "name": var.name,
+                "description": var.description,
+                "schema": var.schema,
+                "created_at": var.created_at,
+                "updated_at": var.updated_at
+            }
+            for var in workflow_variables if var.variable_type == "output"
+        ]
+        
+        # Fetch workflow steps
+        steps = self.db.query(WorkflowStep).filter(WorkflowStep.workflow_id == workflow_id).all()
+
+        step_data = []
+        for step in steps:
+            # Fetch tool if available
+            tool = self.db.query(Tool).filter(Tool.tool_id == step.tool_id).first() if step.tool_id else None
+
+            step_data.append({
+                "step_id": step.step_id,
+                "workflow_id": workflow_id,
+                "label": step.label,
+                "description": step.description,
+                "step_type": step.step_type,
+                "tool": {
+                    "tool_id": tool.tool_id,
+                    "tool_type": tool.tool_type,
+                    "name": tool.name,
+                    "description": tool.description,
+                    "signature": tool.signature
+                } if tool else None,
+                "parameter_mappings": step.parameter_mappings,
+                "output_mappings": step.output_mappings,
+                "created_at": step.created_at,
+                "updated_at": step.updated_at
+            })
+
+        # Construct response
+        return {
+            "workflow_id": workflow.workflow_id,
+            "user_id": workflow.user_id,
+            "name": workflow.name,
+            "description": workflow.description,
+            "status": workflow.status,
+            "inputs": inputs,
+            "outputs": outputs,
+            "steps": step_data,
+            "created_at": workflow.created_at,
+            "updated_at": workflow.updated_at
+        }
 
     def list_workflows(self, user_id: int) -> List[Workflow]:
         """List all workflows for a user."""
@@ -101,22 +168,28 @@ class WorkflowService:
                 # Create new input variables
                 if 'inputs' in update_data:
                     for var_data in update_data['inputs']:
+                        var_dict = var_data.model_dump()
                         var = WorkflowVariable(
                             variable_id=str(uuid4()),
                             workflow_id=workflow_id,
                             variable_type='input',
-                            **var_data
+                            name=var_dict['name'],
+                            description=var_dict.get('description'),
+                            schema=var_dict['schema']
                         )
                         self.db.add(var)
                 
                 # Create new output variables
                 if 'outputs' in update_data:
                     for var_data in update_data['outputs']:
+                        var_dict = var_data.model_dump()
                         var = WorkflowVariable(
                             variable_id=str(uuid4()),
                             workflow_id=workflow_id,
                             variable_type='output',
-                            **var_data
+                            name=var_dict['name'],
+                            description=var_dict.get('description'),
+                            schema=var_dict['schema']
                         )
                         self.db.add(var)
             
