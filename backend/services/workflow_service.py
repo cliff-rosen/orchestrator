@@ -9,7 +9,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from models import Workflow, WorkflowStep, WorkflowVariable, Tool
 from schemas import (
     WorkflowCreate, WorkflowUpdate, WorkflowStepCreate,
-    WorkflowVariableCreate, WorkflowExecuteRequest
+    WorkflowVariableCreate, WorkflowExecuteRequest,
+    WorkflowResponse, WorkflowStepResponse, WorkflowVariableResponse,
+    ToolResponse
 )
 from exceptions import (
     WorkflowNotFoundError, InvalidWorkflowError, WorkflowExecutionError,
@@ -41,83 +43,108 @@ class WorkflowService:
             self.db.rollback()
             raise WorkflowExecutionError(str(e), "new")
 
-    def get_workflow(self, workflow_id: str, user_id: int) -> Workflow:
+    def get_workflow(self, workflow_id: str, user_id: int) -> WorkflowResponse:
         """Get a workflow by ID."""
-        workflow = self.db.query(Workflow).filter(Workflow.workflow_id == workflow_id and Workflow.user_id == user_id).first()
+        workflow = self.db.query(Workflow).filter(
+            (Workflow.workflow_id == workflow_id) & (Workflow.user_id == user_id)
+        ).first()
         if not workflow:
             print(f"Workflow {workflow_id} not found for user {user_id}")
             raise WorkflowNotFoundError(workflow_id)
         print(f"Workflow {workflow_id} found for user {user_id}")
+
         # Fetch workflow variables
         workflow_variables = self.db.query(WorkflowVariable).filter(WorkflowVariable.workflow_id == workflow_id).all()
+        print(f"Workflow variables: {workflow_variables}")
+        for wv in workflow_variables:
+            for key, value in wv.__dict__.items():
+                print(f"{key}: {value}")
         
         # Split into inputs and outputs
+        print("Getting inputs")
         inputs = [
-            {
-                "variable_id": var.variable_id,
-                "workflow_id": workflow_id,
-                "name": var.name,
-                "description": var.description,
-                "schema": var.schema,
-                "created_at": var.created_at,
-                "updated_at": var.updated_at
-            }
+            WorkflowVariableResponse(
+                variable_id=var.variable_id,
+                workflow_id=workflow_id,
+                name=var.name,
+                description=var.description,
+                schema=var.schema,
+                created_at=var.created_at,
+                updated_at=var.updated_at
+            )
             for var in workflow_variables if var.variable_type == "input"
         ]
+        print(f"Inputs: {inputs}")
 
+        print("Getting outputs")
         outputs = [
-            {
-                "variable_id": var.variable_id,
-                "workflow_id": workflow_id,
-                "name": var.name,
-                "description": var.description,
-                "schema": var.schema,
-                "created_at": var.created_at,
-                "updated_at": var.updated_at
-            }
+            WorkflowVariableResponse(
+                variable_id=var.variable_id,
+                workflow_id=workflow_id,
+                name=var.name,
+                description=var.description,
+                schema=var.schema,
+                created_at=var.created_at,
+                updated_at=var.updated_at
+            )
             for var in workflow_variables if var.variable_type == "output"
         ]
-        
-        # Fetch workflow steps
-        steps = self.db.query(WorkflowStep).filter(WorkflowStep.workflow_id == workflow_id).all()
+        print(f"Outputs: {outputs}")
+
+        # Fetch workflow steps with eager loading of tools
+        steps = self.db.query(WorkflowStep).options(joinedload(WorkflowStep.tool)).filter(
+            WorkflowStep.workflow_id == workflow_id
+        ).all()
+        print(f"Steps: {steps}")
 
         step_data = []
         for step in steps:
-            # Fetch tool if available
-            tool = self.db.query(Tool).filter(Tool.tool_id == step.tool_id).first() if step.tool_id else None
+            # Tool is already loaded through joinedload
+            tool = step.tool
+            print(f"Processing step {step.step_id}")
+            print(f"Tool for step: {tool}")
+            if tool:
+                print(f"Tool attributes: {tool.__dict__}")
 
-            step_data.append({
-                "step_id": step.step_id,
-                "workflow_id": workflow_id,
-                "label": step.label,
-                "description": step.description,
-                "step_type": step.step_type,
-                "tool": {
-                    "tool_id": tool.tool_id,
-                    "tool_type": tool.tool_type,
-                    "name": tool.name,
-                    "description": tool.description,
-                    "signature": tool.signature
-                } if tool else None,
-                "parameter_mappings": step.parameter_mappings,
-                "output_mappings": step.output_mappings,
-                "created_at": step.created_at,
-                "updated_at": step.updated_at
-            })
+            step_response = WorkflowStepResponse(
+                step_id=step.step_id,
+                workflow_id=workflow_id,
+                label=step.label,
+                description=step.description,
+                step_type=step.step_type,
+                tool_id=step.tool_id,
+                prompt_template=step.prompt_template,
+                parameter_mappings=step.parameter_mappings,
+                output_mappings=step.output_mappings,
+                created_at=step.created_at,
+                updated_at=step.updated_at,
+                tool=ToolResponse(
+                    tool_id=tool.tool_id,
+                    name=tool.name,
+                    description=tool.description,
+                    tool_type=tool.tool_type,
+                    signature=tool.signature,
+                    created_at=tool.created_at,
+                    updated_at=tool.updated_at
+                ) if tool else None
+            )
+            step_data.append(step_response)
 
         # Construct response
-        return {
-            "workflow_id": workflow.workflow_id,
-            "user_id": workflow.user_id,
-            "name": workflow.name,
-            "description": workflow.description,
-            "status": workflow.status,
-            "inputs": inputs,
-            "outputs": outputs,
-            "steps": step_data,
-            "created_at": workflow.created_at,
-            "updated_at": workflow.updated_at
-        }
+        print(f"Step data: {step_data}")
+        return WorkflowResponse(
+            workflow_id=workflow.workflow_id,
+            user_id=workflow.user_id,
+            name=workflow.name,
+            description=workflow.description,
+            status=workflow.status,
+            error=workflow.error,
+            inputs=inputs,
+            outputs=outputs,
+            steps=step_data,
+            created_at=workflow.created_at,
+            updated_at=workflow.updated_at
+        )
 
     def list_workflows(self, user_id: int) -> List[Workflow]:
         """List all workflows for a user."""
