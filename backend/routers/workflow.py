@@ -17,14 +17,15 @@ from models import User
 
 router = APIRouter()
 
+##### Workflows  #####
 @router.get("/", response_model=List[WorkflowResponse])
-async def list_workflows(
+async def get_workflows(
     current_user: User = Depends(validate_token),
     db: Session = Depends(get_db)
 ):
     """List all workflows for the current user."""
     workflow_service = WorkflowService(db)
-    return workflow_service.list_workflows(current_user.user_id)
+    return workflow_service.get_workflows(current_user.user_id)
 
 @router.post("/", response_model=WorkflowResponse)
 async def create_workflow(
@@ -35,6 +36,9 @@ async def create_workflow(
     """Create a new workflow."""
     workflow_service = WorkflowService(db)
     return workflow_service.create_workflow(workflow_data, current_user.user_id)
+
+
+##### Workflow (individual) #####
 
 @router.get("/{workflow_id}", response_model=WorkflowResponse)
 async def get_workflow(

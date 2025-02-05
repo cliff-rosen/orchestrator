@@ -191,12 +191,14 @@ class WorkflowService:
             updated_at=workflow.updated_at
         )
 
-    def list_workflows(self, user_id: int) -> List[Workflow]:
+    def get_workflows(self, user_id: int) -> List[Workflow]:
         """List all workflows for a user."""
+        print(f"Getting workflows for user {user_id}")
         return self.db.query(Workflow).filter(Workflow.user_id == user_id).all()
 
     def update_workflow(self, workflow_id: str, workflow_data: WorkflowUpdate, user_id: int) -> WorkflowResponse:
         """Update a workflow."""
+        print(f"Updating workflow {workflow_id} for user {user_id}")
         workflow = self.get_workflow(workflow_id, user_id)
         
         try:
@@ -210,6 +212,7 @@ class WorkflowService:
                 setattr(workflow, key, value)
             
             # Update steps if provided
+            print(f"Updating steps")
             if 'steps' in update_data:
                 # Delete existing steps
                 self.db.query(WorkflowStep).filter(
@@ -218,25 +221,51 @@ class WorkflowService:
                 
                 # Create new steps
                 for step_data in update_data['steps']:
-                    step_dict = step_data.model_dump()
+                    # Handle both Pydantic models and dicts
+                    if hasattr(step_data, 'model_dump'):
+                        step_dict = step_data.model_dump()
+                    else:
+                        step_dict = step_data
+                    # print(f"Step data before processing: {step_dict}")
+                    
                     # Extract tool_id from nested tool object if it exists
                     if 'tool' in step_dict and step_dict['tool']:
                         step_dict['tool_id'] = step_dict['tool']['tool_id']
                     step_dict.pop('tool', None)  # Remove the tool object as it's not in the model
                     
-                    # Ensure parameter_mappings and output_mappings are present
-                    if 'parameter_mappings' not in step_dict:
-                        step_dict['parameter_mappings'] = {}
-                    if 'output_mappings' not in step_dict:
-                        step_dict['output_mappings'] = {}
+                    # Ensure mappings are properly handled
+                    parameter_mappings = step_dict.get('parameter_mappings')
+                    output_mappings = step_dict.get('output_mappings')
+                    
+                    # Convert None to empty dict if necessary
+                    if parameter_mappings is None:
+                        parameter_mappings = {}
+                    if output_mappings is None:
+                        output_mappings = {}
+                        
+                    # Ensure mappings are dictionaries
+                    if not isinstance(parameter_mappings, dict):
+                        parameter_mappings = dict(parameter_mappings)
+                    if not isinstance(output_mappings, dict):
+                        output_mappings = dict(output_mappings)
+                    
+                    step_dict['parameter_mappings'] = parameter_mappings
+                    step_dict['output_mappings'] = output_mappings
+                    
+                    #print(f"Creating step with data: {step_dict}")
+                    #print(f"Parameter mappings: {step_dict['parameter_mappings']}")
+                    #print(f"Output mappings: {step_dict['output_mappings']}")
                     
                     step = WorkflowStep(
                         workflow_id=workflow_id,
+                        step_id=str(uuid4()),  # Ensure each step has a unique ID
                         **step_dict
                     )
                     self.db.add(step)
+                    print(f"Added step to session: {step.__dict__}")
             
             # Update variables if provided
+            print(f"Updating variables")
             if 'inputs' in update_data or 'outputs' in update_data:
                 # Delete existing variables
                 self.db.query(WorkflowVariable).filter(
@@ -276,9 +305,11 @@ class WorkflowService:
             self.db.refresh(workflow)
             
             # Return the updated workflow using get_workflow to ensure proper response format
+            print(f"Returning updated workflow: {self.get_workflow(workflow_id, user_id)}")
             return self.get_workflow(workflow_id, user_id)
             
         except SQLAlchemyError as e:
+            print(f"Error updating workflow: {str(e)}")
             self.db.rollback()
             raise WorkflowExecutionError(str(e), workflow_id)
 
