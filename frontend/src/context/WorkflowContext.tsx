@@ -46,7 +46,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             inputs: [],
             outputs: [],
             steps: [{
-                step_id: 'step-1',
+                step_id: `step-${crypto.randomUUID()}`,
                 label: 'Step 1',
                 description: 'First step',
                 step_type: WorkflowStepType.ACTION,

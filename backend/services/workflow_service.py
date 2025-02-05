@@ -240,6 +240,10 @@ class WorkflowService:
                         step_dict['tool_id'] = step_dict['tool']['tool_id']
                     step_dict.pop('tool', None)  # Remove the tool object as it's not in the model
                     
+                    # Ensure step_id is a UUID if not provided or if it's a temporary ID
+                    if not step_dict.get('step_id') or step_dict['step_id'].startswith('step-'):
+                        step_dict['step_id'] = str(uuid4())
+                    
                     # Ensure mappings are properly handled
                     print("Checking for parameter_mappings and output_mappings")
                     parameter_mappings = step_dict.get('parameter_mappings')
