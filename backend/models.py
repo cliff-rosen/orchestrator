@@ -69,18 +69,20 @@ class WorkflowStep(Base):
     description = Column(Text)
     step_type = Column(String(50), nullable=False)  # 'ACTION' or 'INPUT'
     tool_id = Column(String(36), ForeignKey("tools.tool_id"), nullable=True)
-    prompt_template = Column(String(36), ForeignKey("prompt_templates.template_id"), nullable=True)  # Store selected prompt template ID
-    next_step_id = Column(String(36), ForeignKey("workflow_steps.step_id"), nullable=True)
-    parameter_mappings = Column(JSON, nullable=False, default=dict)  # Maps tool parameters to workflow variables
-    output_mappings = Column(JSON, nullable=False, default=dict)  # Maps tool outputs to workflow variables
+    prompt_template = Column(String(36), ForeignKey("prompt_templates.template_id"), nullable=True)
+    parameter_mappings = Column(JSON, nullable=False, default=dict)
+    output_mappings = Column(JSON, nullable=False, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    sequence_number = Column(Integer, nullable=False)
 
     # Relationships
     workflow = relationship("Workflow", back_populates="steps")
     tool = relationship("Tool", back_populates="workflow_steps")
-    next_step = relationship("WorkflowStep", remote_side=[step_id])
   
+    class Config:
+        orm_mode = True
+
 class WorkflowVariable(Base):
     __tablename__ = "workflow_variables"
 
@@ -110,6 +112,9 @@ class Workflow(Base):
 
     # Relationships
     user = relationship("User", back_populates="workflows")
-    steps = relationship("WorkflowStep", back_populates="workflow", cascade="all, delete-orphan")
+    steps = relationship("WorkflowStep", 
+                        back_populates="workflow", 
+                        cascade="all, delete-orphan",
+                        order_by="WorkflowStep.sequence_number")
     variables = relationship("WorkflowVariable", back_populates="workflow", cascade="all, delete-orphan")
 

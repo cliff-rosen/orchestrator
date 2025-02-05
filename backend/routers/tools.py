@@ -119,15 +119,17 @@ def create_prompt_template(
 ):
     """Create a new prompt template"""
     try:
+        # Convert the Pydantic model to dict
+        data = template_data.model_dump()
+        # Handle output_schema separately
+        output_schema = data.pop('output_schema', None)
+        
         template = PromptTemplate(
             template_id=str(uuid4()),
-            name=template_data.name,
-            description=template_data.description,
-            template=template_data.template,
-            tokens=template_data.tokens,
-            output_schema=template_data.output_schema.dict(),
+            output_schema=output_schema,
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
+            **data
         )
         db.add(template)
         db.commit()
@@ -150,9 +152,15 @@ def update_prompt_template(
 
     try:
         # Update fields
-        for key, value in template_data.dict(exclude_unset=True).items():
-            if key == 'output_schema' and value:
-                value = value.dict()
+        update_data = template_data.model_dump(exclude_unset=True)
+        
+        # Handle output_schema separately since it's already a dict after model_dump
+        output_schema = update_data.pop('output_schema', None)
+        if output_schema is not None:
+            setattr(template, 'output_schema', output_schema)
+            
+        # Update remaining fields
+        for key, value in update_data.items():
             setattr(template, key, value)
         
         template.updated_at = datetime.utcnow()

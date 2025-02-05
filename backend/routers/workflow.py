@@ -17,15 +17,52 @@ from models import User
 
 router = APIRouter()
 
+
 ##### Workflows  #####
+
 @router.get("/", response_model=List[WorkflowResponse])
 async def get_workflows(
     current_user: User = Depends(validate_token),
     db: Session = Depends(get_db)
 ):
-    """List all workflows for the current user."""
+    """Get all workflows for the current user"""
     workflow_service = WorkflowService(db)
-    return workflow_service.get_workflows(current_user.user_id)
+    workflows = workflow_service.get_workflows(current_user.user_id)
+    
+    # Convert to response models
+    return [
+        WorkflowResponse(
+            workflow_id=w.workflow_id,
+            user_id=w.user_id,
+            name=w.name,
+            description=w.description,
+            status=w.status,
+            error=w.error,
+            steps=[
+                WorkflowStepResponse(
+                    step_id=s.step_id,
+                    workflow_id=s.workflow_id,
+                    label=s.label,
+                    description=s.description,
+                    step_type=s.step_type,
+                    tool_id=s.tool_id,
+                    prompt_template=s.prompt_template,
+                    parameter_mappings=s.parameter_mappings,
+                    output_mappings=s.output_mappings,
+                    sequence_number=s.sequence_number,
+                    created_at=s.created_at,
+                    updated_at=s.updated_at,
+                    tool=None  # We can add tool info here if needed
+                )
+                for s in w.steps
+            ],
+            inputs=[],  # Add inputs if needed
+            outputs=[],  # Add outputs if needed
+            created_at=w.created_at,
+            updated_at=w.updated_at
+        )
+        for w in workflows
+    ]
 
 @router.post("/", response_model=WorkflowResponse)
 async def create_workflow(
@@ -49,8 +86,14 @@ async def get_workflow(
     """Get a specific workflow by ID."""
     workflow_service = WorkflowService(db)
     try:
-        return workflow_service.get_workflow(workflow_id, current_user.user_id)
+        workflow = workflow_service.get_workflow(workflow_id, current_user.user_id)
+        if not workflow:
+            raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+        return workflow
     except Exception as e:
+        # Log the actual error for debugging
+        print(f"Error getting workflow: {str(e)}")
+        # Convert WorkflowNotFoundError to HTTPException
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.put("/{workflow_id}", response_model=WorkflowResponse)

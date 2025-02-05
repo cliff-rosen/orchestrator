@@ -180,19 +180,19 @@ const MenuBar: React.FC<MenuBarProps> = ({
                         <button
                             onClick={onSave}
                             disabled={!hasUnsavedChanges || isLoading}
-                            className={`px-4 py-2 rounded-lg ${!hasUnsavedChanges || isLoading
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50'
-                                } transition-colors flex items-center space-x-2`}
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium ${!hasUnsavedChanges || isLoading
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-500'
+                                : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30'
+                                } transition-colors flex items-center space-x-1.5`}
                         >
                             {isLoading ? (
                                 <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-emerald-700 border-t-transparent dark:border-emerald-300 dark:border-t-transparent"></div>
-                                    <span>Saving...</span>
+                                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-emerald-600 border-t-transparent dark:border-emerald-400 dark:border-t-transparent"></div>
+                                    <span>Saving</span>
                                 </>
                             ) : (
                                 <>
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                                     </svg>
                                     <span>Save</span>
@@ -203,24 +203,24 @@ const MenuBar: React.FC<MenuBarProps> = ({
                         {/* Mode Toggle Button */}
                         <button
                             onClick={onToggleEditMode}
-                            className="px-4 py-2 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 
-                                     dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50
-                                     transition-colors flex items-center space-x-2"
+                            className="px-3 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-600 
+                                     hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 
+                                     dark:hover:bg-blue-900/30 transition-colors flex items-center space-x-1.5"
                         >
                             {isEditMode ? (
                                 <>
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    <span>Run Workflow</span>
+                                    <span>Run</span>
                                 </>
                             ) : (
                                 <>
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                     </svg>
-                                    <span>Edit Workflow</span>
+                                    <span>Edit</span>
                                 </>
                             )}
                         </button>

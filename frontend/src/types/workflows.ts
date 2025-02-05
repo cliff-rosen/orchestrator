@@ -28,14 +28,18 @@ export interface WorkflowVariable {
 
 export interface WorkflowStep {
     step_id: string;
+    workflow_id: string;
     label: string;
-    description: string;
-    step_type: WorkflowStepType;
+    description?: string;
+    step_type: string;
+    tool_id?: string;
+    prompt_template?: string;
+    parameter_mappings: Record<string, any>;
+    output_mappings: Record<string, any>;
+    sequence_number: number;
+    created_at: string;
+    updated_at: string;
     tool?: Tool;
-    tool_id?: string;  // ID of the tool to use for this step
-    prompt_template?: string;  // ID of the prompt template to use for LLM tools
-    parameter_mappings: Record<string, string>;
-    output_mappings: Record<string, string>;
 }
 
 export interface Workflow {
@@ -76,9 +80,11 @@ export const exampleWorkflow: Workflow = {
     }],
     steps: [{
         step_id: "search_step",
+        workflow_id: "doc_search_workflow",
         label: "Search Documents",
         description: "Search through document database",
         step_type: WorkflowStepType.ACTION,
+        sequence_number: 0,
         tool: {
             tool_id: "search_tool",
             tool_type: "search",
@@ -98,11 +104,13 @@ export const exampleWorkflow: Workflow = {
             }
         },
         parameter_mappings: {
-            "searchQuery": "query"  // Maps workflow input to tool parameter
+            "searchQuery": "query"
         },
         output_mappings: {
-            "documents": "results"  // Maps tool output to workflow output
-        }
+            "documents": "results"
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
     }]
 }
 
@@ -113,6 +121,35 @@ export const exampleWorkflow2: Workflow = {
     "steps": [
         {
             "label": "Improve question",
-            "description": "Configure this step by selecting a tool and setting up its parameters", "step_type": WorkflowStepType.ACTION, "tool_id": "llm", "prompt_template": "question-improver", "parameter_mappings": {}, "output_mappings": {}, "step_id": "step-1", "workflow_id": "e4cd87e3-9d58-4be0-8270-d996c57e9a6a", "created_at": "2025-02-04T16:51:52", "updated_at": "2025-02-04T16:51:52", "tool": { "tool_id": "llm", "name": "Language Model", "description": "Executes prompts using a language model", "tool_type": "llm", "signature": { "parameters": [], "outputs": [] }, "created_at": "2025-02-02T05:10:06", "updated_at": "2025-02-02T05:10:06" }
-        }, { "label": "Generate answer", "description": "Configure this step by selecting a tool and setting up its parameters", "step_type": "ACTION", "tool_id": "llm", "prompt_template": "answer-generator", "parameter_mappings": {}, "output_mappings": {}, "step_id": "step-2", "workflow_id": "e4cd87e3-9d58-4be0-8270-d996c57e9a6a", "created_at": "2025-02-04T16:51:52", "updated_at": "2025-02-04T16:51:52", "tool": { "tool_id": "llm", "name": "Language Model", "description": "Executes prompts using a language model", "tool_type": "llm", "signature": { "parameters": [], "outputs": [] }, "created_at": "2025-02-02T05:10:06", "updated_at": "2025-02-02T05:10:06" } }], "inputs": [{ "variable_id": "var-1738689200900-rrjspuoia", "name": "question", "description": "", "schema": { "name": "question", "type": "string" } }], "outputs": []
+            "description": "Configure this step by selecting a tool and setting up its parameters",
+            "step_type": WorkflowStepType.ACTION,
+            "tool_id": "llm",
+            "prompt_template": "question-improver",
+            "parameter_mappings": {},
+            "output_mappings": {},
+            "step_id": "step-1",
+            "workflow_id": "e4cd87e3-9d58-4be0-8270-d996c57e9a6a",
+            "sequence_number": 0,
+            "created_at": "2025-02-04T16:51:52",
+            "updated_at": "2025-02-04T16:51:52",
+            "tool": { "tool_id": "llm", "name": "Language Model", "description": "Executes prompts using a language model", "tool_type": "llm", "signature": { "parameters": [], "outputs": [] }, "created_at": "2025-02-02T05:10:06", "updated_at": "2025-02-02T05:10:06" }
+        },
+        {
+            "label": "Generate answer",
+            "description": "Configure this step by selecting a tool and setting up its parameters",
+            "step_type": "ACTION",
+            "tool_id": "llm",
+            "prompt_template": "answer-generator",
+            "parameter_mappings": {},
+            "output_mappings": {},
+            "step_id": "step-2",
+            "workflow_id": "e4cd87e3-9d58-4be0-8270-d996c57e9a6a",
+            "sequence_number": 1,
+            "created_at": "2025-02-04T16:51:52",
+            "updated_at": "2025-02-04T16:51:52",
+            "tool": { "tool_id": "llm", "name": "Language Model", "description": "Executes prompts using a language model", "tool_type": "llm", "signature": { "parameters": [], "outputs": [] }, "created_at": "2025-02-02T05:10:06", "updated_at": "2025-02-02T05:10:06" }
+        }
+    ],
+    "inputs": [{ "variable_id": "var-1738689200900-rrjspuoia", "name": "question", "description": "", "schema": { "name": "question", "type": "string" } }],
+    "outputs": []
 }

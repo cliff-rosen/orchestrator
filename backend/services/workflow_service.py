@@ -48,157 +48,97 @@ class WorkflowService:
         workflow = self.db.query(Workflow).filter(
             (Workflow.workflow_id == workflow_id) & (Workflow.user_id == user_id)
         ).first()
-        if not workflow:
-            print(f"Workflow {workflow_id} not found for user {user_id}")
-            raise WorkflowNotFoundError(workflow_id)
-        print(f"Workflow {workflow_id} found for user {user_id}")
-
-        # Fetch workflow variables
-        workflow_variables = self.db.query(WorkflowVariable).filter(WorkflowVariable.workflow_id == workflow_id).all()
         
-        # Split into inputs and outputs
-        print("Getting inputs")
-        inputs = [
-            WorkflowVariableResponse(
-                variable_id=var.variable_id,
-                workflow_id=workflow_id,
-                name=var.name,
-                description=var.description,
-                schema=var.schema,
-                created_at=var.created_at,
-                updated_at=var.updated_at
-            )
-            for var in workflow_variables if var.variable_type == "input"
-        ]
-        print(f"Input count: {len(inputs)}")
-
-        print("Getting outputs")
-        outputs = [
-            WorkflowVariableResponse(
-                variable_id=var.variable_id,
-                workflow_id=workflow_id,
-                name=var.name,
-                description=var.description,
-                schema=var.schema,
-                created_at=var.created_at,
-                updated_at=var.updated_at
-            )
-            for var in workflow_variables if var.variable_type == "output"
-        ]
-        print(f"Output count: {len(outputs)}")
-
-        # Fetch workflow steps
-        steps = self.db.query(WorkflowStep).filter(
-            WorkflowStep.workflow_id == workflow_id
-        ).all()
-        print(f"Step count: {len(steps)}")
-
-        step_data = []
-        for step in steps:
-            print(f"Processing step {step.step_id}")
+        if not workflow:
+            raise WorkflowNotFoundError(workflow_id)
+        
+        try:
+            # Fetch workflow variables
+            workflow_variables = self.db.query(WorkflowVariable).filter(
+                WorkflowVariable.workflow_id == workflow_id
+            ).all()
             
-            # Explicitly retrieve the tool with its complete data
-            tool = None
-            if step.tool_id:
-                tool = self.db.query(Tool).filter(Tool.tool_id == step.tool_id).first()
-                if tool:
-                    print(f"Found tool: {tool.tool_id}")
-                    print(f"Tool type: {tool.tool_type}")
-                    
-                    # For LLM tools, derive signature from prompt template
-                    if tool.tool_type == 'llm' and step.prompt_template:
-                        tool.signature = self._get_llm_signature(step.prompt_template)
-                        print(f"Derived LLM signature")
-                    else:
-                        print(f"Tool signature type: {type(tool.signature)}")
-                else:
-                    print(f"No tool found for tool_id: {step.tool_id}")
+            # Split into inputs and outputs
+            inputs = [
+                WorkflowVariableResponse(
+                    variable_id=var.variable_id,
+                    workflow_id=workflow_id,
+                    name=var.name,
+                    description=var.description,
+                    schema=var.schema,
+                    created_at=var.created_at,
+                    updated_at=var.updated_at
+                )
+                for var in workflow_variables if var.variable_type == "input"
+            ]
+            
+            outputs = [
+                WorkflowVariableResponse(
+                    variable_id=var.variable_id,
+                    workflow_id=workflow_id,
+                    name=var.name,
+                    description=var.description,
+                    schema=var.schema,
+                    created_at=var.created_at,
+                    updated_at=var.updated_at
+                )
+                for var in workflow_variables if var.variable_type == "output"
+            ]
 
-            def create_schema_value(schema_dict: Dict) -> SchemaValue:
-                """Helper function to create a SchemaValue object from a dictionary."""
-                schema_copy = schema_dict.copy()
-                if 'items' in schema_copy:
-                    schema_copy['items'] = create_schema_value(schema_copy['items'])
-                if 'fields' in schema_copy:
-                    schema_copy['fields'] = {
-                        k: create_schema_value(v) for k, v in schema_copy['fields'].items()
-                    }
-                return SchemaValue(**schema_copy)
-
-            tool_response = None
-            if tool and tool.signature:
-                try:
-                    tool_response = ToolResponse(
-                        tool_id=tool.tool_id,
-                        name=tool.name,
-                        description=tool.description,
-                        tool_type=tool.tool_type,
-                        signature=ToolSignature(
-                            parameters=[
-                                ParameterSchema(
-                                    name=param['name'],
-                                    description=param.get('description', ''),
-                                    schema=create_schema_value(param['schema'])
-                                )
-                                for param in tool.signature.get('parameters', [])
-                            ],
-                            outputs=[
-                                OutputSchema(
-                                    name=output['name'],
-                                    description=output.get('description', ''),
-                                    schema=create_schema_value(output['schema'])
-                                )
-                                for output in tool.signature.get('outputs', [])
-                            ]
-                        ),
-                        created_at=tool.created_at,
-                        updated_at=tool.updated_at
+            # Convert to WorkflowResponse
+            return WorkflowResponse(
+                workflow_id=workflow.workflow_id,
+                user_id=workflow.user_id,
+                name=workflow.name,
+                description=workflow.description,
+                status=workflow.status,
+                error=workflow.error,
+                steps=[
+                    WorkflowStepResponse(
+                        step_id=s.step_id,
+                        workflow_id=s.workflow_id,
+                        label=s.label,
+                        description=s.description,
+                        step_type=s.step_type,
+                        tool_id=s.tool_id,
+                        prompt_template=s.prompt_template,
+                        parameter_mappings=s.parameter_mappings,
+                        output_mappings=s.output_mappings,
+                        sequence_number=s.sequence_number,
+                        created_at=s.created_at,
+                        updated_at=s.updated_at,
+                        tool=None
                     )
-                except Exception as e:
-                    print(f"Error creating tool response: {str(e)}")
-                    print(f"Tool data: {tool.__dict__}")
-
-            step_response = WorkflowStepResponse(
-                step_id=step.step_id,
-                workflow_id=workflow_id,
-                label=step.label,
-                description=step.description,
-                step_type=step.step_type,
-                tool_id=step.tool_id,
-                prompt_template=step.prompt_template,
-                parameter_mappings=step.parameter_mappings,
-                output_mappings=step.output_mappings,
-                created_at=step.created_at,
-                updated_at=step.updated_at,
-                tool=tool_response
+                    for s in workflow.steps
+                ],
+                inputs=inputs,  # Now populated with actual workflow variables
+                outputs=outputs,  # Now populated with actual workflow variables
+                created_at=workflow.created_at,
+                updated_at=workflow.updated_at
             )
-            step_data.append(step_response)
-
-        # Construct response
-
-        return WorkflowResponse(
-            workflow_id=workflow.workflow_id,
-            user_id=workflow.user_id,
-            name=workflow.name,
-            description=workflow.description,
-            status=workflow.status,
-            error=workflow.error,
-            inputs=inputs,
-            outputs=outputs,
-            steps=step_data,
-            created_at=workflow.created_at,
-            updated_at=workflow.updated_at
-        )
+        except Exception as e:
+            print(f"Error converting workflow to response: {str(e)}")
+            raise
 
     def get_workflows(self, user_id: int) -> List[Workflow]:
         """List all workflows for a user."""
         print(f"Getting workflows for user {user_id}")
-        return self.db.query(Workflow).filter(Workflow.user_id == user_id).all()
+        workflows = self.db.query(Workflow).filter(Workflow.user_id == user_id).all()
+        
+        # For each workflow, fetch its steps with proper sequence ordering
+        for workflow in workflows:
+            workflow.steps = (
+                self.db.query(WorkflowStep)
+                .filter(WorkflowStep.workflow_id == workflow.workflow_id)
+                .order_by(WorkflowStep.sequence_number)
+                .all()
+            )
+        
+        return workflows
 
     def update_workflow(self, workflow_id: str, workflow_data: WorkflowUpdate, user_id: int) -> WorkflowResponse:
         """Update a workflow."""
         print(f"Retrieving workflow {workflow_id} for user {user_id}")
-        # Get the actual database model instead of the response schema
         workflow = self.db.query(Workflow).filter(
             (Workflow.workflow_id == workflow_id) & (Workflow.user_id == user_id)
         ).first()
@@ -224,14 +164,20 @@ class WorkflowService:
                     WorkflowStep.workflow_id == workflow_id
                 ).delete()
                 
-                # Create new steps
+                # Create new steps with sequence numbers
                 print(f"Creating new steps")
-                for step_data in update_data['steps']:
-                    # Handle both Pydantic models and dicts
+                for idx, step_data in enumerate(update_data['steps']):
                     if hasattr(step_data, 'model_dump'):
                         step_dict = step_data.model_dump()
                     else:
                         step_dict = step_data
+                    
+                    # Add sequence number
+                    step_dict['sequence_number'] = idx
+                    
+                    # Generate UUID if needed
+                    if not step_dict.get('step_id') or step_dict['step_id'].startswith('step-'):
+                        step_dict['step_id'] = str(uuid4())
                     
                     # Extract tool_id from nested tool object if it exists
                     print("Checking for tool in step_dict")
@@ -240,41 +186,12 @@ class WorkflowService:
                         step_dict['tool_id'] = step_dict['tool']['tool_id']
                     step_dict.pop('tool', None)  # Remove the tool object as it's not in the model
                     
-                    # Ensure step_id is a UUID if not provided or if it's a temporary ID
-                    if not step_dict.get('step_id') or step_dict['step_id'].startswith('step-'):
-                        step_dict['step_id'] = str(uuid4())
-                    
-                    # Ensure mappings are properly handled
-                    print("Checking for parameter_mappings and output_mappings")
-                    parameter_mappings = step_dict.get('parameter_mappings')
-                    output_mappings = step_dict.get('output_mappings')
-                    
-                    # Convert None to empty dict if necessary
-                    if parameter_mappings is None:
-                        parameter_mappings = {}
-                    if output_mappings is None:
-                        output_mappings = {}
-                        
-                    # Ensure mappings are dictionaries
-                    if not isinstance(parameter_mappings, dict):
-                        parameter_mappings = dict(parameter_mappings)
-                    if not isinstance(output_mappings, dict):
-                        output_mappings = dict(output_mappings)
-                    
-                    step_dict['parameter_mappings'] = parameter_mappings
-                    step_dict['output_mappings'] = output_mappings
-                    
-                    print(f"Creating step with data: {step_dict}")
-                    #print(f"Parameter mappings: {step_dict['parameter_mappings']}")
-                    #print(f"Output mappings: {step_dict['output_mappings']}")
-                    
+                    # Create the step
                     step = WorkflowStep(
                         workflow_id=workflow_id,
                         **step_dict
                     )
-                    print(f"Created step: {step.__dict__}")
                     self.db.add(step)
-                    print(f"Added step to session")
             
             # Update variables if provided
             print(f"Updating variables")
@@ -370,34 +287,16 @@ class WorkflowService:
         if not workflow.steps:
             raise InvalidWorkflowError("Workflow must have at least one step")
         
-        # Validate step connections
-        step_ids = {step.step_id for step in workflow.steps}
-        for step in workflow.steps:
-            if step.next_step_id and step.next_step_id not in step_ids:
-                raise InvalidWorkflowError(
-                    f"Step {step.step_id} references non-existent next step {step.next_step_id}"
-                )
+        # Validate sequence numbers
+        sequence_numbers = [step.sequence_number for step in workflow.steps]
+        if len(set(sequence_numbers)) != len(sequence_numbers):
+            raise InvalidWorkflowError("Duplicate sequence numbers found in workflow steps")
         
-        # Validate no cycles
-        visited = set()
-        def check_cycle(step_id: str, path: set) -> None:
-            if step_id in path:
-                raise InvalidWorkflowError(f"Cycle detected in workflow at step {step_id}")
-            if step_id in visited or step_id not in step_ids:
-                return
-            
-            visited.add(step_id)
-            path.add(step_id)
-            
-            step = next(s for s in workflow.steps if s.step_id == step_id)
-            if step.next_step_id:
-                check_cycle(step.next_step_id, path)
-            
-            path.remove(step_id)
+        if min(sequence_numbers) != 0:
+            raise InvalidWorkflowError("Sequence numbers must start at 0")
         
-        for step in workflow.steps:
-            if step.step_id not in visited:
-                check_cycle(step.step_id, set())
+        if max(sequence_numbers) != len(workflow.steps) - 1:
+            raise InvalidWorkflowError("Sequence numbers must be consecutive")
         
         return True
 
@@ -437,27 +336,22 @@ class WorkflowService:
                 "step_outputs": {}
             }
             
-            # Execute steps in sequence
-            current_step = next((s for s in workflow.steps if not any(
-                other.next_step_id == s.step_id for other in workflow.steps
-            )), None)
+            # Get steps ordered by sequence number
+            steps = self.db.query(WorkflowStep).filter(
+                WorkflowStep.workflow_id == workflow_id
+            ).order_by(WorkflowStep.sequence_number).all()
             
-            while current_step:
+            # Execute steps in sequence
+            for step in steps:
                 # Execute step
-                step_result = await self._execute_step(current_step, context)
-                context["step_outputs"][current_step.step_id] = step_result
+                step_result = await self._execute_step(step, context)
+                context["step_outputs"][step.step_id] = step_result
                 
                 # Update context with step outputs
-                if current_step.output_mappings:
-                    for output_name, var_name in current_step.output_mappings.items():
+                if step.output_mappings:
+                    for output_name, var_name in step.output_mappings.items():
                         if output_name in step_result:
                             context["output"][var_name] = step_result[output_name]
-                
-                # Move to next step
-                current_step = next(
-                    (s for s in workflow.steps if s.step_id == current_step.next_step_id),
-                    None
-                )
             
             # Update workflow status
             workflow.status = "completed"

@@ -13,11 +13,7 @@ export const workflowApi = {
     getWorkflows: async (): Promise<Workflow[]> => {
         try {
             const response = await api.get('/api/workflows');
-            return response.data.map((workflow: any) => ({
-                ...workflow,
-                inputs: workflow.variables?.filter((v: any) => v.variable_type === 'input') || [],
-                outputs: workflow.variables?.filter((v: any) => v.variable_type === 'output') || []
-            }));
+            return response.data;
         } catch (error) {
             throw handleApiError(error);
         }

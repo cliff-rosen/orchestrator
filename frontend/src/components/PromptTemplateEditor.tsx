@@ -107,7 +107,7 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                 {/* Basic Info */}
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
                             Name
                         </label>
                         <input
@@ -116,11 +116,12 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                             onChange={(e) => setName(e.target.value)}
                             className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                      shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                     focus:border-blue-500 sm:text-sm dark:bg-gray-800"
+                                     focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                     text-gray-900 dark:text-gray-100"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
                             Description
                         </label>
                         <textarea
@@ -129,14 +130,15 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                             rows={2}
                             className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                      shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                     focus:border-blue-500 sm:text-sm dark:bg-gray-800"
+                                     focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                     text-gray-900 dark:text-gray-100"
                         />
                     </div>
                 </div>
 
                 {/* Template Content */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
                         Template Content
                     </label>
                     <div className="mt-1 relative">
@@ -147,17 +149,19 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                             placeholder="Enter your prompt template here. Use {{variable}} syntax for parameters."
                             className="block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                      shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                     focus:border-blue-500 sm:text-sm font-mono dark:bg-gray-800"
+                                     focus:border-blue-500 sm:text-sm font-mono dark:bg-gray-800
+                                     text-gray-900 dark:text-gray-100 placeholder-gray-400 
+                                     dark:placeholder-gray-500"
                         />
                     </div>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        Use {{ variable }} syntax to define parameters in your template.
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                        Use {'{{'} variable {'}}'}  syntax to define parameters in your template.
                     </p>
                 </div>
 
                 {/* Output Schema */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
                         Output Type
                     </label>
                     <select
@@ -168,15 +172,16 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                         }))}
                         className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                  shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                 focus:border-blue-500 sm:text-sm dark:bg-gray-800"
+                                 focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                 text-gray-900 dark:text-gray-100"
                     >
-                        <option value="string">Text</option>
-                        <option value="object">Structured (JSON)</option>
+                        <option value="string" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Text</option>
+                        <option value="object" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Structured (JSON)</option>
                     </select>
 
                     {outputSchema.type === 'object' && (
                         <div className="mt-4">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
                                 Output Schema
                             </label>
                             <textarea
@@ -196,7 +201,9 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                                 placeholder="Enter JSON schema for structured output"
                                 className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                          shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                         focus:border-blue-500 sm:text-sm font-mono dark:bg-gray-800"
+                                         focus:border-blue-500 sm:text-sm font-mono dark:bg-gray-800
+                                         text-gray-900 dark:text-gray-100 placeholder-gray-400 
+                                         dark:placeholder-gray-500"
                             />
                         </div>
                     )}
@@ -213,7 +220,7 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                         <div className="space-y-2">
                             {Object.keys(testParameters).map(token => (
                                 <div key={token}>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
                                         {token}
                                     </label>
                                     <input
@@ -225,7 +232,8 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                                         }))}
                                         className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                                  shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                                 focus:border-blue-500 sm:text-sm dark:bg-gray-800"
+                                                 focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                                 text-gray-900 dark:text-gray-100"
                                     />
                                 </div>
                             ))}
@@ -234,10 +242,11 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                         {/* Test Result */}
                         {testResult && (
                             <div>
-                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                     Result
                                 </h4>
-                                <pre className="mt-1 p-4 bg-gray-50 dark:bg-gray-800 rounded-md overflow-auto">
+                                <pre className="mt-1 p-4 bg-gray-50 dark:bg-gray-800 rounded-md overflow-auto
+                                              text-gray-900 dark:text-gray-100">
                                     {JSON.stringify(testResult, null, 2)}
                                 </pre>
                             </div>

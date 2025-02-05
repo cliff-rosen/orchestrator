@@ -386,14 +386,23 @@ class WorkflowStepBase(BaseModel):
 class WorkflowStepCreate(WorkflowStepBase):
     """Schema for creating workflow steps"""
     step_id: str = Field(description="Unique identifier for the step")
+    sequence_number: int = Field(description="Order of the step in the workflow")
 
 class WorkflowStepResponse(WorkflowStepBase):
     """Schema for workflow step responses"""
-    step_id: str = Field(description="Unique identifier for the step")
-    workflow_id: str = Field(description="ID of the workflow this step belongs to")
-    tool: Optional[ToolResponse] = Field(None, description="Tool associated with this step")
+    step_id: str
+    workflow_id: str
+    label: str
+    description: Optional[str]
+    step_type: str
+    tool_id: Optional[str]
+    prompt_template: Optional[str]
+    parameter_mappings: Dict[str, Any]
+    output_mappings: Dict[str, Any]
+    sequence_number: int
     created_at: datetime
     updated_at: datetime
+    tool: Optional[ToolResponse]
 
     model_config = ConfigDict(from_attributes=True)
 
