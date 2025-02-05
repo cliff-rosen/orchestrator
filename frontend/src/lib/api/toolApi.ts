@@ -117,6 +117,61 @@ export const toolApi = {
         }
     },
 
+    // Create a new prompt template
+    createPromptTemplate: async (templateData: Partial<PromptTemplate>): Promise<PromptTemplate> => {
+        try {
+            const response = await api.post('/api/prompt-templates', templateData);
+
+            // Clear cache to ensure fresh data
+            promptTemplatesCache = null;
+
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
+    // Update an existing prompt template
+    updatePromptTemplate: async (templateId: string, templateData: Partial<PromptTemplate>): Promise<PromptTemplate> => {
+        try {
+            const response = await api.put(`/api/prompt-templates/${templateId}`, templateData);
+
+            // Clear cache to ensure fresh data
+            promptTemplatesCache = null;
+
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
+    // Delete a prompt template
+    deletePromptTemplate: async (templateId: string): Promise<void> => {
+        try {
+            await api.delete(`/api/prompt-templates/${templateId}`);
+
+            // Clear cache to ensure fresh data
+            promptTemplatesCache = null;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
+    // Test a prompt template
+    testPromptTemplate: async (templateData: Partial<PromptTemplate>, parameters: Record<string, string>): Promise<any> => {
+        try {
+            const response = await api.post('/api/prompt-templates/test', {
+                template: templateData.template,
+                tokens: templateData.tokens,
+                output_schema: templateData.output_schema,
+                parameters
+            });
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
     // Clear the cache (useful when we need to force a refresh)
     clearCache: () => {
         toolsCache = null;

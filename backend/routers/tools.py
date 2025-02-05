@@ -1,10 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
+from uuid import uuid4
 
 from database import get_db
 from models import Tool, PromptTemplate
-from schemas import ToolResponse, PromptTemplateResponse, LLMExecuteRequest, LLMExecuteResponse
+from schemas import (
+    ToolResponse, PromptTemplateResponse, LLMExecuteRequest, LLMExecuteResponse,
+    PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest
+)
 from services import ai_service
 
 router = APIRouter(
@@ -103,6 +108,108 @@ async def execute_llm(
             response=response,
             usage=usage
         )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/prompt-templates", response_model=PromptTemplateResponse)
+def create_prompt_template(
+    template_data: PromptTemplateCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new prompt template"""
+    try:
+        template = PromptTemplate(
+            template_id=str(uuid4()),
+            name=template_data.name,
+            description=template_data.description,
+            template=template_data.template,
+            tokens=template_data.tokens,
+            output_schema=template_data.output_schema.dict(),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.add(template)
+        db.commit()
+        db.refresh(template)
+        return template
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/prompt-templates/{template_id}", response_model=PromptTemplateResponse)
+def update_prompt_template(
+    template_id: str,
+    template_data: PromptTemplateUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update an existing prompt template"""
+    template = db.query(PromptTemplate).filter(PromptTemplate.template_id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Prompt template not found")
+
+    try:
+        # Update fields
+        for key, value in template_data.dict(exclude_unset=True).items():
+            if key == 'output_schema' and value:
+                value = value.dict()
+            setattr(template, key, value)
+        
+        template.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(template)
+        return template
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/prompt-templates/{template_id}")
+def delete_prompt_template(
+    template_id: str,
+    db: Session = Depends(get_db)
+):
+    """Delete a prompt template"""
+    template = db.query(PromptTemplate).filter(PromptTemplate.template_id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Prompt template not found")
+
+    try:
+        db.delete(template)
+        db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/prompt-templates/test", response_model=LLMExecuteResponse)
+async def test_prompt_template(
+    test_data: PromptTemplateTest,
+    db: Session = Depends(get_db)
+):
+    """Test a prompt template with parameters"""
+    try:
+        # Format the prompt using the template and parameters
+        prompt = test_data.template
+        for token in test_data.tokens:
+            if token not in test_data.parameters:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Missing required parameter: {token}"
+                )
+            prompt = prompt.replace(f"{{{{{token}}}}}", str(test_data.parameters[token]))
+
+        # Execute the LLM request
+        llm_response = await ai_service.provider.generate(
+            prompt=prompt,
+            max_tokens=1000  # Reasonable default for testing
+        )
+
+        # Process response based on schema type
+        if test_data.output_schema.type == 'object' and test_data.output_schema.schema:
+            # TODO: Validate response against schema
+            return {"response": llm_response, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
+        else:
+            return {"response": llm_response, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 

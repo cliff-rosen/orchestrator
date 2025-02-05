@@ -304,17 +304,40 @@ class ToolResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-class PromptTemplateResponse(BaseModel):
-    template_id: str
-    name: str
-    description: str
-    template: str
-    tokens: List[str]
-    output_schema: Dict[str, Any]  # Using Any for flexibility with different schema structures
+class PromptTemplateBase(BaseModel):
+    """Base schema for prompt templates"""
+    name: str = Field(description="Name of the template")
+    description: str = Field(description="Description of the template")
+    template: str = Field(description="The prompt template text with {{variable}} placeholders")
+    tokens: List[str] = Field(description="List of variable tokens used in the template")
+    output_schema: Dict[str, Any] = Field(description="Schema definition for the expected output")
+
+class PromptTemplateCreate(PromptTemplateBase):
+    """Schema for creating prompt templates"""
+    pass
+
+class PromptTemplateUpdate(BaseModel):
+    """Schema for updating prompt templates"""
+    name: Optional[str] = Field(None, description="New name for the template")
+    description: Optional[str] = Field(None, description="New description for the template")
+    template: Optional[str] = Field(None, description="New template text")
+    tokens: Optional[List[str]] = Field(None, description="New list of tokens")
+    output_schema: Optional[Dict[str, Any]] = Field(None, description="New output schema")
+
+class PromptTemplateResponse(PromptTemplateBase):
+    """Schema for prompt template responses"""
+    template_id: str = Field(description="Unique identifier for the template")
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class PromptTemplateTest(BaseModel):
+    """Schema for testing prompt templates"""
+    template: str = Field(description="The prompt template to test")
+    tokens: List[str] = Field(description="List of tokens used in the template")
+    parameters: Dict[str, str] = Field(description="Values for the template tokens")
+    output_schema: Dict[str, Any] = Field(description="Expected output schema")
 
 class LLMExecuteRequest(BaseModel):
     """Request schema for LLM execution"""

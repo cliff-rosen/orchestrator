@@ -1,48 +1,84 @@
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
-import { MoonIcon, SunIcon } from '@heroicons/react/24/outline'
+import { MoonIcon, SunIcon, DocumentTextIcon, HomeIcon } from '@heroicons/react/24/outline'
 import settings from '../config/settings'
+import classNames from 'classnames'
 
 export default function TopBar() {
     const { isAuthenticated, logout, user } = useAuth()
     const { isDarkMode, toggleTheme } = useTheme()
+    const location = useLocation()
+
+    const navigation = [
+        { name: 'Workflows', href: '/', icon: HomeIcon },
+        { name: 'Prompt Templates', href: '/prompt-templates', icon: DocumentTextIcon },
+    ]
 
     return (
-        <div className="w-full bg-white dark:bg-gray-900">
-            <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="w-full h-16 flex items-center">
-                    <div className="w-48 text-xl font-semibold text-gray-800 dark:text-gray-200">
-                        {settings.appName}
+        <div className="bg-white dark:bg-gray-800 shadow">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div className="flex h-16 justify-between">
+                    <div className="flex">
+                        <div className="flex flex-shrink-0 items-center">
+                            <img
+                                className="h-8 w-auto"
+                                src={settings.logoUrl}
+                                alt="Logo"
+                            />
+                        </div>
+                        <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            {navigation.map((item) => {
+                                const isActive = location.pathname === item.href;
+                                return (
+                                    <Link
+                                        key={item.name}
+                                        to={item.href}
+                                        className={classNames(
+                                            isActive
+                                                ? 'border-blue-500 text-gray-900 dark:text-white'
+                                                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white',
+                                            'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium'
+                                        )}
+                                    >
+                                        <item.icon className="h-5 w-5 mr-2" />
+                                        {item.name}
+                                    </Link>
+                                );
+                            })}
+                        </div>
                     </div>
-                    <div className="w-full flex items-center justify-end gap-4">
+                    <div className="flex items-center">
                         <button
                             onClick={toggleTheme}
-                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                            aria-label="Toggle theme"
+                            className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 
+                                     dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
                         >
                             {isDarkMode ? (
-                                <SunIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                                <SunIcon className="h-5 w-5" />
                             ) : (
-                                <MoonIcon className="h-5 w-5 text-gray-500" />
+                                <MoonIcon className="h-5 w-5" />
                             )}
                         </button>
-
-                        {isAuthenticated && user && (
-                            <span className="text-sm text-gray-600 dark:text-gray-300">
-                                {user.username}
-                            </span>
+                        {isAuthenticated && (
+                            <>
+                                <div className="ml-4 flex items-center">
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                                        {user?.email}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={logout}
+                                    className="ml-4 rounded-md bg-white px-3 py-2 text-sm font-semibold 
+                                             text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 
+                                             hover:bg-gray-50 dark:bg-gray-700 dark:text-white 
+                                             dark:ring-gray-600 dark:hover:bg-gray-600"
+                                >
+                                    Logout
+                                </button>
+                            </>
                         )}
-
-                        {isAuthenticated ? (
-                            <button
-                                onClick={logout}
-                                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-700 
-                                         bg-gray-50 hover:bg-gray-100 rounded-md transition-colors
-                                         dark:text-gray-300 dark:hover:text-gray-200 dark:bg-gray-800/30 dark:hover:bg-gray-800/50"
-                            >
-                                Logout
-                            </button>
-                        ) : <div />}
                     </div>
                 </div>
             </div>
