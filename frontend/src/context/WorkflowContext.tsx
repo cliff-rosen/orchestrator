@@ -78,8 +78,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 );
             }
             // Reconstruct the workflow with full tool objects before setting it as current
-            const reconstructedWorkflow = await workflowApi.reconstructWorkflowWithTools(savedWorkflow);
-            setCurrentWorkflow(reconstructedWorkflow);
+            setCurrentWorkflow(savedWorkflow);
             setHasUnsavedChanges(false);
         } catch (error) {
             console.error('Error saving workflow:', error);

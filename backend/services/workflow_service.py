@@ -108,10 +108,9 @@ class WorkflowService:
                     # For LLM tools, derive signature from prompt template
                     if tool.tool_type == 'llm' and step.prompt_template:
                         tool.signature = self._get_llm_signature(step.prompt_template)
-                        print(f"Derived LLM signature: {tool.signature}")
+                        print(f"Derived LLM signature")
                     else:
                         print(f"Tool signature type: {type(tool.signature)}")
-                        print(f"Tool signature content: {tool.signature}")
                 else:
                     print(f"No tool found for tool_id: {step.tool_id}")
 
@@ -198,8 +197,13 @@ class WorkflowService:
 
     def update_workflow(self, workflow_id: str, workflow_data: WorkflowUpdate, user_id: int) -> WorkflowResponse:
         """Update a workflow."""
-        print(f"Updating workflow {workflow_id} for user {user_id}")
-        workflow = self.get_workflow(workflow_id, user_id)
+        print(f"Retrieving workflow {workflow_id} for user {user_id}")
+        # Get the actual database model instead of the response schema
+        workflow = self.db.query(Workflow).filter(
+            (Workflow.workflow_id == workflow_id) & (Workflow.user_id == user_id)
+        ).first()
+        if not workflow:
+            raise WorkflowNotFoundError(workflow_id)
         
         try:
             # Convert Pydantic model to dict
@@ -212,28 +216,32 @@ class WorkflowService:
                 setattr(workflow, key, value)
             
             # Update steps if provided
-            print(f"Updating steps")
+            print(f"Updating workflow steps")
             if 'steps' in update_data:
                 # Delete existing steps
+                print(f"Deleting existing steps")
                 self.db.query(WorkflowStep).filter(
                     WorkflowStep.workflow_id == workflow_id
                 ).delete()
                 
                 # Create new steps
+                print(f"Creating new steps")
                 for step_data in update_data['steps']:
                     # Handle both Pydantic models and dicts
                     if hasattr(step_data, 'model_dump'):
                         step_dict = step_data.model_dump()
                     else:
                         step_dict = step_data
-                    # print(f"Step data before processing: {step_dict}")
                     
                     # Extract tool_id from nested tool object if it exists
+                    print("Checking for tool in step_dict")
                     if 'tool' in step_dict and step_dict['tool']:
+                        print(f"Tool found in step_dict: {step_dict['tool']}")
                         step_dict['tool_id'] = step_dict['tool']['tool_id']
                     step_dict.pop('tool', None)  # Remove the tool object as it's not in the model
                     
                     # Ensure mappings are properly handled
+                    print("Checking for parameter_mappings and output_mappings")
                     parameter_mappings = step_dict.get('parameter_mappings')
                     output_mappings = step_dict.get('output_mappings')
                     
@@ -252,17 +260,17 @@ class WorkflowService:
                     step_dict['parameter_mappings'] = parameter_mappings
                     step_dict['output_mappings'] = output_mappings
                     
-                    #print(f"Creating step with data: {step_dict}")
+                    print(f"Creating step with data: {step_dict}")
                     #print(f"Parameter mappings: {step_dict['parameter_mappings']}")
                     #print(f"Output mappings: {step_dict['output_mappings']}")
                     
                     step = WorkflowStep(
                         workflow_id=workflow_id,
-                        step_id=str(uuid4()),  # Ensure each step has a unique ID
                         **step_dict
                     )
+                    print(f"Created step: {step.__dict__}")
                     self.db.add(step)
-                    print(f"Added step to session: {step.__dict__}")
+                    print(f"Added step to session")
             
             # Update variables if provided
             print(f"Updating variables")
@@ -275,7 +283,8 @@ class WorkflowService:
                 # Create new input variables
                 if 'inputs' in update_data:
                     for var_data in update_data['inputs']:
-                        var_dict = var_data.model_dump()
+                        # Handle both Pydantic models and dicts
+                        var_dict = var_data.model_dump() if hasattr(var_data, 'model_dump') else var_data
                         var = WorkflowVariable(
                             variable_id=str(uuid4()),
                             workflow_id=workflow_id,
@@ -289,7 +298,8 @@ class WorkflowService:
                 # Create new output variables
                 if 'outputs' in update_data:
                     for var_data in update_data['outputs']:
-                        var_dict = var_data.model_dump()
+                        # Handle both Pydantic models and dicts
+                        var_dict = var_data.model_dump() if hasattr(var_data, 'model_dump') else var_data
                         var = WorkflowVariable(
                             variable_id=str(uuid4()),
                             workflow_id=workflow_id,
