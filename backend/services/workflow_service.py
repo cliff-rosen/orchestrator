@@ -85,6 +85,56 @@ class WorkflowService:
                 for var in workflow_variables if var.variable_type == "output"
             ]
 
+            # Process steps and their tools
+            steps = []
+            for s in workflow.steps:
+                tool_response = None
+                if s.tool_id:
+                    tool = self.db.query(Tool).filter(Tool.tool_id == s.tool_id).first()
+                    if tool:
+                        # For LLM tools, get signature from prompt template if specified
+                        if tool.tool_type == 'llm' and s.prompt_template:
+                            llm_signature = self._get_llm_signature(s.prompt_template)
+                            tool_response = ToolResponse(
+                                tool_id=tool.tool_id,
+                                name=tool.name,
+                                description=tool.description,
+                                tool_type=tool.tool_type,
+                                signature=ToolSignature(
+                                    parameters=llm_signature['parameters'],
+                                    outputs=llm_signature['outputs']
+                                ),
+                                created_at=tool.created_at,
+                                updated_at=tool.updated_at
+                            )
+                        else:
+                            # For non-LLM tools, use the tool's signature directly
+                            tool_response = ToolResponse(
+                                tool_id=tool.tool_id,
+                                name=tool.name,
+                                description=tool.description,
+                                tool_type=tool.tool_type,
+                                signature=tool.signature,
+                                created_at=tool.created_at,
+                                updated_at=tool.updated_at
+                            )
+
+                steps.append(WorkflowStepResponse(
+                    step_id=s.step_id,
+                    workflow_id=s.workflow_id,
+                    label=s.label,
+                    description=s.description,
+                    step_type=s.step_type,
+                    tool_id=s.tool_id,
+                    prompt_template=s.prompt_template,
+                    parameter_mappings=s.parameter_mappings,
+                    output_mappings=s.output_mappings,
+                    sequence_number=s.sequence_number,
+                    created_at=s.created_at,
+                    updated_at=s.updated_at,
+                    tool=tool_response
+                ))
+
             # Convert to WorkflowResponse
             return WorkflowResponse(
                 workflow_id=workflow.workflow_id,
@@ -93,26 +143,9 @@ class WorkflowService:
                 description=workflow.description,
                 status=workflow.status,
                 error=workflow.error,
-                steps=[
-                    WorkflowStepResponse(
-                        step_id=s.step_id,
-                        workflow_id=s.workflow_id,
-                        label=s.label,
-                        description=s.description,
-                        step_type=s.step_type,
-                        tool_id=s.tool_id,
-                        prompt_template=s.prompt_template,
-                        parameter_mappings=s.parameter_mappings,
-                        output_mappings=s.output_mappings,
-                        sequence_number=s.sequence_number,
-                        created_at=s.created_at,
-                        updated_at=s.updated_at,
-                        tool=None
-                    )
-                    for s in workflow.steps
-                ],
-                inputs=inputs,  # Now populated with actual workflow variables
-                outputs=outputs,  # Now populated with actual workflow variables
+                steps=steps,  # Now includes properly populated tool information
+                inputs=inputs,
+                outputs=outputs,
                 created_at=workflow.created_at,
                 updated_at=workflow.updated_at
             )
