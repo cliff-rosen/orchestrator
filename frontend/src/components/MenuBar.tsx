@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Workflow } from '../types/workflows';
+import { useWorkflows } from '../context/WorkflowContext';
 
 interface MenuBarProps {
     currentWorkflow: Workflow;
@@ -26,6 +27,7 @@ const MenuBar: React.FC<MenuBarProps> = ({
     updateCurrentWorkflow
 }) => {
     const navigate = useNavigate();
+    const { setCurrentWorkflow } = useWorkflows();
     const [editingName, setEditingName] = React.useState(false);
 
     const handleBackNavigation = async () => {
@@ -34,19 +36,21 @@ const MenuBar: React.FC<MenuBarProps> = ({
             if (shouldSave) {
                 try {
                     await onSave();
+                    setCurrentWorkflow(null);
                     navigate('/');
                 } catch (err) {
                     console.error('Error saving workflow:', err);
-                    // If save fails, ask if they want to leave anyway
                     if (window.confirm('Failed to save changes. Leave anyway?')) {
+                        setCurrentWorkflow(null);
                         navigate('/');
                     }
                 }
             } else {
-                // User chose not to save, just exit
+                setCurrentWorkflow(null);
                 navigate('/');
             }
         } else {
+            setCurrentWorkflow(null);
             navigate('/');
         }
     };

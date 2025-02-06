@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
@@ -12,7 +12,27 @@ import PromptTemplatesPage from './pages/PromptTemplates';
 
 // Main app content when authenticated
 const AuthenticatedApp = () => {
-  const { loading, error } = useWorkflows();
+  const {
+    loading,
+    error,
+    currentWorkflow,
+    loadWorkflow,
+    setCurrentWorkflow
+  } = useWorkflows();
+  const location = useLocation();
+
+  // Handle navigation and workflow state
+  useEffect(() => {
+    console.log("location.pathname", location.pathname);
+    const match = location.pathname.match(/^\/workflow\/([^/]+)/);
+    if (match) {
+      const workflowId = match[1];
+      // Only load from DB if we don't have this workflow or have a different one
+      if (!currentWorkflow || (currentWorkflow.workflow_id !== workflowId && workflowId !== 'new')) {
+        loadWorkflow(workflowId);
+      }
+    }
+  }, [location.pathname, currentWorkflow, loadWorkflow]);
 
   if (loading) {
     return (

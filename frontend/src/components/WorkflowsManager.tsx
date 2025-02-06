@@ -1,13 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkflows } from '../context/WorkflowContext';
 import { workflowApi } from '../lib/api';
 
 const WorkflowsManager: React.FC = () => {
     const navigate = useNavigate();
-    const { workflows, loading, refreshWorkflows } = useWorkflows();
+    const { workflows, loading, refreshWorkflows, createWorkflow, currentWorkflow } = useWorkflows();
+
+    useEffect(() => {
+        if (currentWorkflow) {
+            navigate(`/workflow/${currentWorkflow.workflow_id}`);
+        }
+    }, [currentWorkflow, navigate]);
 
     const handleCreateWorkflow = () => {
+        createWorkflow();
         navigate('/workflow/new');
     };
 
@@ -26,6 +33,14 @@ const WorkflowsManager: React.FC = () => {
             alert('Failed to delete workflow');
         }
     };
+
+    const handleWorkflowClick = (workflowId: string) => {
+        navigate(`/workflow/${workflowId}`);
+    };
+
+    if (currentWorkflow) {
+        return null;
+    }
 
     return (
         <div className="max-w-7xl mx-auto">
@@ -75,7 +90,7 @@ const WorkflowsManager: React.FC = () => {
                     {workflows.map((workflow) => (
                         <div
                             key={workflow.workflow_id}
-                            onClick={() => navigate(`/workflow/${workflow.workflow_id}`)}
+                            onClick={() => handleWorkflowClick(workflow.workflow_id)}
                             className="bg-white dark:bg-gray-800/50 rounded-lg shadow-lg p-6 
                                      border border-gray-200 dark:border-gray-700
                                      hover:border-blue-500 dark:hover:border-blue-400

@@ -13,16 +13,27 @@ interface WorkflowContextType {
     setCurrentWorkflow: (workflow: Workflow | null) => void;
     updateCurrentWorkflow: (updates: Partial<Workflow>) => void;
     refreshWorkflows: () => Promise<void>;
+    loadWorkflow: (workflowId: string) => Promise<void>;
+    handleBackNavigation: () => void;
 }
 
 const WorkflowContext = createContext<WorkflowContextType | undefined>(undefined);
 
 export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [workflows, setWorkflows] = useState<Workflow[]>([]);
-    const [currentWorkflow, setCurrentWorkflow] = useState<Workflow | null>(null);
+    const [_currentWorkflow, _setCurrentWorkflow] = useState<Workflow | null>(null);  // Rename to avoid conflict
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Our custom setCurrentWorkflow with the reset of unsaved changes
+    const setCurrentWorkflow = useCallback((workflow: Workflow | null) => {
+        setHasUnsavedChanges(false);  // Reset unsaved changes when switching workflows
+        _setCurrentWorkflow(workflow);
+    }, []);
+
+    // Use our custom setter's value for currentWorkflow
+    const currentWorkflow = _currentWorkflow;
 
     const refreshWorkflows = async () => {
         try {
@@ -111,6 +122,34 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setHasUnsavedChanges(true);
     }, [currentWorkflow]);
 
+    const loadWorkflow = useCallback(async (workflowId: string) => {
+        try {
+            setLoading(true);
+            const workflow = await workflowApi.getWorkflow(workflowId);
+            setCurrentWorkflow(workflow);
+            setHasUnsavedChanges(false);
+        } catch (err) {
+            setError('Failed to load workflow');
+            console.error('Error loading workflow:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Add method to handle navigation away from workflow
+    const handleNavigateAway = useCallback(() => {
+        if (hasUnsavedChanges) {
+            return window.confirm('You have unsaved changes. Are you sure you want to leave?');
+        }
+        return true;
+    }, [hasUnsavedChanges]);
+
+    // Add handleBackNavigation
+    const handleBackNavigation = useCallback(() => {
+        setCurrentWorkflow(null);  // Clear the current workflow
+        setHasUnsavedChanges(false);  // Reset unsaved changes
+    }, []);
+
     useEffect(() => {
         refreshWorkflows();
     }, []);
@@ -126,6 +165,8 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setCurrentWorkflow,
         updateCurrentWorkflow,
         refreshWorkflows,
+        loadWorkflow,
+        handleBackNavigation,  // Add to context value
     };
 
     return (

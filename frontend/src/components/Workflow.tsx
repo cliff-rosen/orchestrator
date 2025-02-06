@@ -24,6 +24,7 @@ import WorkflowNavigation from './WorkflowNavigation';
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
     const navigate = useNavigate();
+    const { handleBackNavigation } = useWorkflows();
 
     // State
     const stateManager: StateManager = useStateManager();
@@ -44,6 +45,11 @@ const Workflow: React.FC = () => {
             if (!workflowId) {
                 navigate('/');
                 return;
+            }
+
+            // Don't reinitialize if we already have this workflow loaded
+            if (currentWorkflow && currentWorkflow.workflow_id === workflowId) {
+                return;  // Already have the right workflow, don't do anything
             }
 
             try {
@@ -273,8 +279,9 @@ const Workflow: React.FC = () => {
         setStepExecuted(false);
     };
 
-    const handleBack = async (): Promise<void> => {
-        setActiveStep((prev) => prev - 1);
+    const handleBack = () => {
+        setCurrentWorkflow(null);  // Directly clear the current workflow
+        navigate('/');
     };
 
     const handleNewQuestion = async (): Promise<void> => {
