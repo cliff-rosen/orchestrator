@@ -360,9 +360,12 @@ class WorkflowVariableBase(BaseModel):
     description: str = Field(description="Description of the variable")
     schema: Dict[str, Any] = Field(description="JSON Schema of the variable")
 
-class WorkflowVariableCreate(WorkflowVariableBase):
+class WorkflowVariableCreate(BaseModel):
     """Schema for creating workflow variables"""
-    variable_id: str = Field(description="Unique identifier for the variable")
+    variable_id: str
+    name: str
+    description: Optional[str] = None
+    schema: Optional[dict] = None
 
 class WorkflowVariableResponse(WorkflowVariableBase):
     """Schema for workflow variable responses"""
@@ -383,10 +386,16 @@ class WorkflowStepBase(BaseModel):
     parameter_mappings: Dict[str, str] = Field(default_factory=dict, description="Maps tool parameters to workflow variables")
     output_mappings: Dict[str, str] = Field(default_factory=dict, description="Maps tool outputs to workflow variables")
 
-class WorkflowStepCreate(WorkflowStepBase):
+class WorkflowStepCreate(BaseModel):
     """Schema for creating workflow steps"""
-    step_id: str = Field(description="Unique identifier for the step")
-    sequence_number: int = Field(description="Order of the step in the workflow")
+    label: str
+    description: Optional[str] = None
+    step_type: str
+    tool_id: Optional[str] = None
+    prompt_template: Optional[str] = None
+    parameter_mappings: Optional[dict] = None
+    output_mappings: Optional[dict] = None
+    sequence_number: int
 
 class WorkflowStepResponse(WorkflowStepBase):
     """Schema for workflow step responses"""
@@ -412,11 +421,17 @@ class WorkflowBase(BaseModel):
     description: Optional[str] = Field(None, description="Description of the workflow")
     status: str = Field(description="Current status of the workflow")
 
-class WorkflowCreate(WorkflowBase):
+class WorkflowCreate(BaseModel):
     """Schema for creating workflows"""
-    inputs: Optional[List[WorkflowVariableCreate]] = Field(default_factory=list)
-    outputs: Optional[List[WorkflowVariableCreate]] = Field(default_factory=list)
-    steps: List[WorkflowStepCreate] = Field(default_factory=list)
+    name: str
+    description: Optional[str] = None
+    status: str
+    steps: Optional[List[WorkflowStepCreate]] = None
+    inputs: Optional[List[WorkflowVariableCreate]] = None
+    outputs: Optional[List[WorkflowVariableCreate]] = None
+
+    class Config:
+        from_attributes = True
 
 class WorkflowUpdate(BaseModel):
     """Schema for updating workflows"""

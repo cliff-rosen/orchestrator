@@ -23,25 +23,79 @@ class WorkflowService:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_workflow(self, workflow_data: WorkflowCreate, user_id: int) -> Workflow:
-        """Create a new workflow."""
+    def create_workflow(self, workflow_data: WorkflowCreate, user_id: str) -> Workflow:
+        """Create a new workflow with associated steps and variables."""
+        # Create the main workflow record
+        workflow = Workflow(
+            workflow_id=str(uuid4()),
+            user_id=user_id,
+            name=workflow_data.name,
+            description=workflow_data.description,
+            status=workflow_data.status,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        self.db.add(workflow)
+        self.db.flush()  # Flush to get the workflow_id
+
+        # Create steps if provided
+        if workflow_data.steps:
+            for step_data in workflow_data.steps:
+                step = WorkflowStep(
+                    step_id=str(uuid4()),
+                    workflow_id=workflow.workflow_id,
+                    label=step_data.label,
+                    description=step_data.description,
+                    step_type=step_data.step_type,
+                    tool_id=step_data.tool_id,
+                    prompt_template=step_data.prompt_template,
+                    parameter_mappings=step_data.parameter_mappings or {},
+                    output_mappings=step_data.output_mappings or {},
+                    sequence_number=step_data.sequence_number,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                self.db.add(step)
+
+        # Create input variables if provided
+        if workflow_data.inputs:
+            for input_data in workflow_data.inputs:
+                input_var = WorkflowVariable(
+                    variable_id=input_data.variable_id or str(uuid4()),
+                    workflow_id=workflow.workflow_id,
+                    name=input_data.name,
+                    description=input_data.description,
+                    schema=input_data.schema,
+                    variable_type='input',
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                self.db.add(input_var)
+
+        # Create output variables if provided
+        if workflow_data.outputs:
+            for output_data in workflow_data.outputs:
+                output_var = WorkflowVariable(
+                    variable_id=output_data.variable_id or str(uuid4()),
+                    workflow_id=workflow.workflow_id,
+                    name=output_data.name,
+                    description=output_data.description,
+                    schema=output_data.schema,
+                    variable_type='output',
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                self.db.add(output_var)
+
         try:
-            workflow = Workflow(
-                workflow_id=str(uuid4()),
-                user_id=user_id,
-                name=workflow_data.name,
-                description=workflow_data.description,
-                status="draft",
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
-            )
-            self.db.add(workflow)
             self.db.commit()
             self.db.refresh(workflow)
-            return workflow
-        except SQLAlchemyError as e:
+            
+            # Return the complete workflow with relationships loaded
+            return self.get_workflow(workflow.workflow_id, user_id)
+        except Exception as e:
             self.db.rollback()
-            raise WorkflowExecutionError(str(e), "new")
+            raise e
 
     def get_workflow(self, workflow_id: str, user_id: int) -> WorkflowResponse:
         """Get a workflow by ID."""
