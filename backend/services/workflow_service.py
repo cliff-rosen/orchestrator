@@ -171,6 +171,7 @@ class WorkflowService:
 
     def update_workflow(self, workflow_id: str, workflow_data: WorkflowUpdate, user_id: int) -> WorkflowResponse:
         """Update a workflow."""
+
         print(f"Retrieving workflow {workflow_id} for user {user_id}")
         workflow = self.db.query(Workflow).filter(
             (Workflow.workflow_id == workflow_id) & (Workflow.user_id == user_id)
@@ -279,7 +280,13 @@ class WorkflowService:
 
     def delete_workflow(self, workflow_id: str, user_id: int) -> None:
         """Delete a workflow."""
-        workflow = self.get_workflow(workflow_id, user_id)
+        workflow = self.db.query(Workflow).filter(
+            (Workflow.workflow_id == workflow_id) & (Workflow.user_id == user_id)
+        ).first()
+        
+        if not workflow:
+            raise WorkflowNotFoundError(workflow_id)
+        
         try:
             self.db.delete(workflow)
             self.db.commit()

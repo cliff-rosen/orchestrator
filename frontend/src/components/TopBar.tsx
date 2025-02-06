@@ -2,19 +2,13 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
-import { MoonIcon, SunIcon, DocumentTextIcon, HomeIcon } from '@heroicons/react/24/outline'
+import { MoonIcon, SunIcon, DocumentTextIcon, HomeIcon, Square2StackIcon } from '@heroicons/react/24/outline'
 import settings from '../config/settings'
-import classNames from 'classnames'
 
 export default function TopBar() {
     const { isAuthenticated, logout, user } = useAuth()
     const { isDarkMode, toggleTheme } = useTheme()
     const location = useLocation()
-
-    const navigation = [
-        { name: 'Workflows', href: '/', icon: HomeIcon },
-        { name: 'Prompt Templates', href: '/prompt-templates', icon: DocumentTextIcon },
-    ]
 
     return (
         <div className="bg-white dark:bg-gray-800 shadow">
@@ -29,24 +23,27 @@ export default function TopBar() {
                             />
                         </div>
                         <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                            {navigation.map((item) => {
-                                const isActive = location.pathname === item.href;
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        to={item.href}
-                                        className={classNames(
-                                            isActive
-                                                ? 'border-blue-500 text-gray-900 dark:text-white'
-                                                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white',
-                                            'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium'
-                                        )}
-                                    >
-                                        <item.icon className="h-5 w-5 mr-2" />
-                                        {item.name}
-                                    </Link>
-                                );
-                            })}
+                            <Link
+                                to="/"
+                                className={`${location.pathname === '/' || location.pathname.startsWith('/workflow/')
+                                    ? 'border-blue-500 text-gray-900 dark:text-gray-100'
+                                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                    } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                            >
+                                <Square2StackIcon className="h-5 w-5 mr-1" />
+                                Workflows
+                            </Link>
+
+                            <Link
+                                to="/prompt-templates"
+                                className={`${location.pathname === '/prompt-templates'
+                                    ? 'border-blue-500 text-gray-900 dark:text-gray-100'
+                                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                    } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                            >
+                                <DocumentTextIcon className="h-5 w-5 mr-1" />
+                                Prompt Templates
+                            </Link>
                         </div>
                     </div>
                     <div className="flex items-center">

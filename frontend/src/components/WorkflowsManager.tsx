@@ -1,13 +1,30 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkflows } from '../context/WorkflowContext';
+import { workflowApi } from '../lib/api';
 
 const WorkflowsManager: React.FC = () => {
     const navigate = useNavigate();
-    const { workflows, loading } = useWorkflows();
+    const { workflows, loading, refreshWorkflows } = useWorkflows();
 
     const handleCreateWorkflow = () => {
         navigate('/workflow/new');
+    };
+
+    const handleDelete = async (e: React.MouseEvent, workflowId: string) => {
+        e.stopPropagation(); // Prevent navigation when clicking delete
+
+        if (!confirm('Are you sure you want to delete this workflow?')) {
+            return;
+        }
+
+        try {
+            await workflowApi.deleteWorkflow(workflowId);
+            refreshWorkflows(); // Refresh the list after deletion
+        } catch (error) {
+            console.error('Error deleting workflow:', error);
+            alert('Failed to delete workflow');
+        }
     };
 
     return (
@@ -62,18 +79,33 @@ const WorkflowsManager: React.FC = () => {
                             className="bg-white dark:bg-gray-800/50 rounded-lg shadow-lg p-6 
                                      border border-gray-200 dark:border-gray-700
                                      hover:border-blue-500 dark:hover:border-blue-400
-                                     cursor-pointer transition-colors"
+                                     cursor-pointer transition-colors relative group"
                         >
-                            <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
-                                {workflow.name || 'Untitled Workflow'}
-                            </h2>
-                            <p className="text-gray-600 dark:text-gray-300 mb-4">
-                                {workflow.description || 'No description'}
-                            </p>
-                            <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
-                                <span>{workflow.steps?.length || 0} steps</span>
-                                <span>{workflow.inputs?.length || 0} inputs</span>
-                                <span>{workflow.outputs?.length || 0} outputs</span>
+                            <button
+                                onClick={(e) => handleDelete(e, workflow.workflow_id)}
+                                className="absolute top-2 right-2 p-2 text-gray-400 hover:text-red-500 
+                                         opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Delete workflow"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                            <div
+                                className="h-full"
+                            >
+                                <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
+                                    {workflow.name || 'Untitled Workflow'}
+                                </h2>
+                                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                                    {workflow.description || 'No description'}
+                                </p>
+                                <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
+                                    <span>{workflow.steps?.length || 0} steps</span>
+                                    <span>{workflow.inputs?.length || 0} inputs</span>
+                                    <span>{workflow.outputs?.length || 0} outputs</span>
+                                </div>
                             </div>
                         </div>
                     ))}

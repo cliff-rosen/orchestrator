@@ -9,8 +9,6 @@ import Workflow from './components/Workflow';
 import TopBar from './components/TopBar';
 import LoginForm from './components/auth/LoginForm';
 import PromptTemplatesPage from './pages/PromptTemplates';
-import { DocumentTextIcon } from '@heroicons/react/24/outline';
-
 
 // Main app content when authenticated
 const AuthenticatedApp = () => {
