@@ -51,7 +51,11 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 description: 'First step',
                 step_type: WorkflowStepType.ACTION,
                 parameter_mappings: {},
-                output_mappings: {}
+                output_mappings: {},
+                workflow_id: 'new',
+                sequence_number: 0,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             }]
         };
         setCurrentWorkflow(newWorkflow);

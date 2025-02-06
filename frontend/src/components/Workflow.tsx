@@ -152,7 +152,13 @@ const Workflow: React.FC = () => {
             step_id: `step-${currentWorkflow.steps.length + 1}`,
             label: `Step ${currentWorkflow.steps.length + 1}`,
             description: 'Configure this step by selecting a tool and setting up its parameters',
-            step_type: WorkflowStepType.ACTION
+            step_type: WorkflowStepType.ACTION,
+            workflow_id: currentWorkflow.workflow_id,
+            sequence_number: currentWorkflow.steps.length,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            parameter_mappings: {},
+            output_mappings: {},
         };
 
         updateCurrentWorkflow({
