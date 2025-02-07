@@ -63,7 +63,7 @@ export default function TopBar() {
                             <>
                                 <div className="ml-4 flex items-center">
                                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                                        {user?.email}
+                                        {user?.username}
                                     </span>
                                 </div>
                                 <button
