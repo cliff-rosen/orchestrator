@@ -1,41 +1,39 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Workflow } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
 
 interface MenuBarProps {
-    currentWorkflow: Workflow;
     isEditMode: boolean;
     showConfig: boolean;
-    hasUnsavedChanges: boolean;
-    isLoading: boolean;
-    onSave: () => Promise<void>;
     onToggleConfig: () => void;
     onToggleEditMode: () => void;
-    updateCurrentWorkflow: (updates: Partial<Workflow>) => void;
 }
 
 const MenuBar: React.FC<MenuBarProps> = ({
-    currentWorkflow,
     isEditMode,
     showConfig,
-    hasUnsavedChanges,
-    isLoading,
-    onSave,
     onToggleConfig,
     onToggleEditMode,
-    updateCurrentWorkflow
 }) => {
     const navigate = useNavigate();
-    const { exitWorkflow } = useWorkflows();
+    const {
+        workflow: currentWorkflow,
+        updateWorkflow,
+        hasUnsavedChanges,
+        isLoading,
+        saveWorkflow,
+        exitWorkflow
+    } = useWorkflows();
     const [editingName, setEditingName] = React.useState(false);
+
+    if (!currentWorkflow) return null;
 
     const handleBackNavigation = async () => {
         if (hasUnsavedChanges) {
             const shouldSave = window.confirm('You have unsaved changes. Do you want to save before leaving?');
             if (shouldSave) {
                 try {
-                    await onSave();
+                    await saveWorkflow();
                     exitWorkflow();
                     navigate('/');
                 } catch (err) {
@@ -79,7 +77,7 @@ const MenuBar: React.FC<MenuBarProps> = ({
                                     <input
                                         type="text"
                                         value={currentWorkflow.name}
-                                        onChange={(e) => updateCurrentWorkflow({ name: e.target.value })}
+                                        onChange={(e) => updateWorkflow({ name: e.target.value })}
                                         onBlur={() => setEditingName(false)}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
@@ -182,7 +180,7 @@ const MenuBar: React.FC<MenuBarProps> = ({
                     <div className="flex items-center space-x-3">
                         {/* Save Button */}
                         <button
-                            onClick={onSave}
+                            onClick={saveWorkflow}
                             disabled={!hasUnsavedChanges || isLoading}
                             className={`px-3 py-1.5 rounded-md text-xs font-medium ${!hasUnsavedChanges || isLoading
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-500'
