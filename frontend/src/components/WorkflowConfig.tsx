@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { SchemaValue, ValueType } from '../hooks/schema/types';
 import { WorkflowVariable } from '../types';
 import { useWorkflows } from '../context/WorkflowContext';
-import { useStateManager } from '../hooks/schema/useStateManager';
 
 const VALUE_TYPES: ValueType[] = ['string', 'number', 'boolean', 'array', 'object'];
 
@@ -313,56 +312,17 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
 
 const WorkflowConfig: React.FC = () => {
     const { workflow, updateWorkflow } = useWorkflows();
-    const stateManager = useStateManager();
     const inputs = workflow?.inputs || [];
     const outputs = workflow?.outputs || [];
     const [activeTab, setActiveTab] = useState<'inputs' | 'outputs'>('inputs');
 
     const handleInputChange = (newInputs: WorkflowVariable[]) => {
         if (!workflow) return;
-
-        // Update schema manager
-        const currentSchemas = stateManager.schemas;
-
-        // Remove old schemas that are no longer in inputs
-        Object.keys(currentSchemas)
-            .filter(key => currentSchemas[key].role === 'input')
-            .forEach(key => {
-                if (!newInputs.find(input => input.name === key)) {
-                    stateManager.removeSchema(key);
-                }
-            });
-
-        // Add/update new schemas
-        newInputs.forEach(input => {
-            stateManager.setSchema(input.name, input.schema, 'input');
-        });
-
-        // Update workflow state
         updateWorkflow({ inputs: newInputs });
     };
 
     const handleOutputChange = (newOutputs: WorkflowVariable[]) => {
         if (!workflow) return;
-
-        // Update schema manager
-        const currentSchemas = stateManager.schemas;
-
-        // Remove old schemas that are no longer in outputs
-        Object.keys(currentSchemas)
-            .filter(key => currentSchemas[key].role === 'output')
-            .forEach(key => {
-                if (!newOutputs.find(output => output.name === key)) {
-                    stateManager.removeSchema(key);
-                }
-            });
-
-        // Add/update new schemas
-        newOutputs.forEach(output => {
-            stateManager.setSchema(output.name, output.schema, 'output');
-        });
-
-        // Update workflow state
         updateWorkflow({ outputs: newOutputs });
     };
 

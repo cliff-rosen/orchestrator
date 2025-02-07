@@ -4,9 +4,9 @@
 import React, { useState, useEffect } from 'react';
 import { Tool } from '../types/tools';
 import { WorkflowStep } from '../types/workflows';
-import { StateManager } from '../hooks/schema/types';
 import { PromptTemplate } from '../types/prompts';
 import { toolApi } from '../lib/api/toolApi';
+import { useWorkflows } from '../context/WorkflowContext';
 import ToolSelector from './ToolSelector';
 import ParameterMapper from './ParameterMapper';
 import OutputMapper from './OutputMapper';
@@ -14,17 +14,16 @@ import PromptTemplateSelector from './PromptTemplateSelector';
 
 interface ActionStepEditorProps {
     step: WorkflowStep;
-    stateManager: StateManager;
     onStepUpdate: (step: WorkflowStep) => void;
     onDeleteRequest: () => void;
 }
 
 const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     step,
-    stateManager,
     onStepUpdate,
     onDeleteRequest
 }) => {
+    const { workflow } = useWorkflows();
     const [tools, setTools] = useState<Tool[]>([]);
     const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
     const [loading, setLoading] = useState(true);
@@ -208,7 +207,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                                 <ParameterMapper
                                     tool={step.tool}
                                     parameter_mappings={step.parameter_mappings || {}}
-                                    stateManager={stateManager}
+                                    inputs={workflow?.inputs || []}
+                                    outputs={workflow?.outputs || []}
                                     onChange={handleParameterMappingChange}
                                 />
                             </div>
@@ -221,7 +221,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                                 <OutputMapper
                                     tool={step.tool}
                                     output_mappings={step.output_mappings || {}}
-                                    stateManager={stateManager}
+                                    outputs={workflow?.outputs || []}
                                     onChange={handleOutputMappingChange}
                                 />
                             </div>

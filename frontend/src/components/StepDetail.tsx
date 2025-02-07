@@ -1,6 +1,4 @@
 import React from 'react';
-import { StateManager } from '../hooks/schema/types';
-import { Tool } from '../types/tools';
 import { RuntimeWorkflowStep } from '../types/workflows';
 import ActionStepEditor from './ActionStepEditor';
 import InputStepRunner from './InputStepRunner';
@@ -9,16 +7,13 @@ import { WorkflowStepType } from '../types/workflows';
 
 interface StepDetailProps {
     step: RuntimeWorkflowStep;
-    stateManager: StateManager;
     isEditMode: boolean;
-    tools: Tool[];
     onStepUpdate: (step: RuntimeWorkflowStep) => void;
     onStepDelete: (stepId: string) => void;
 }
 
 const StepDetail: React.FC<StepDetailProps> = ({
     step,
-    stateManager,
     isEditMode,
     onStepUpdate,
     onStepDelete
@@ -41,7 +36,6 @@ const StepDetail: React.FC<StepDetailProps> = ({
         return (
             <ActionStepEditor
                 step={workflowStep}
-                stateManager={stateManager}
                 onStepUpdate={(updatedStep) => {
                     // Add back runtime properties when updating
                     onStepUpdate({
@@ -58,17 +52,12 @@ const StepDetail: React.FC<StepDetailProps> = ({
 
     // In run mode, show appropriate runner based on step type
     if (isInputStep) {
-        return (
-            <InputStepRunner
-                stateManager={stateManager}
-            />
-        );
+        return <InputStepRunner />;
     }
 
     return (
         <ActionStepRunner
-            actionStep={step} // Changed from step to actionStep to match props
-            stateManager={stateManager}
+            actionStep={step}
         />
     );
 };

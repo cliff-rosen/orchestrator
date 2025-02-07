@@ -1,18 +1,18 @@
 import React from 'react';
-import { StateManager } from '../hooks/schema/types';
 import { Tool } from '../types/tools';
+import { WorkflowVariable } from '../types/workflows';
 
 interface OutputMapperProps {
     tool: Tool;
     output_mappings: Record<string, string>;
-    stateManager: StateManager;
+    outputs: WorkflowVariable[];
     onChange: (mappings: Record<string, string>) => void;
 }
 
 const OutputMapper: React.FC<OutputMapperProps> = ({
     tool,
     output_mappings,
-    stateManager,
+    outputs,
     onChange
 }) => {
     const handleChange = (outputName: string, value: string) => {
@@ -21,7 +21,6 @@ const OutputMapper: React.FC<OutputMapperProps> = ({
             [outputName]: value
         });
     };
-
 
     return (
         <div className="space-y-4">
@@ -45,12 +44,12 @@ const OutputMapper: React.FC<OutputMapperProps> = ({
                                  bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     >
                         <option value="" className="text-sm">Select a variable...</option>
-                        {Object.entries(stateManager.schemas)
-                            .filter(([_, schema]) => schema.schema.type === output.schema.type)
-                            .map(([name, schema]) => (
-                                <option key={name} value={name}
+                        {outputs
+                            .filter(out => out.schema.type === output.schema.type)
+                            .map(out => (
+                                <option key={out.name} value={out.name}
                                     className="text-sm text-gray-900 dark:text-gray-100">
-                                    {name} ({schema.schema.type})
+                                    {out.name}
                                 </option>
                             ))}
                     </select>

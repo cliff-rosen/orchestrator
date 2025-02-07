@@ -2,36 +2,40 @@
 // This is for executing action steps in run mode 
 
 import React from 'react';
-import { StateManager } from '../hooks/schema/types';
 import { RuntimeWorkflowStep } from '../types/workflows';
+import { useWorkflows } from '../context/WorkflowContext';
 
 interface ActionStepRunnerProps {
     actionStep: RuntimeWorkflowStep;
-    stateManager: StateManager;
 }
 
 const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     actionStep,
-    stateManager
 }) => {
+    const { workflow } = useWorkflows();
+
+    // Get input values from workflow variables
+    const inputValues: Record<string, any> = {};
+    if (actionStep.parameter_mappings) {
+        Object.entries(actionStep.parameter_mappings).forEach(([paramName, varName]) => {
+            const variable = workflow?.inputs?.find(v => v.name === varName) ||
+                workflow?.outputs?.find(v => v.name === varName);
+            inputValues[varName] = variable?.value;
+        });
+    }
+
+    // Get output values from workflow variables
+    const outputValues: Record<string, any> = {};
+    if (actionStep.output_mappings) {
+        Object.entries(actionStep.output_mappings).forEach(([outputName, varName]) => {
+            const variable = workflow?.outputs?.find(v => v.name === varName);
+            outputValues[varName] = variable?.value;
+        });
+    }
+
     if (!actionStep.tool) {
         return <div className="text-gray-500 dark:text-gray-400">No tool selected</div>;
     }
-
-    // Get input and output variable names from parameter and output mappings
-    const inputVarNames = actionStep.parameter_mappings ? Object.values(actionStep.parameter_mappings) : [];
-    const outputVarNames = actionStep.output_mappings ? Object.values(actionStep.output_mappings) : [];
-
-    // Get current values for input and output variables
-    const inputValues = inputVarNames.reduce((acc, varName) => {
-        acc[varName] = stateManager.getValue(varName);
-        return acc;
-    }, {} as Record<string, any>);
-
-    const outputValues = outputVarNames.reduce((acc, varName) => {
-        acc[varName] = stateManager.getValue(varName);
-        return acc;
-    }, {} as Record<string, any>);
 
     return (
         <div className="space-y-6 p-6 bg-white dark:bg-gray-800 rounded-lg shadow">

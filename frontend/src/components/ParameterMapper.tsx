@@ -1,18 +1,20 @@
 import React from 'react';
-import { StateManager } from '../hooks/schema/types';
 import { Tool } from '../types/tools';
+import { WorkflowVariable } from '../types/workflows';
 
 interface ParameterMapperProps {
     tool: Tool;
     parameter_mappings: Record<string, string>;
-    stateManager: StateManager;
+    inputs: WorkflowVariable[];
+    outputs: WorkflowVariable[];
     onChange: (mappings: Record<string, string>) => void;
 }
 
 const ParameterMapper: React.FC<ParameterMapperProps> = ({
     tool,
     parameter_mappings,
-    stateManager,
+    inputs,
+    outputs,
     onChange
 }) => {
     const handleChange = (paramName: string, value: string) => {
@@ -44,15 +46,34 @@ const ParameterMapper: React.FC<ParameterMapperProps> = ({
                                  bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     >
                         <option value="" className="text-sm">Select variable...</option>
-                        {Object.entries(stateManager.schemas)
-                            .filter(([_, schema]) => schema.schema.type === param.schema.type)
-                            .map(([varName]) => (
-                                <option key={varName} value={varName}
-                                    className="text-sm text-gray-900 dark:text-gray-100">
-                                    {varName}
-                                </option>
-                            ))
-                        }
+                        {/* Input Variables */}
+                        {inputs.length > 0 && (
+                            <optgroup label="Workflow Inputs">
+                                {inputs
+                                    .filter(input => input.schema.type === param.schema.type)
+                                    .map(input => (
+                                        <option key={input.name} value={input.name}
+                                            className="text-sm text-gray-900 dark:text-gray-100">
+                                            {input.name}
+                                        </option>
+                                    ))
+                                }
+                            </optgroup>
+                        )}
+                        {/* Output Variables */}
+                        {outputs.length > 0 && (
+                            <optgroup label="Previous Outputs">
+                                {outputs
+                                    .filter(output => output.schema.type === param.schema.type)
+                                    .map(output => (
+                                        <option key={output.name} value={output.name}
+                                            className="text-sm text-gray-900 dark:text-gray-100">
+                                            {output.name}
+                                        </option>
+                                    ))
+                                }
+                            </optgroup>
+                        )}
                     </select>
                 </div>
             ))}

@@ -24,6 +24,7 @@ export interface WorkflowVariable {
     name: string;
     description: string;
     schema: SchemaValue;
+    value?: any;  // The current runtime value of this variable
 }
 
 export interface WorkflowStep {

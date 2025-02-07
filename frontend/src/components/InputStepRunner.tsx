@@ -1,27 +1,26 @@
 // Rename from InputStepContent.tsx
 // This is for collecting input values in run mode 
 
-import React, { useMemo } from 'react';
-import { StateManager } from '../hooks/schema/types';
+import React from 'react';
+import { useWorkflows } from '../context/WorkflowContext';
 import SchemaForm from './SchemaForm';
 
-interface InputStepRunnerProps {
-    stateManager: StateManager;
-}
+const InputStepRunner: React.FC = () => {
+    const { workflow, updateWorkflow } = useWorkflows();
+    const inputs = workflow?.inputs || [];
 
-const InputStepRunner: React.FC<InputStepRunnerProps> = ({
-    stateManager
-}) => {
-    // Get all input schemas from the state manager
-    const inputSchemas = useMemo(() => {
-        return Object.entries(stateManager.schemas)
-            .filter(([_, entry]) => entry.role === 'input')
-            .map(([key, entry]) => ({
-                key,
-                schema: entry.schema,
-                value: stateManager.getValue(key)
-            }));
-    }, [stateManager.version]); // Re-run when version changes
+    const handleInputChange = (input: string, value: any) => {
+        if (!workflow) return;
+
+        const updatedInputs = inputs.map(i => {
+            if (i.name === input) {
+                return { ...i, value };
+            }
+            return i;
+        });
+
+        updateWorkflow({ inputs: updatedInputs });
+    };
 
     return (
         <div className="space-y-6">
@@ -32,15 +31,15 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
             </div>
 
             <div className="space-y-6">
-                {inputSchemas.map(({ key, schema, value }) => (
-                    <div key={key} className="space-y-2">
+                {inputs.map((input) => (
+                    <div key={input.name} className="space-y-2">
                         <h3 className="font-medium text-gray-800 dark:text-gray-200">
-                            {schema.name}
+                            {input.name}
                         </h3>
                         <SchemaForm
-                            schema={schema}
-                            value={value}
-                            onChange={value => stateManager.setValues(key, value)}
+                            schema={input.schema}
+                            value={input.value}
+                            onChange={value => handleInputChange(input.name, value)}
                         />
                     </div>
                 ))}

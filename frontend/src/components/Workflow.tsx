@@ -2,14 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 // Types
-import { WorkflowStep, WorkflowVariable, WorkflowStepType, RuntimeWorkflowStep } from '../types/workflows';
+import { WorkflowStep, WorkflowStepType, RuntimeWorkflowStep } from '../types/workflows';
 import { Tool } from '../types/tools';
 import { ResolvedParameters, ToolParameterName, ToolOutputName } from '../types/tools';
-import { StateManager } from '../hooks/schema/types';
 
 // Context
 import { useWorkflows } from '../context/WorkflowContext';
-import { useStateManager } from '../hooks/schema/useStateManager';
 
 // API
 import { toolApi } from '../lib/api';
@@ -28,21 +26,17 @@ const Workflow: React.FC = () => {
         workflow,
         updateWorkflow,
         hasUnsavedChanges,
-        saveWorkflow,
         loadWorkflow,
         isLoading,
-        error: contextError,
         activeStep,
         setActiveStep
     } = useWorkflows();
 
     // State
-    const stateManager: StateManager = useStateManager();
     const [stepExecuted, setStepExecuted] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(true);
-    const [tools, setTools] = useState<Tool[]>([]);
 
     // Initialize workflow based on URL parameter
     useEffect(() => {
@@ -81,20 +75,6 @@ const Workflow: React.FC = () => {
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasUnsavedChanges]);
 
-    // Fetch available tools
-    useEffect(() => {
-        const fetchTools = async () => {
-            try {
-                const availableTools = await toolApi.getAvailableTools();
-                setTools(availableTools);
-            } catch (err) {
-                setError('Failed to load tools');
-            }
-        };
-
-        fetchTools();
-    }, []);
-
     // Reset stepExecuted when active step changes
     useEffect(() => {
         setStepExecuted(false);
@@ -102,17 +82,6 @@ const Workflow: React.FC = () => {
 
     //////////////////////// Handlers ////////////////////////
 
-    const handleSave = async () => {
-        try {
-            await saveWorkflow();
-            // After saving, if this was a new workflow, update the URL with the new ID
-            if (workflowId === 'new' && workflow?.workflow_id) {
-                navigate(`/workflow/${workflow.workflow_id}`, { replace: true });
-            }
-        } catch (err) {
-            setError('Failed to save workflow');
-        }
-    };
 
     const handleAddStep = () => {
         if (!workflow) return;
@@ -172,13 +141,15 @@ const Workflow: React.FC = () => {
             console.log('Executing step:', currentStep);
 
             if (currentStep.tool?.tool_id) {
-                // Get resolved parameters from state manager
+                // Get resolved parameters from workflow variables
                 const resolvedParameters: ResolvedParameters = {};
                 if (currentStep.parameter_mappings) {
                     for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
-                        const value = stateManager.getValue(varName);
-                        console.log(`Resolving parameter ${paramName} from ${varName}:`, value);
-                        resolvedParameters[paramName as ToolParameterName] = value;
+                        // Find the variable in either inputs or outputs
+                        const variable = workflow?.inputs?.find(v => v.name === varName) ||
+                            workflow?.outputs?.find(v => v.name === varName);
+                        console.log(`Resolving parameter ${paramName} from ${varName}:`, variable?.value);
+                        resolvedParameters[paramName as ToolParameterName] = variable?.value;
                     }
                 }
 
@@ -191,35 +162,27 @@ const Workflow: React.FC = () => {
                 }
 
                 console.log('Executing tool with parameters:', resolvedParameters);
-                // Get the correct tool ID
                 const toolId = currentStep.tool.tool_id;
-                // Execute the tool
                 const outputs = await toolApi.executeTool(toolId, resolvedParameters);
                 console.log('Tool execution outputs:', outputs);
 
-                // Store outputs in state manager
+                // Store outputs in workflow variables
                 if (currentStep.output_mappings) {
-                    // First ensure the output variables are registered in the schema manager
-                    for (const [outputName, varName] of Object.entries(currentStep.output_mappings)) {
-                        const outputParam = currentStep.tool.signature.outputs.find(
-                            p => p.name === outputName
-                        );
-                        if (outputParam) {
-                            console.log(`Registering output schema for ${varName}:`, outputParam);
-                            // Register the output schema if not already registered
-                            stateManager.setSchema(varName, {
-                                name: varName,
-                                type: outputParam.schema.type as any
-                            }, 'output');
-                        }
-                    }
+                    const updatedOutputs = [...(workflow?.outputs || [])];
 
-                    // Then set the values
                     for (const [outputName, varName] of Object.entries(currentStep.output_mappings)) {
                         const value = outputs[outputName as ToolOutputName];
                         console.log(`Setting output ${outputName} to ${varName}:`, value);
-                        stateManager.setValues(varName, value);
+
+                        // Find and update the output variable
+                        const outputVar = updatedOutputs.find(v => v.name === varName);
+                        if (outputVar) {
+                            outputVar.value = value;
+                        }
                     }
+
+                    // Update workflow with new output values
+                    updateWorkflow({ outputs: updatedOutputs });
                 }
                 setStepExecuted(true);
             }
@@ -240,12 +203,14 @@ const Workflow: React.FC = () => {
     };
 
     const handleNewQuestion = async (): Promise<void> => {
-        // Clear all output values from state manager
-        Object.keys(stateManager.schemas)
-            .filter(key => stateManager.schemas[key].role === 'output')
-            .forEach(key => {
-                stateManager.setValues(key, undefined);
-            });
+        // Clear all output values
+        if (workflow?.outputs) {
+            const clearedOutputs = workflow.outputs.map(output => ({
+                ...output,
+                value: undefined
+            }));
+            updateWorkflow({ outputs: clearedOutputs });
+        }
         setActiveStep(0);
     };
 
@@ -253,54 +218,6 @@ const Workflow: React.FC = () => {
         if (isEditMode) {
             setActiveStep(index);
         }
-    };
-
-    const handleInputChange = (inputs: WorkflowVariable[]) => {
-        if (!workflow) return;
-
-        // Update workflow state
-        updateWorkflow({ inputs });
-
-        // Sync with schema manager
-        const currentSchemas = stateManager.schemas;
-
-        // Remove old schemas that are no longer in inputs
-        Object.keys(currentSchemas)
-            .filter(key => currentSchemas[key].role === 'input')
-            .forEach(key => {
-                if (!inputs.find(input => input.name === key)) {
-                    stateManager.removeSchema(key);
-                }
-            });
-
-        // Add/update new schemas
-        inputs.forEach(input => {
-            stateManager.setSchema(input.name, input.schema, 'input');
-        });
-    };
-
-    const handleOutputChange = (outputs: WorkflowVariable[]) => {
-        if (!workflow) return;
-
-        // Update workflow state
-        updateWorkflow({ outputs });
-
-        // Sync with schema manager
-        const currentSchemas = stateManager.schemas;
-
-        // Remove old schemas that are no longer in outputs
-        Object.keys(currentSchemas)
-            .filter(key => currentSchemas[key].role === 'output')
-            .forEach(key => {
-                if (!outputs.find(output => output.name === key)) {
-                    stateManager.removeSchema(key);
-                }
-            });
-
-        // Add/update new schemas
-        outputs.forEach(output => {
-            stateManager.setSchema(output.name, output.schema, 'output');
-        });
     };
 
     ///////////////////////// Workflow preparation /////////////////////////
@@ -397,9 +314,7 @@ const Workflow: React.FC = () => {
                                 <div className="mt-4">
                                     <StepDetail
                                         step={allSteps[activeStep]}
-                                        stateManager={stateManager}
                                         isEditMode={isEditMode}
-                                        tools={tools}
                                         onStepUpdate={handleStepUpdate}
                                         onStepDelete={handleStepDelete}
                                     />
