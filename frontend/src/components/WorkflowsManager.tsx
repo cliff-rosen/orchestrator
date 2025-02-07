@@ -5,7 +5,13 @@ import { workflowApi } from '../lib/api';
 
 const WorkflowsManager: React.FC = () => {
     const navigate = useNavigate();
-    const { workflows, loading, refreshWorkflows, createWorkflow, currentWorkflow } = useWorkflows();
+    const {
+        workflows,
+        workflow: currentWorkflow,
+        isLoading,
+        loadWorkflows,
+        createWorkflow
+    } = useWorkflows();
 
     useEffect(() => {
         if (currentWorkflow) {
@@ -27,7 +33,7 @@ const WorkflowsManager: React.FC = () => {
 
         try {
             await workflowApi.deleteWorkflow(workflowId);
-            refreshWorkflows(); // Refresh the list after deletion
+            loadWorkflows(); // Refresh the list after deletion
         } catch (error) {
             console.error('Error deleting workflow:', error);
             alert('Failed to delete workflow');
@@ -58,9 +64,12 @@ const WorkflowsManager: React.FC = () => {
                 </button>
             </div>
 
-            {loading ? (
+            {isLoading ? (
                 <div className="flex justify-center items-center h-64">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent dark:border-blue-400 dark:border-t-transparent mx-auto"></div>
+                        <p className="mt-4 text-gray-600 dark:text-gray-400">Loading workflows...</p>
+                    </div>
                 </div>
             ) : !workflows || workflows.length === 0 ? (
                 <div className="text-center py-12 bg-white dark:bg-gray-800/50 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">

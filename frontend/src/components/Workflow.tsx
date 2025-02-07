@@ -12,7 +12,7 @@ import { useWorkflows } from '../context/WorkflowContext';
 import { useStateManager } from '../hooks/schema/useStateManager';
 
 // API
-import { toolApi, workflowApi } from '../lib/api';
+import { toolApi } from '../lib/api';
 
 // Page components
 import WorkflowConfig from './WorkflowConfig';
@@ -24,52 +24,37 @@ import WorkflowNavigation from './WorkflowNavigation';
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
     const navigate = useNavigate();
-    const { handleBackNavigation } = useWorkflows();
+    const {
+        workflow: currentWorkflow,
+        updateWorkflow: updateCurrentWorkflow,
+        hasUnsavedChanges,
+        saveWorkflow,
+        loadWorkflow: initializeWorkflow,
+        isLoading: contextLoading
+    } = useWorkflows();
 
     // State
     const stateManager: StateManager = useStateManager();
-    const { setCurrentWorkflow, updateCurrentWorkflow, currentWorkflow, hasUnsavedChanges, saveWorkflow, createWorkflow } = useWorkflows();
     const [activeStep, setActiveStep] = useState(0);
     const [stepExecuted, setStepExecuted] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
-    const [_error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(true);
     const [tools, setTools] = useState<Tool[]>([]);
 
-    console.log('entered workflow');
     // Initialize workflow based on URL parameter
     useEffect(() => {
-        console.log('Initializing workflow with ID:', workflowId);
-        const initializeWorkflow = async () => {
-            if (!workflowId) {
-                navigate('/');
-                return;
-            }
+        if (!workflowId) {
+            navigate('/');
+            return;
+        }
 
-            // Don't reinitialize if we already have this workflow loaded
-            if (currentWorkflow && currentWorkflow.workflow_id === workflowId) {
-                return;  // Already have the right workflow, don't do anything
-            }
-
-            try {
-                if (workflowId === 'new') {
-                    createWorkflow();
-                } else {
-                    setIsLoading(true);
-                    const workflow = await workflowApi.getWorkflow(workflowId);
-                    setCurrentWorkflow(workflow);
-                    setIsLoading(false);
-                }
-            } catch (err) {
-                console.error('Error initializing workflow:', err);
-                setError('Failed to load workflow');
-                navigate('/');
-            }
-        };
-
-        initializeWorkflow();
-    }, [workflowId]);
+        initializeWorkflow(workflowId).catch((err: Error) => {
+            console.error('Error initializing workflow:', err);
+            setError('Failed to load workflow');
+            navigate('/');
+        });
+    }, [workflowId, initializeWorkflow, navigate]);
 
     // Initialize schema manager when workflow changes
     useEffect(() => {
@@ -81,13 +66,13 @@ const Workflow: React.FC = () => {
         const outputs = currentWorkflow.outputs || [];
 
         if (inputs.length > 0) {
-            inputs.forEach(input => {
+            inputs.forEach((input: WorkflowVariable) => {
                 stateManager.setSchema(input.name, input.schema, 'input');
             });
         }
 
         if (outputs.length > 0) {
-            outputs.forEach(output => {
+            outputs.forEach((output: WorkflowVariable) => {
                 stateManager.setSchema(output.name, output.schema, 'output');
             });
         }
@@ -135,7 +120,6 @@ const Workflow: React.FC = () => {
     // Handle saving workflow
     const handleSave = async () => {
         try {
-            setIsLoading(true);
             console.log('saved workflowm before save', currentWorkflow);
             await saveWorkflow();
             // After saving, if this was a new workflow, update the URL with the new ID
@@ -146,8 +130,6 @@ const Workflow: React.FC = () => {
         } catch (err) {
             console.error('Error saving workflow:', err);
             setError('Failed to save workflow');
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -184,32 +166,28 @@ const Workflow: React.FC = () => {
         };
 
         updateCurrentWorkflow({
-            steps: currentWorkflow.steps.map(s => s.step_id === step.step_id ? updatedStep : s)
+            steps: currentWorkflow.steps.map((s: WorkflowStep) => s.step_id === step.step_id ? updatedStep : s)
         });
     };
 
     const handleStepDelete = (stepId: string) => {
         if (!currentWorkflow) return;
 
-        const stepIndex = currentWorkflow.steps.findIndex(s => s.step_id === stepId);
+        const stepIndex = currentWorkflow.steps.findIndex((s: WorkflowStep) => s.step_id === stepId);
         if (stepIndex === -1) return;
 
         // Update workflow with filtered steps
         updateCurrentWorkflow({
-            steps: currentWorkflow.steps.filter(s => s.step_id !== stepId)
+            steps: currentWorkflow.steps.filter((s: WorkflowStep) => s.step_id !== stepId)
         });
 
         // Adjust activeStep if needed
         if (stepIndex <= activeStep) {
-            // If we deleted the current step or a step before it, move activeStep back
-            // But don't go below 0
             setActiveStep(Math.max(0, activeStep - 1));
         }
-        // No need to adjust if we deleted a step after the current one
     };
 
     const handleExecuteTool = async (): Promise<void> => {
-        setIsLoading(true);
         try {
             const currentStep = allSteps[activeStep];
             console.log('Executing step:', currentStep);
@@ -269,8 +247,6 @@ const Workflow: React.FC = () => {
         } catch (error) {
             console.error('Error executing step:', error);
             setError('Failed to execute step');
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -280,8 +256,8 @@ const Workflow: React.FC = () => {
     };
 
     const handleBack = () => {
-        setCurrentWorkflow(null);  // Directly clear the current workflow
-        navigate('/');
+        setActiveStep((prev) => Math.max(0, prev - 1));
+        setStepExecuted(false);
     };
 
     const handleNewQuestion = async (): Promise<void> => {
@@ -354,7 +330,7 @@ const Workflow: React.FC = () => {
     // console.log('currentWorkflow', currentWorkflow);
 
     // Convert workflow steps to RuntimeWorkflowStep interface
-    const workflowSteps: RuntimeWorkflowStep[] = currentWorkflow.steps.map(step => ({
+    const workflowSteps: RuntimeWorkflowStep[] = currentWorkflow.steps.map((step: WorkflowStep) => ({
         ...step,
         action: handleExecuteTool,
         actionButtonText: () => stepExecuted ? 'Next Step' : 'Execute Tool',
@@ -367,6 +343,10 @@ const Workflow: React.FC = () => {
         label: 'Input Values',
         description: 'Provide values for workflow inputs',
         step_type: WorkflowStepType.INPUT,
+        workflow_id: currentWorkflow.workflow_id,
+        sequence_number: -1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         parameter_mappings: {},
         output_mappings: {},
         action: handleExecuteTool,
@@ -388,7 +368,7 @@ const Workflow: React.FC = () => {
 
     ///////////////////////// Render /////////////////////////
 
-    if (isLoading) {
+    if (contextLoading) {
         return (
             <div className="flex flex-col h-full">
                 <MenuBar
@@ -396,7 +376,7 @@ const Workflow: React.FC = () => {
                     isEditMode={isEditMode}
                     showConfig={showConfig}
                     hasUnsavedChanges={hasUnsavedChanges}
-                    isLoading={isLoading}
+                    isLoading={contextLoading}
                     onSave={handleSave}
                     onToggleConfig={() => setShowConfig(!showConfig)}
                     onToggleEditMode={() => setIsEditMode(!isEditMode)}
@@ -419,7 +399,7 @@ const Workflow: React.FC = () => {
                 isEditMode={isEditMode}
                 showConfig={showConfig}
                 hasUnsavedChanges={hasUnsavedChanges}
-                isLoading={isLoading}
+                isLoading={contextLoading}
                 onSave={handleSave}
                 onToggleConfig={() => setShowConfig(!showConfig)}
                 onToggleEditMode={() => setIsEditMode(!isEditMode)}
@@ -466,7 +446,7 @@ const Workflow: React.FC = () => {
                                     activeStep={activeStep}
                                     totalSteps={allSteps.length}
                                     step_type={currentStep?.step_type as WorkflowStepType || WorkflowStepType.ACTION}
-                                    isLoading={isLoading}
+                                    isLoading={contextLoading}
                                     stepExecuted={stepExecuted}
                                     onBack={handleBack}
                                     onNext={handleNext}

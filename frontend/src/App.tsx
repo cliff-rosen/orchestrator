@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
@@ -16,8 +16,7 @@ const AuthenticatedApp = () => {
     loading,
     error,
     currentWorkflow,
-    loadWorkflow,
-    setCurrentWorkflow
+    loadWorkflow
   } = useWorkflows();
   const location = useLocation();
 

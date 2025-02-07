@@ -27,7 +27,7 @@ const MenuBar: React.FC<MenuBarProps> = ({
     updateCurrentWorkflow
 }) => {
     const navigate = useNavigate();
-    const { setCurrentWorkflow } = useWorkflows();
+    const { exitWorkflow } = useWorkflows();
     const [editingName, setEditingName] = React.useState(false);
 
     const handleBackNavigation = async () => {
@@ -36,21 +36,21 @@ const MenuBar: React.FC<MenuBarProps> = ({
             if (shouldSave) {
                 try {
                     await onSave();
-                    setCurrentWorkflow(null);
+                    exitWorkflow();
                     navigate('/');
                 } catch (err) {
                     console.error('Error saving workflow:', err);
                     if (window.confirm('Failed to save changes. Leave anyway?')) {
-                        setCurrentWorkflow(null);
+                        exitWorkflow();
                         navigate('/');
                     }
                 }
             } else {
-                setCurrentWorkflow(null);
+                exitWorkflow();
                 navigate('/');
             }
         } else {
-            setCurrentWorkflow(null);
+            exitWorkflow();
             navigate('/');
         }
     };
