@@ -1,13 +1,8 @@
 import React, { useState } from 'react';
 import { SchemaValue, ValueType } from '../hooks/schema/types';
 import { WorkflowVariable } from '../types';
-
-interface WorkflowConfigProps {
-    inputs: WorkflowVariable[];
-    outputs: WorkflowVariable[];
-    onInputChange: (inputs: WorkflowVariable[]) => void;
-    onOutputChange: (outputs: WorkflowVariable[]) => void;
-}
+import { useWorkflows } from '../context/WorkflowContext';
+import { useStateManager } from '../hooks/schema/useStateManager';
 
 const VALUE_TYPES: ValueType[] = ['string', 'number', 'boolean', 'array', 'object'];
 
@@ -316,57 +311,167 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
     );
 };
 
-const WorkflowConfig: React.FC<WorkflowConfigProps> = ({
-    inputs = [],
-    outputs = [],
-    onInputChange,
-    onOutputChange
-}) => {
+const WorkflowConfig: React.FC = () => {
+    const { workflow, updateWorkflow } = useWorkflows();
+    const stateManager = useStateManager();
+    const inputs = workflow?.inputs || [];
+    const outputs = workflow?.outputs || [];
     const [activeTab, setActiveTab] = useState<'inputs' | 'outputs'>('inputs');
+
+    const handleInputChange = (newInputs: WorkflowVariable[]) => {
+        if (!workflow) return;
+
+        // Update schema manager
+        const currentSchemas = stateManager.schemas;
+
+        // Remove old schemas that are no longer in inputs
+        Object.keys(currentSchemas)
+            .filter(key => currentSchemas[key].role === 'input')
+            .forEach(key => {
+                if (!newInputs.find(input => input.name === key)) {
+                    stateManager.removeSchema(key);
+                }
+            });
+
+        // Add/update new schemas
+        newInputs.forEach(input => {
+            stateManager.setSchema(input.name, input.schema, 'input');
+        });
+
+        // Update workflow state
+        updateWorkflow({ inputs: newInputs });
+    };
+
+    const handleOutputChange = (newOutputs: WorkflowVariable[]) => {
+        if (!workflow) return;
+
+        // Update schema manager
+        const currentSchemas = stateManager.schemas;
+
+        // Remove old schemas that are no longer in outputs
+        Object.keys(currentSchemas)
+            .filter(key => currentSchemas[key].role === 'output')
+            .forEach(key => {
+                if (!newOutputs.find(output => output.name === key)) {
+                    stateManager.removeSchema(key);
+                }
+            });
+
+        // Add/update new schemas
+        newOutputs.forEach(output => {
+            stateManager.setSchema(output.name, output.schema, 'output');
+        });
+
+        // Update workflow state
+        updateWorkflow({ outputs: newOutputs });
+    };
 
     return (
         <div className="space-y-6 rounded-lg border-2 border-blue-500 bg-blue-50 dark:border-blue-400 
                       dark:bg-blue-900/30 p-6 transition-all animate-fade-in">
+            {/* Header */}
+            <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Workflow Configuration</h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Configure the inputs and outputs for your workflow. Inputs define the data required to run the workflow,
+                    while outputs define the data produced by the workflow.
+                </p>
+            </div>
+
             {/* Tab Navigation */}
             <div className="flex gap-4 border-b border-blue-200 dark:border-blue-700">
                 <button
                     onClick={() => setActiveTab('inputs')}
-                    className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors
+                    className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors flex items-center gap-2
                         ${activeTab === 'inputs'
                             ? 'border-blue-500 text-blue-700 dark:text-blue-300'
                             : 'border-transparent text-blue-600/60 dark:text-blue-400/60 hover:text-blue-700 dark:hover:text-blue-300'
                         }`}
                 >
                     Input Variables
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 
+                                   text-blue-600 dark:text-blue-400">
+                        {inputs.length}
+                    </span>
                 </button>
                 <button
                     onClick={() => setActiveTab('outputs')}
-                    className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors
+                    className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors flex items-center gap-2
                         ${activeTab === 'outputs'
                             ? 'border-blue-500 text-blue-700 dark:text-blue-300'
                             : 'border-transparent text-blue-600/60 dark:text-blue-400/60 hover:text-blue-700 dark:hover:text-blue-300'
                         }`}
                 >
                     Output Variables
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 
+                                   text-blue-600 dark:text-blue-400">
+                        {outputs.length}
+                    </span>
                 </button>
             </div>
 
             {/* Tab Content */}
-            {activeTab === 'inputs' ? (
-                <VariableEditor
-                    variables={inputs}
-                    onChange={onInputChange}
-                    title="Input Variables"
-                    description="Define the input variables that will be used throughout the workflow."
-                />
-            ) : (
-                <VariableEditor
-                    variables={outputs}
-                    onChange={onOutputChange}
-                    title="Output Variables"
-                    description="Define the output variables that will store results from workflow steps."
-                />
-            )}
+            <div className="pt-4">
+                {activeTab === 'inputs' ? (
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Define the variables that will be used as input throughout your workflow steps.
+                            </p>
+                            <button
+                                onClick={() => handleInputChange([...inputs, {
+                                    variable_id: `var-${Date.now()}`,
+                                    name: `input_${inputs.length + 1}`,
+                                    description: '',
+                                    schema: { name: `input_${inputs.length + 1}`, type: 'string' }
+                                }])}
+                                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 
+                                         dark:hover:text-blue-300 flex items-center gap-1"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Input
+                            </button>
+                        </div>
+                        <VariableEditor
+                            variables={inputs}
+                            onChange={handleInputChange}
+                            title="Input Variables"
+                            description="Variables that must be provided before running the workflow"
+                        />
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Define the variables that will store the results produced by your workflow steps.
+                            </p>
+                            <button
+                                onClick={() => handleOutputChange([...outputs, {
+                                    variable_id: `var-${Date.now()}`,
+                                    name: `output_${outputs.length + 1}`,
+                                    description: '',
+                                    schema: { name: `output_${outputs.length + 1}`, type: 'string' }
+                                }])}
+                                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 
+                                         dark:hover:text-blue-300 flex items-center gap-1"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Output
+                            </button>
+                        </div>
+                        <VariableEditor
+                            variables={outputs}
+                            onChange={handleOutputChange}
+                            title="Output Variables"
+                            description="Variables that will store workflow results"
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

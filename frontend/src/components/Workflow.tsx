@@ -25,12 +25,13 @@ const Workflow: React.FC = () => {
     const { workflowId } = useParams();
     const navigate = useNavigate();
     const {
-        workflow: currentWorkflow,
-        updateWorkflow: updateCurrentWorkflow,
+        workflow,
+        updateWorkflow,
         hasUnsavedChanges,
         saveWorkflow,
-        loadWorkflow: initializeWorkflow,
-        isLoading: contextLoading
+        loadWorkflow,
+        isLoading,
+        error: contextError
     } = useWorkflows();
 
     // State
@@ -49,38 +50,15 @@ const Workflow: React.FC = () => {
             return;
         }
 
-        initializeWorkflow(workflowId).catch((err: Error) => {
-            console.error('Error initializing workflow:', err);
+        loadWorkflow(workflowId).catch((err: Error) => {
+            console.error('Error loading workflow:', err);
             setError('Failed to load workflow');
             navigate('/');
         });
-    }, [workflowId, initializeWorkflow, navigate]);
-
-    // Initialize schema manager when workflow changes
-    useEffect(() => {
-        console.log('Initializing schema manager with workflow');
-        if (!currentWorkflow) return;
-
-        // Sync workflow variables with schema manager
-        const inputs = currentWorkflow.inputs || [];
-        const outputs = currentWorkflow.outputs || [];
-
-        if (inputs.length > 0) {
-            inputs.forEach((input: WorkflowVariable) => {
-                stateManager.setSchema(input.name, input.schema, 'input');
-            });
-        }
-
-        if (outputs.length > 0) {
-            outputs.forEach((output: WorkflowVariable) => {
-                stateManager.setSchema(output.name, output.schema, 'output');
-            });
-        }
-    }, [currentWorkflow]);
+    }, [workflowId, loadWorkflow, navigate]);
 
     // Prompt user before leaving if there are unsaved changes
     useEffect(() => {
-        console.log('hasUnsavedChanges', hasUnsavedChanges);
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if (hasUnsavedChanges) {
                 e.preventDefault();
@@ -94,13 +72,11 @@ const Workflow: React.FC = () => {
 
     // Fetch available tools
     useEffect(() => {
-        console.log('fetching tools');
         const fetchTools = async () => {
             try {
                 const availableTools = await toolApi.getAvailableTools();
                 setTools(availableTools);
             } catch (err) {
-                console.error('Error fetching tools:', err);
                 setError('Failed to load tools');
             }
         };
@@ -110,54 +86,46 @@ const Workflow: React.FC = () => {
 
     // Reset stepExecuted when active step changes
     useEffect(() => {
-        console.log('resetting stepExecuted');
         setStepExecuted(false);
     }, [activeStep]);
 
-
     //////////////////////// Handlers ////////////////////////
 
-    // Handle saving workflow
     const handleSave = async () => {
         try {
-            console.log('saved workflowm before save', currentWorkflow);
             await saveWorkflow();
             // After saving, if this was a new workflow, update the URL with the new ID
-            console.log('saved workflow after save', currentWorkflow);
-            if (workflowId === 'new' && currentWorkflow?.workflow_id) {
-                navigate(`/workflow/${currentWorkflow.workflow_id}`, { replace: true });
+            if (workflowId === 'new' && workflow?.workflow_id) {
+                navigate(`/workflow/${workflow.workflow_id}`, { replace: true });
             }
         } catch (err) {
-            console.error('Error saving workflow:', err);
             setError('Failed to save workflow');
         }
     };
 
     const handleAddStep = () => {
-        if (!currentWorkflow) return;
+        if (!workflow) return;
 
         const newStep: WorkflowStep = {
-            step_id: `step-${currentWorkflow.steps.length + 1}`,
-            label: `Step ${currentWorkflow.steps.length + 1}`,
+            step_id: `step-${workflow.steps.length + 1}`,
+            label: `Step ${workflow.steps.length + 1}`,
             description: 'Configure this step by selecting a tool and setting up its parameters',
             step_type: WorkflowStepType.ACTION,
-            workflow_id: currentWorkflow.workflow_id,
-            sequence_number: currentWorkflow.steps.length,
+            workflow_id: workflow.workflow_id,
+            sequence_number: workflow.steps.length,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             parameter_mappings: {},
             output_mappings: {},
         };
 
-        updateCurrentWorkflow({
-            steps: [...currentWorkflow.steps, newStep]
+        updateWorkflow({
+            steps: [...workflow.steps, newStep]
         });
-        console.log('new step added ##############################');
-        //setActiveStep(workflowSteps.length);
     };
 
     const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {
-        if (!currentWorkflow) return;
+        if (!workflow) return;
 
         // Ensure tool_id is set if tool exists
         const updatedStep = {
@@ -165,20 +133,20 @@ const Workflow: React.FC = () => {
             tool_id: step.tool?.tool_id
         };
 
-        updateCurrentWorkflow({
-            steps: currentWorkflow.steps.map((s: WorkflowStep) => s.step_id === step.step_id ? updatedStep : s)
+        updateWorkflow({
+            steps: workflow.steps.map((s: WorkflowStep) => s.step_id === step.step_id ? updatedStep : s)
         });
     };
 
     const handleStepDelete = (stepId: string) => {
-        if (!currentWorkflow) return;
+        if (!workflow) return;
 
-        const stepIndex = currentWorkflow.steps.findIndex((s: WorkflowStep) => s.step_id === stepId);
+        const stepIndex = workflow.steps.findIndex((s: WorkflowStep) => s.step_id === stepId);
         if (stepIndex === -1) return;
 
         // Update workflow with filtered steps
-        updateCurrentWorkflow({
-            steps: currentWorkflow.steps.filter((s: WorkflowStep) => s.step_id !== stepId)
+        updateWorkflow({
+            steps: workflow.steps.filter((s: WorkflowStep) => s.step_id !== stepId)
         });
 
         // Adjust activeStep if needed
@@ -277,10 +245,10 @@ const Workflow: React.FC = () => {
     };
 
     const handleInputChange = (inputs: WorkflowVariable[]) => {
-        if (!currentWorkflow) return;
+        if (!workflow) return;
 
         // Update workflow state
-        updateCurrentWorkflow({ inputs });
+        updateWorkflow({ inputs });
 
         // Sync with schema manager
         const currentSchemas = stateManager.schemas;
@@ -301,10 +269,10 @@ const Workflow: React.FC = () => {
     };
 
     const handleOutputChange = (outputs: WorkflowVariable[]) => {
-        if (!currentWorkflow) return;
+        if (!workflow) return;
 
         // Update workflow state
-        updateCurrentWorkflow({ outputs });
+        updateWorkflow({ outputs });
 
         // Sync with schema manager
         const currentSchemas = stateManager.schemas;
@@ -326,11 +294,11 @@ const Workflow: React.FC = () => {
 
     ///////////////////////// Workflow preparation /////////////////////////
 
-    if (!currentWorkflow) return null;
+    if (!workflow) return null;
     // console.log('currentWorkflow', currentWorkflow);
 
     // Convert workflow steps to RuntimeWorkflowStep interface
-    const workflowSteps: RuntimeWorkflowStep[] = currentWorkflow.steps.map((step: WorkflowStep) => ({
+    const workflowSteps: RuntimeWorkflowStep[] = workflow.steps.map((step: WorkflowStep) => ({
         ...step,
         action: handleExecuteTool,
         actionButtonText: () => stepExecuted ? 'Next Step' : 'Execute Tool',
@@ -343,7 +311,7 @@ const Workflow: React.FC = () => {
         label: 'Input Values',
         description: 'Provide values for workflow inputs',
         step_type: WorkflowStepType.INPUT,
-        workflow_id: currentWorkflow.workflow_id,
+        workflow_id: workflow.workflow_id,
         sequence_number: -1,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -368,19 +336,14 @@ const Workflow: React.FC = () => {
 
     ///////////////////////// Render /////////////////////////
 
-    if (contextLoading) {
+    if (isLoading) {
         return (
             <div className="flex flex-col h-full">
                 <MenuBar
-                    currentWorkflow={currentWorkflow}
                     isEditMode={isEditMode}
                     showConfig={showConfig}
-                    hasUnsavedChanges={hasUnsavedChanges}
-                    isLoading={contextLoading}
-                    onSave={handleSave}
                     onToggleConfig={() => setShowConfig(!showConfig)}
                     onToggleEditMode={() => setIsEditMode(!isEditMode)}
-                    updateCurrentWorkflow={updateCurrentWorkflow}
                 />
                 <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                     <div className="text-center">
@@ -395,15 +358,10 @@ const Workflow: React.FC = () => {
     return (
         <div className="flex flex-col h-full">
             <MenuBar
-                currentWorkflow={currentWorkflow}
                 isEditMode={isEditMode}
                 showConfig={showConfig}
-                hasUnsavedChanges={hasUnsavedChanges}
-                isLoading={contextLoading}
-                onSave={handleSave}
                 onToggleConfig={() => setShowConfig(!showConfig)}
                 onToggleEditMode={() => setIsEditMode(!isEditMode)}
-                updateCurrentWorkflow={updateCurrentWorkflow}
             />
 
             {/* Main Content Area */}
@@ -421,12 +379,7 @@ const Workflow: React.FC = () => {
                 <div className="container mx-auto px-4 py-6">
                     <div className="flex-1">
                         {showConfig ? (
-                            <WorkflowConfig
-                                inputs={currentWorkflow.inputs || []}
-                                outputs={currentWorkflow.outputs || []}
-                                onInputChange={handleInputChange}
-                                onOutputChange={handleOutputChange}
-                            />
+                            <WorkflowConfig />
                         ) : (
                             <>
                                 {/* Step Detail */}
@@ -446,7 +399,7 @@ const Workflow: React.FC = () => {
                                     activeStep={activeStep}
                                     totalSteps={allSteps.length}
                                     step_type={currentStep?.step_type as WorkflowStepType || WorkflowStepType.ACTION}
-                                    isLoading={contextLoading}
+                                    isLoading={isLoading}
                                     stepExecuted={stepExecuted}
                                     onBack={handleBack}
                                     onNext={handleNext}
