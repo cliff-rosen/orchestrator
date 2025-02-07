@@ -67,8 +67,8 @@ export const workflowApi = {
             const response = await api.put(`/api/workflows/${workflowId}`, transformedWorkflow);
             return {
                 ...response.data,
-                inputs: response.data.variables?.filter((v: any) => v.variable_type === 'input') || [],
-                outputs: response.data.variables?.filter((v: any) => v.variable_type === 'output') || []
+                inputs: response.data.inputs,
+                outputs: response.data.outputs
             };
         } catch (error) {
             throw handleApiError(error);
