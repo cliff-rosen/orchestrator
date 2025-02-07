@@ -88,18 +88,19 @@ const PromptTemplatesPage: React.FC = () => {
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <div className="flex justify-between items-center mb-8">
+                <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">
                     Prompt Templates
                 </h1>
                 <button
                     onClick={handleCreateNew}
-                    className="inline-flex items-center px-4 py-2 border border-transparent 
-                             text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 
-                             hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 
-                             focus:ring-blue-500"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
+                             transition-colors flex items-center gap-2"
                 >
-                    Create New Template
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>New Template</span>
                 </button>
             </div>
 

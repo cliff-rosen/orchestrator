@@ -51,7 +51,7 @@ const WorkflowsManager: React.FC = () => {
     return (
         <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
-                <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Research Workflows</h1>
+                <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Workflows</h1>
                 <button
                     onClick={handleCreateWorkflow}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
