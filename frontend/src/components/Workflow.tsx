@@ -31,12 +31,13 @@ const Workflow: React.FC = () => {
         saveWorkflow,
         loadWorkflow,
         isLoading,
-        error: contextError
+        error: contextError,
+        activeStep,
+        setActiveStep
     } = useWorkflows();
 
     // State
     const stateManager: StateManager = useStateManager();
-    const [activeStep, setActiveStep] = useState(0);
     const [stepExecuted, setStepExecuted] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,17 +46,27 @@ const Workflow: React.FC = () => {
 
     // Initialize workflow based on URL parameter
     useEffect(() => {
+        console.log('Workflow.tsx useEffect', workflowId);
         if (!workflowId) {
             navigate('/');
             return;
         }
 
-        loadWorkflow(workflowId).catch((err: Error) => {
-            console.error('Error loading workflow:', err);
-            setError('Failed to load workflow');
-            navigate('/');
-        });
-    }, [workflowId, loadWorkflow, navigate]);
+        // Only load if we don't have this workflow or it's a different one
+        if (!workflow || (workflow.workflow_id !== workflowId && workflowId !== 'new')) {
+            const loadWorkflowData = async () => {
+                console.log('useEffect loading workflow:', workflowId);
+                try {
+                    await loadWorkflow(workflowId);
+                } catch (err) {
+                    console.error('Error loading workflow:', err);
+                    setError('Failed to load workflow');
+                    navigate('/');
+                }
+            };
+            loadWorkflowData();
+        }
+    }, [workflowId, navigate, loadWorkflow]);
 
     // Prompt user before leaving if there are unsaved changes
     useEffect(() => {
@@ -219,12 +230,12 @@ const Workflow: React.FC = () => {
     };
 
     const handleNext = async (): Promise<void> => {
-        setActiveStep((prev) => prev + 1);
+        setActiveStep(activeStep + 1);
         setStepExecuted(false);
     };
 
     const handleBack = () => {
-        setActiveStep((prev) => Math.max(0, prev - 1));
+        setActiveStep(Math.max(0, activeStep - 1));
         setStepExecuted(false);
     };
 

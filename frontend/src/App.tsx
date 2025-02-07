@@ -13,9 +13,9 @@ import PromptTemplatesPage from './pages/PromptTemplates';
 // Main app content when authenticated
 const AuthenticatedApp = () => {
   const {
-    loading,
+    isLoading,
     error,
-    currentWorkflow,
+    workflow,
     loadWorkflow
   } = useWorkflows();
   const location = useLocation();
@@ -27,13 +27,13 @@ const AuthenticatedApp = () => {
     if (match) {
       const workflowId = match[1];
       // Only load from DB if we don't have this workflow or have a different one
-      if (!currentWorkflow || (currentWorkflow.workflow_id !== workflowId && workflowId !== 'new')) {
+      if (!workflow || (workflow.workflow_id !== workflowId && workflowId !== 'new')) {
         loadWorkflow(workflowId);
       }
     }
-  }, [location.pathname, currentWorkflow, loadWorkflow]);
+  }, [location.pathname, workflow, loadWorkflow]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center dark:bg-gray-900 bg-gray-50">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 dark:border-gray-100"></div>

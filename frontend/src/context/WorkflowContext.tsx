@@ -9,6 +9,8 @@ interface WorkflowContextType {
     hasUnsavedChanges: boolean
     isLoading: boolean
     error: string | null
+    activeStep: number
+    setActiveStep: (step: number) => void
 
     // User Operations
     loadWorkflows(): Promise<void>
@@ -28,6 +30,33 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [activeStep, setActiveStep] = useState(0);
+
+    // Persist workflow state in sessionStorage
+    useEffect(() => {
+        if (workflow) {
+            sessionStorage.setItem('currentWorkflow', JSON.stringify(workflow));
+            sessionStorage.setItem('hasUnsavedChanges', JSON.stringify(hasUnsavedChanges));
+            sessionStorage.setItem('activeStep', JSON.stringify(activeStep));
+        }
+    }, [workflow, hasUnsavedChanges, activeStep]);
+
+    // Restore workflow state from sessionStorage
+    useEffect(() => {
+        const savedWorkflow = sessionStorage.getItem('currentWorkflow');
+        const savedHasUnsavedChanges = sessionStorage.getItem('hasUnsavedChanges');
+        const savedActiveStep = sessionStorage.getItem('activeStep');
+
+        if (savedWorkflow) {
+            setWorkflow(JSON.parse(savedWorkflow));
+        }
+        if (savedHasUnsavedChanges) {
+            setHasUnsavedChanges(JSON.parse(savedHasUnsavedChanges));
+        }
+        if (savedActiveStep) {
+            setActiveStep(JSON.parse(savedActiveStep));
+        }
+    }, []);
 
     // User Operations
     const createWorkflow = useCallback(() => {
@@ -53,6 +82,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
         setWorkflow(newWorkflow);
         setHasUnsavedChanges(true);
+        setActiveStep(0);
     }, []);
 
     const loadWorkflows = useCallback(async () => {
@@ -70,8 +100,21 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, []);
 
     const loadWorkflow = useCallback(async (id: string) => {
+        console.log('loadWorkflow', id);
         if (id === 'new') {
             createWorkflow();
+            return;
+        }
+
+        // Skip if we're already loading
+        if (isLoading) {
+            console.log('Already loading');
+            return;
+        }
+
+        // If we already have this workflow loaded and there are unsaved changes, don't reload
+        if (workflow?.workflow_id === id) {
+            console.log('Already loaded', workflow);
             return;
         }
 
@@ -79,15 +122,20 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setIsLoading(true);
             setError(null);
             const fetchedWorkflow = await workflowApi.getWorkflow(id);
-            setWorkflow(fetchedWorkflow);
-            setHasUnsavedChanges(false);
+
+            // Only update state if the ID still matches (prevent race conditions)
+            if (id === fetchedWorkflow.workflow_id) {
+                setWorkflow(fetchedWorkflow);
+                setHasUnsavedChanges(false);
+                // Don't reset active step here to preserve navigation state
+            }
         } catch (err) {
             setError('Failed to load workflow');
             console.error('Error loading workflow:', err);
         } finally {
             setIsLoading(false);
         }
-    }, [createWorkflow]);
+    }, [createWorkflow, isLoading, workflow?.workflow_id]);
 
     const updateWorkflow = useCallback((updates: Partial<Workflow>) => {
         if (!workflow) return;
@@ -140,6 +188,12 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const exitWorkflow = useCallback(() => {
         setWorkflow(null);
+        setActiveStep(0);
+        setHasUnsavedChanges(false);
+        // Clear persisted state
+        sessionStorage.removeItem('currentWorkflow');
+        sessionStorage.removeItem('hasUnsavedChanges');
+        sessionStorage.removeItem('activeStep');
     }, []);
 
     // Initial load
@@ -154,6 +208,8 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         hasUnsavedChanges,
         isLoading,
         error,
+        activeStep,
+        setActiveStep,
 
         // User Operations
         createWorkflow,
