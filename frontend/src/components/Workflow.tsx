@@ -36,6 +36,7 @@ const Workflow: React.FC = () => {
     const [showConfig, setShowConfig] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(true);
+    const [isExecuting, setIsExecuting] = useState(false);
 
     // Initialize workflow based on URL parameter
     useEffect(() => {
@@ -136,6 +137,7 @@ const Workflow: React.FC = () => {
 
     const handleExecuteTool = async (): Promise<void> => {
         try {
+            setIsExecuting(true);
             const currentStep = allSteps[activeStep];
             console.log('Executing step:', currentStep);
 
@@ -188,6 +190,8 @@ const Workflow: React.FC = () => {
         } catch (error) {
             console.error('Error executing step:', error);
             setError('Failed to execute step');
+        } finally {
+            setIsExecuting(false);
         }
     };
 
@@ -324,7 +328,7 @@ const Workflow: React.FC = () => {
                                     activeStep={activeStep}
                                     totalSteps={allSteps.length}
                                     step_type={currentStep?.step_type as WorkflowStepType || WorkflowStepType.ACTION}
-                                    isLoading={isLoading}
+                                    isLoading={isLoading || isExecuting}
                                     stepExecuted={stepExecuted}
                                     onBack={handleBack}
                                     onNext={handleNext}
