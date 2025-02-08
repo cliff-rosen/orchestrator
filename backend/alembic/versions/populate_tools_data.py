@@ -169,13 +169,14 @@ def upgrade():
                 }],
                 'outputs': [{
                     'name': 'results',
-                    'description': 'List of search results',
+                    'description': 'List of search results, each containing title and snippet',
                     'schema': {
                         'name': 'results',
                         'type': 'array',
                         'items': {
                             'name': 'result',
-                            'type': 'string'
+                            'type': 'string',
+                            'description': 'Search result with title and snippet text'
                         }
                     }
                 }]

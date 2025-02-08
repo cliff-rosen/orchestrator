@@ -18,7 +18,7 @@ const executeSearch = async (parameters: ResolvedParameters): Promise<ToolOutput
     try {
         const searchResults = await searchApi.search(query);
         return {
-            ['results' as ToolOutputName]: searchResults.map(result => result.link)
+            ['results' as ToolOutputName]: searchResults.map(result => `${result.title}\n${result.snippet}`)
         };
     } catch (error) {
         console.error('Error executing search:', error);
