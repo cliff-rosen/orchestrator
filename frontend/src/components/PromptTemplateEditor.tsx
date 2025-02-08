@@ -17,12 +17,9 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
 }) => {
     const [name, setName] = useState(template?.name || '');
     const [description, setDescription] = useState(template?.description || '');
-    const [templateContent, setTemplateContent] = useState(template?.template || '');
+    const [templateText, setTemplateText] = useState(template?.template || '');
     const [outputSchema, setOutputSchema] = useState<PromptTemplateOutputSchema>(
-        template?.output_schema || {
-            type: 'string',
-            description: 'Template response'
-        }
+        template?.output_schema || { type: 'string', description: '' }
     );
     const [testParameters, setTestParameters] = useState<Record<string, string>>({});
     const [testResult, setTestResult] = useState<any>(null);
@@ -30,28 +27,25 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     const [testing, setTesting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Extract tokens from template content using regex
-    const extractTokens = (content: string): string[] => {
+    // Extract tokens from template text
+    const extractTokens = (text: string): string[] => {
         const tokenRegex = /{{([^}]+)}}/g;
-        const matches = content.matchAll(tokenRegex);
-        return Array.from(new Set(Array.from(matches, m => m[1])));
+        const matches = text.matchAll(tokenRegex);
+        return [...new Set([...matches].map(match => match[1]))];
     };
 
-    const handleSave = async () => {
+    const handleSaveClick = async () => {
         try {
             setSaving(true);
             setError(null);
 
-            const tokens = extractTokens(templateContent);
-
             await onSave({
                 name,
                 description,
-                template: templateContent,
-                tokens,
+                template: templateText,
+                tokens: extractTokens(templateText),
                 output_schema: outputSchema
             });
-
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save template');
         } finally {
@@ -62,20 +56,16 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     const handleTest = async () => {
         if (!onTest) return;
 
+        setTesting(true);
         try {
-            setTesting(true);
             setError(null);
 
             const result = await onTest({
-                name,
-                description,
-                template: templateContent,
-                tokens: extractTokens(templateContent),
+                template: templateText,
+                tokens: extractTokens(templateText),
                 output_schema: outputSchema
             }, testParameters);
-
             setTestResult(result);
-
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to test template');
         } finally {
@@ -84,7 +74,7 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     };
 
     const handleTemplateChange = (content: string) => {
-        setTemplateContent(content);
+        setTemplateText(content);
         // Update test parameters based on tokens
         const tokens = extractTokens(content);
         setTestParameters(prev => {
@@ -99,9 +89,8 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     return (
         <Dialog
             isOpen={true}
+            title={template ? 'Edit Template' : 'Create Template'}
             onClose={onCancel}
-            title={template ? 'Edit Prompt Template' : 'Create Prompt Template'}
-            size="lg"
         >
             <div className="space-y-6">
                 {/* Basic Info */}
@@ -134,29 +123,23 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                                      text-gray-900 dark:text-gray-100"
                         />
                     </div>
-                </div>
-
-                {/* Template Content */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                        Template Content
-                    </label>
-                    <div className="mt-1 relative">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Template
+                        </label>
+                        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Use double curly braces for variables (e.g. {"{{variableName}}"}). Separate multiple prompts with newlines.
+                        </div>
                         <textarea
-                            value={templateContent}
+                            value={templateText}
                             onChange={(e) => handleTemplateChange(e.target.value)}
-                            rows={8}
-                            placeholder="Enter your prompt template here. Use {{variable}} syntax for parameters."
-                            className="block w-full rounded-md border border-gray-300 dark:border-gray-600 
+                            rows={6}
+                            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                      shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
                                      focus:border-blue-500 sm:text-sm font-mono dark:bg-gray-800
-                                     text-gray-900 dark:text-gray-100 placeholder-gray-400 
-                                     dark:placeholder-gray-500"
+                                     text-gray-900 dark:text-gray-100"
                         />
                     </div>
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        Use {'{{'} variable {'}}'}  syntax to define parameters in your template.
-                    </p>
                 </div>
 
                 {/* Output Schema */}
@@ -287,14 +270,14 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                     </button>
                     <button
                         type="button"
-                        onClick={handleSave}
+                        onClick={handleSaveClick}
                         disabled={saving}
                         className="inline-flex justify-center py-2 px-4 border border-transparent 
                                  shadow-sm text-sm font-medium rounded-md text-white 
                                  bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 
                                  focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                     >
-                        {saving ? 'Saving...' : 'Save Template'}
+                        {saving ? 'Saving...' : 'Save Changes'}
                     </button>
                 </div>
             </div>

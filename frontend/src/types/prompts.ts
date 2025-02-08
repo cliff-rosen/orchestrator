@@ -16,7 +16,7 @@ export interface PromptTemplate {
     template_id: string;
     name: string;
     description: string;
-    template: string;
+    template: string;  // The template is always a string with {{variable}} placeholders
     tokens: string[];
     output_schema: PromptTemplateOutputSchema;
     created_at: string;

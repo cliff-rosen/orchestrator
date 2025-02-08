@@ -74,7 +74,13 @@ const PromptTemplatesPage: React.FC = () => {
             loadTemplates();
         } catch (err) {
             console.error('Error deleting template:', err);
-            setError('Failed to delete template');
+            // Check if error is about template being in use
+            const error = err as Error;
+            if (error.message?.includes('being used in the following workflows')) {
+                setError('Cannot delete this template because it is being used in one or more workflows. Please remove it from all workflows first.');
+            } else {
+                setError('Failed to delete template');
+            }
         }
     };
 

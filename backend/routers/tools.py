@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 from uuid import uuid4
+import random
 
 from database import get_db
-from models import Tool, PromptTemplate
+from models import Tool, PromptTemplate, WorkflowStep
 from schemas import (
     ToolResponse, PromptTemplateResponse, LLMExecuteRequest, LLMExecuteResponse,
     PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest
@@ -60,14 +61,19 @@ async def execute_llm(
             ai_service.set_provider(request.provider)
 
         # Format the prompt using the template and parameters
-        prompt = template.template
+        template_text = template.template
+        prompt = template_text
         for token in template.tokens:
             if token not in request.parameters:
                 raise HTTPException(
                     status_code=400, 
                     detail=f"Missing required parameter: {token}"
                 )
-            prompt = prompt.replace(f"{{{{{token}}}}}", str(request.parameters[token]))
+            # Handle array values for tokens by joining them with a delimiter
+            token_value = request.parameters[token]
+            if isinstance(token_value, list):
+                token_value = " | ".join(str(v) for v in token_value)
+            prompt = prompt.replace(f"{{{{{token}}}}}", str(token_value))
 
         # Execute the LLM request
         llm_response = await ai_service.provider.generate(
@@ -177,9 +183,20 @@ def delete_prompt_template(
     db: Session = Depends(get_db)
 ):
     """Delete a prompt template"""
+    # First check if template exists
     template = db.query(PromptTemplate).filter(PromptTemplate.template_id == template_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Prompt template not found")
+
+    # Check if template is being used by any workflow steps
+    workflow_steps = db.query(WorkflowStep).filter(WorkflowStep.prompt_template == template_id).all()
+    if workflow_steps:
+        # Get workflow names for better error message
+        workflow_names = [step.workflow.name for step in workflow_steps]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete template because it is being used in the following workflows: {', '.join(workflow_names)}"
+        )
 
     try:
         db.delete(template)

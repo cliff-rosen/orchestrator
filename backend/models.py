@@ -54,7 +54,7 @@ class PromptTemplate(Base):
     template_id = Column(String(36), primary_key=True)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    template = Column(Text, nullable=False)
+    template = Column(Text, nullable=False)  # The prompt template text with {{variable}} placeholders
     tokens = Column(JSON, nullable=False)  # List of tokens
     output_schema = Column(JSON, nullable=False)  # Output type and schema definition
     created_at = Column(DateTime, default=datetime.utcnow)

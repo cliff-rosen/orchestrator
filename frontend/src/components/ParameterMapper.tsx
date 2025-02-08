@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tool } from '../types/tools';
 import { WorkflowVariable } from '../types/workflows';
+import { SchemaValue, ArrayValue } from '../types/schema';
 
 interface ParameterMapperProps {
     tool: Tool;
@@ -24,6 +25,29 @@ const ParameterMapper: React.FC<ParameterMapperProps> = ({
         });
     };
 
+    // Helper function to check if a variable is compatible with a parameter
+    const isCompatibleType = (paramSchema: SchemaValue, varSchema: SchemaValue) => {
+        console.log('Checking compatibility:', {
+            paramSchema,
+            varSchema,
+            paramType: paramSchema.type,
+            varType: varSchema.type
+        });
+
+        // For prompt templates, string parameters can accept string arrays
+        if (paramSchema.type === 'string') {
+            // Accept either string or array of strings
+            if (varSchema.type === 'string') return true;
+            if (varSchema.type === 'array') {
+                return (varSchema as ArrayValue).items.type === 'string';
+            }
+            return false;
+        }
+
+        // For non-string types, types must match exactly
+        return paramSchema.type === varSchema.type;
+    };
+
     return (
         <div className="space-y-4">
             {tool.signature.parameters.map(param => (
@@ -36,7 +60,8 @@ const ParameterMapper: React.FC<ParameterMapperProps> = ({
                             </span>
                         )}
                         <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                            Type: {param.schema.type}
+                            Type: {param.schema.type === 'array' ? `${(param.schema as ArrayValue).items.type}[]` : param.schema.type}
+                            {param.schema.is_array ? '[]' : ''}
                         </span>
                     </label>
                     <select
@@ -50,7 +75,7 @@ const ParameterMapper: React.FC<ParameterMapperProps> = ({
                         {inputs.length > 0 && (
                             <optgroup label="Workflow Inputs">
                                 {inputs
-                                    .filter(input => input.schema.type === param.schema.type)
+                                    .filter(input => isCompatibleType(param.schema, input.schema))
                                     .map(input => (
                                         <option key={input.name} value={input.name}
                                             className="text-sm text-gray-900 dark:text-gray-100">
@@ -64,7 +89,7 @@ const ParameterMapper: React.FC<ParameterMapperProps> = ({
                         {outputs.length > 0 && (
                             <optgroup label="Previous Outputs">
                                 {outputs
-                                    .filter(output => output.schema.type === param.schema.type)
+                                    .filter(output => isCompatibleType(param.schema, output.schema))
                                     .map(output => (
                                         <option key={output.name} value={output.name}
                                             className="text-sm text-gray-900 dark:text-gray-100">

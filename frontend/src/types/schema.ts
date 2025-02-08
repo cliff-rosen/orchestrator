@@ -1,7 +1,7 @@
 // Basic type definitions
 export type PrimitiveType = 'string' | 'number' | 'boolean';
 export type ComplexType = 'array' | 'object';
-export type ValueType = PrimitiveType | ComplexType;
+export type ValueType = 'string' | 'number' | 'boolean' | 'array' | 'object';
 
 // Base value type that all schema entries extend
 export interface BaseValue {
@@ -12,17 +12,19 @@ export interface BaseValue {
 
 // Primitive values (string, number, boolean)
 export interface PrimitiveValue extends BaseValue {
-    type: PrimitiveType;
+    type: ValueType;
+    description?: string;
+    is_array?: boolean;
 }
 
 // Array values
-export interface ArrayValue extends BaseValue {
+export interface ArrayValue extends PrimitiveValue {
     type: 'array';
     items: SchemaValue;  // The type of items in the array
 }
 
 // Object values with nested fields
-export interface ObjectValue extends BaseValue {
+export interface ObjectValue extends PrimitiveValue {
     type: 'object';
     fields: Record<string, SchemaValue>;  // Named fields mapping to their types
 }

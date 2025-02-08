@@ -243,23 +243,26 @@ class KnowledgeGraphElements(BaseModel):
 class ToolParameter(BaseModel):
     """Schema for tool parameter definition"""
     name: str = Field(description="Name of the parameter")
-    type: str = Field(description="Type of the parameter (string, number, boolean, etc.)")
+    type: str = Field(description="Type of the parameter (string, number, boolean)")
     description: str = Field(description="Description of the parameter")
     required: bool = Field(default=True, description="Whether the parameter is required")
     default: Optional[Any] = Field(None, description="Default value for the parameter")
+    array_type: bool = Field(default=False, description="Whether this parameter accepts an array of values of the specified type")
 
 class ToolOutput(BaseModel):
     """Schema for tool output definition"""
     name: str = Field(description="Name of the output")
-    type: str = Field(description="Type of the output (string, number, boolean, etc.)")
+    type: str = Field(description="Type of the output (string, number, boolean)")
     description: str = Field(description="Description of the output")
+    array_type: bool = Field(default=False, description="Whether this output produces an array of values of the specified type")
 
 class SchemaValue(BaseModel):
     name: str
-    type: str
+    type: str = Field(description="Base type (string, number, boolean, object)")
     description: Optional[str] = None
-    items: Optional['SchemaValue'] = None
-    fields: Optional[Dict[str, 'SchemaValue']] = None
+    array_type: bool = Field(default=False, description="Whether this is an array of the specified type")
+    items: Optional['SchemaValue'] = Field(None, description="Schema for array items (when type is array)")
+    fields: Optional[Dict[str, 'SchemaValue']] = Field(None, description="Fields for object type")
 
 class ParameterSchema(BaseModel):
     name: str
@@ -336,13 +339,13 @@ class PromptTemplateTest(BaseModel):
     """Schema for testing prompt templates"""
     template: str = Field(description="The prompt template to test")
     tokens: List[str] = Field(description="List of tokens used in the template")
-    parameters: Dict[str, str] = Field(description="Values for the template tokens")
+    parameters: Dict[str, Union[str, List[str]]] = Field(description="Values for template tokens (can be string or array of strings)")
     output_schema: Dict[str, Any] = Field(description="Expected output schema")
 
 class LLMExecuteRequest(BaseModel):
     """Request schema for LLM execution"""
     prompt_template_id: str = Field(description="ID of the prompt template to use")
-    parameters: Dict[str, Any] = Field(description="Parameters to fill in the prompt template")
+    parameters: Dict[str, Union[str, List[str]]] = Field(description="Values for template tokens (can be string or array of strings)")
     model: Optional[str] = Field(None, description="Optional model to use (defaults to provider's default)")
     max_tokens: Optional[int] = Field(None, description="Optional maximum tokens for response")
     provider: Optional[str] = Field(None, description="Optional LLM provider to use (defaults to system default)")
