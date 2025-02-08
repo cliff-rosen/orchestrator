@@ -1,5 +1,5 @@
 import React from 'react';
-import { SchemaValue } from '../hooks/schema/types';
+import { SchemaValue } from '../types/schema';
 
 interface SchemaFormProps {
     schema: SchemaValue;

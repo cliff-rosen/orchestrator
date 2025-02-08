@@ -1,7 +1,7 @@
 import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolParameterName, ToolOutputName } from '../../types';
 import { PromptTemplate } from '../../types/prompts';
+import { PrimitiveValue, ValueType } from '../../types/schema';
 import { api, handleApiError } from './index';
-import { PrimitiveValue, ValueType } from '../../hooks/schema/types';
 import { executeLLM } from './llmExecutor';
 import { searchApi } from './searchApi';
 

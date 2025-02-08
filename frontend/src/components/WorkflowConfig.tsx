@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SchemaValue, ValueType } from '../hooks/schema/types';
+import { SchemaValue, ValueType } from '../types/schema';
 import { WorkflowVariable } from '../types';
 import { useWorkflows } from '../context/WorkflowContext';
 

@@ -1,5 +1,5 @@
 import { Tool } from './tools';
-import { SchemaValue } from '../hooks/schema/types';
+import { SchemaValue } from './schema';
 
 export enum WorkflowStatus {
     DRAFT = 'draft',

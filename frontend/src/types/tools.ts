@@ -1,4 +1,4 @@
-import { SchemaValue } from '../hooks/schema/types';
+import { SchemaValue } from './schema';
 
 export type ToolType = 'llm' | 'search' | 'retrieve' | 'utility';
 
