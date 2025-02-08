@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PromptTemplate, PromptTemplateOutputSchema } from '../types/prompts';
 import Dialog from './common/Dialog';
 
@@ -33,6 +33,18 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
         const matches = text.matchAll(tokenRegex);
         return [...new Set([...matches].map(match => match[1]))];
     };
+
+    // Initialize test parameters when component loads or template changes
+    useEffect(() => {
+        const tokens = extractTokens(templateText);
+        setTestParameters(prev => {
+            const newParams: Record<string, string> = {};
+            tokens.forEach(token => {
+                newParams[token] = prev[token] || '';
+            });
+            return newParams;
+        });
+    }, [templateText]);
 
     const handleSaveClick = async () => {
         try {
@@ -140,6 +152,37 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                                      text-gray-900 dark:text-gray-100"
                         />
                     </div>
+
+                    {/* Display extracted variables */}
+                    {Object.keys(testParameters).length > 0 && (
+                        <div className="mt-4">
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                Template Variables
+                            </label>
+                            <div className="mt-2 space-y-2">
+                                {Object.keys(testParameters).map((token) => (
+                                    <div key={token} className="flex items-center space-x-2">
+                                        <span className="text-sm font-mono text-gray-600 dark:text-gray-400 min-w-[120px]">
+                                            {"{{"}{token}{"}}"}
+                                        </span>
+                                        <input
+                                            type="text"
+                                            value={testParameters[token]}
+                                            onChange={(e) => setTestParameters(prev => ({
+                                                ...prev,
+                                                [token]: e.target.value
+                                            }))}
+                                            placeholder={`Value for ${token}`}
+                                            className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 
+                                                     shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
+                                                     focus:border-blue-500 dark:bg-gray-800
+                                                     text-gray-900 dark:text-gray-100"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Output Schema */}
@@ -199,42 +242,6 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                             Test Template
                         </h3>
 
-                        {/* Test Parameters */}
-                        <div className="space-y-2">
-                            {Object.keys(testParameters).map(token => (
-                                <div key={token}>
-                                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                                        {token}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={testParameters[token]}
-                                        onChange={(e) => setTestParameters(prev => ({
-                                            ...prev,
-                                            [token]: e.target.value
-                                        }))}
-                                        className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
-                                                 shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                                 focus:border-blue-500 sm:text-sm dark:bg-gray-800
-                                                 text-gray-900 dark:text-gray-100"
-                                    />
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Test Result */}
-                        {testResult && (
-                            <div>
-                                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    Result
-                                </h4>
-                                <pre className="mt-1 p-4 bg-gray-50 dark:bg-gray-800 rounded-md overflow-auto
-                                              text-gray-900 dark:text-gray-100">
-                                    {JSON.stringify(testResult, null, 2)}
-                                </pre>
-                            </div>
-                        )}
-
                         <button
                             type="button"
                             onClick={handleTest}
@@ -246,6 +253,18 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                         >
                             {testing ? 'Testing...' : 'Test Template'}
                         </button>
+                    </div>
+                )}
+
+                {testResult && (
+                    <div>
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Result
+                        </h4>
+                        <pre className="mt-1 p-4 bg-gray-50 dark:bg-gray-800 rounded-md overflow-auto
+                                      text-gray-900 dark:text-gray-100">
+                            {JSON.stringify(testResult, null, 2)}
+                        </pre>
                     </div>
                 )}
 

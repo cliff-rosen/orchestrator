@@ -230,11 +230,7 @@ async def test_prompt_template(
         )
 
         # Process response based on schema type
-        if test_data.output_schema.type == 'object' and test_data.output_schema.schema:
-            # TODO: Validate response against schema
-            return {"response": llm_response, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
-        else:
-            return {"response": llm_response, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
+        return {"response": llm_response, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 

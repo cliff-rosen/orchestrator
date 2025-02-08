@@ -55,6 +55,7 @@ const PromptTemplatesPage: React.FC = () => {
     };
 
     const handleTest = async (templateData: Partial<PromptTemplate>, parameters: Record<string, string>) => {
+        console.log("handleTest", templateData, parameters);
         try {
             const result = await toolApi.testPromptTemplate(templateData, parameters);
             return result;
