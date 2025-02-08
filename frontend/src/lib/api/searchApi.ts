@@ -38,6 +38,4 @@ export const searchApi = {
         }
     },
 
-    // Add utility functions for consistency
-    handleError: handleApiError
 } 

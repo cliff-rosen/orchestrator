@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 // Types
 import { WorkflowStep, WorkflowStepType, RuntimeWorkflowStep } from '../types/workflows';
-import { Tool } from '../types/tools';
 import { ResolvedParameters, ToolParameterName, ToolOutputName } from '../types/tools';
 
 // Context

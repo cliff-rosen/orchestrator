@@ -3,6 +3,7 @@ import { PromptTemplate } from '../../types/prompts';
 import { api, handleApiError } from './index';
 import { PrimitiveValue, ValueType } from '../../hooks/schema/types';
 import { executeLLM } from './llmExecutor';
+import { searchApi } from './searchApi';
 
 // Cache for tools and prompt templates
 let toolsCache: Tool[] | null = null;
@@ -10,6 +11,20 @@ let promptTemplatesCache: PromptTemplate[] | null = null;
 
 // Tool registry to store tool execution methods
 const toolRegistry = new Map<string, (parameters: ResolvedParameters) => Promise<ToolOutputs>>();
+
+// Execute search tool function
+const executeSearch = async (parameters: ResolvedParameters): Promise<ToolOutputs> => {
+    const query = parameters['query' as ToolParameterName] as string;
+    try {
+        const searchResults = await searchApi.search(query);
+        return {
+            ['results' as ToolOutputName]: searchResults.map(result => result.link)
+        };
+    } catch (error) {
+        console.error('Error executing search:', error);
+        throw error;
+    }
+};
 
 // Register utility tool implementations
 const registerUtilityTools = () => {
@@ -31,13 +46,7 @@ const registerUtilityTools = () => {
     });
 
     // Search tool
-    registerToolExecutor('search', async (parameters: ResolvedParameters) => {
-        const query = parameters['query' as ToolParameterName] as string;
-        // TODO: Implement actual search functionality
-        return {
-            ['results' as ToolOutputName]: [`Mock search result for: ${query}`]
-        };
-    });
+    registerToolExecutor('search', executeSearch);
 
     // Retrieve tool
     registerToolExecutor('retrieve', async (parameters: ResolvedParameters) => {
