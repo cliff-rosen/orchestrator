@@ -87,48 +87,18 @@ async def execute_llm(
         if template.output_schema["type"] == "object":
             try:
                 import json
-                from jsonschema import validate
-                
                 # Try to parse as JSON first
                 try:
-                    parsed_response = json.loads(llm_response)
-                except json.JSONDecodeError:
-                    # If not valid JSON, try to extract JSON from the response
-                    # Look for content between curly braces
-                    import re
-                    json_match = re.search(r'{.*}', llm_response, re.DOTALL)
-                    if json_match:
-                        parsed_response = json.loads(json_match.group(0))
-                    else:
-                        raise HTTPException(
-                            status_code=422,
-                            detail="LLM response was not valid JSON and could not extract JSON content"
-                        )
-
-                # Convert template schema to JSON Schema format
-                json_schema = {
-                    "type": "object",
-                    "properties": {},
-                    "required": [],
-                    "additionalProperties": False
-                }
-                
-                for field_name, field_spec in template.output_schema["schema"]["fields"].items():
-                    json_schema["properties"][field_name] = {"type": field_spec["type"]}
-                    json_schema["required"].append(field_name)
-                
-                # Validate against schema
-                validate(instance=parsed_response, schema=json_schema)
-                response = parsed_response
-            except json.JSONDecodeError as e:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"LLM response was not valid JSON: {str(e)}"
-                )
+                    response = json.loads(llm_response)
+                except json.JSONDecodeError as e:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"LLM response was not valid JSON: {str(e)}"
+                    )
             except Exception as schema_error:
                 raise HTTPException(
                     status_code=422,
-                    detail=f"LLM response did not match expected schema: {str(schema_error)}"
+                    detail=f"LLM parse error: {str(schema_error)}"
                 )
 
         # Get usage statistics

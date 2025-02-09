@@ -58,48 +58,46 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
             </div>
 
             {/* Template Dialog */}
-            {selectedTemplate && (
-                <Dialog
-                    isOpen={showTemplateDialog}
-                    onClose={() => setShowTemplateDialog(false)}
-                    title={selectedTemplate.name}
-                >
-                    <div className="space-y-4">
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Description
-                            </h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {selectedTemplate.description}
-                            </p>
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Template Content
-                            </h4>
-                            <pre className="p-4 bg-gray-50 dark:bg-gray-800 rounded-md text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                                {selectedTemplate.template}
-                            </pre>
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Available Tokens
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                                {selectedTemplate.tokens.map((token, index) => (
-                                    <span
-                                        key={index}
-                                        className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 
-                                                 dark:text-blue-200 rounded-md"
-                                    >
-                                        {token}
-                                    </span>
-                                ))}
-                            </div>
+            <Dialog
+                isOpen={showTemplateDialog && selectedTemplate !== null}
+                onClose={() => setShowTemplateDialog(false)}
+                title={selectedTemplate?.name || ''}
+            >
+                <div className="space-y-4">
+                    <div>
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Description
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {selectedTemplate?.description}
+                        </p>
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Template Content
+                        </h4>
+                        <pre className="p-4 bg-gray-50 dark:bg-gray-800 rounded-md text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                            {selectedTemplate?.template}
+                        </pre>
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Available Tokens
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                            {selectedTemplate?.tokens.map((token, index) => (
+                                <span
+                                    key={index}
+                                    className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 
+                                             dark:text-blue-200 rounded-md"
+                                >
+                                    {token}
+                                </span>
+                            ))}
                         </div>
                     </div>
-                </Dialog>
-            )}
+                </div>
+            </Dialog>
         </div>
     );
 };
