@@ -3,14 +3,19 @@ export interface PromptTemplateOutputField {
     description?: string;
 }
 
-export interface PromptTemplateOutputSchema {
-    type: 'object' | 'string';
-    description: string;
-    schema?: {
-        type: 'object';
-        fields: Record<string, PromptTemplateOutputField>;
-    };
-}
+export type PromptTemplateOutputSchema = {
+    type: 'string';
+    description?: string;
+} | {
+    type: 'object';
+    description?: string;
+    fields: {
+        [key: string]: {
+            type: string;
+            description?: string;
+        }
+    }
+};
 
 export interface PromptTemplate {
     template_id: string;

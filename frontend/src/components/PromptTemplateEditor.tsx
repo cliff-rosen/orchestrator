@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PromptTemplate, PromptTemplateOutputSchema } from '../types/prompts';
 import Dialog from './common/Dialog';
+import SchemaEditor from './common/SchemaEditor';
 
 interface PromptTemplateEditorProps {
     template: PromptTemplate | null;
@@ -21,12 +22,42 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     const [outputSchema, setOutputSchema] = useState<PromptTemplateOutputSchema>(
         template?.output_schema || { type: 'string', description: '' }
     );
-    const [testParameters, setTestParameters] = useState<Record<string, string>>({});
-    const [testResult, setTestResult] = useState<any>(null);
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [baseTemplateText, setBaseTemplateText] = useState(template?.template || '');
+    const [testParameters, setTestParameters] = useState<Record<string, string>>({});
+    const [testResult, setTestResult] = useState<any>(null);
+    const [copySuccess, setCopySuccess] = useState(false);
+
+    // Generate output format instructions based on schema
+    const generateOutputInstructions = useCallback((schema: PromptTemplateOutputSchema): string => {
+        if (schema.type === 'string') {
+            return 'Provide your response as plain text.';
+        } else if (schema.type === 'object' && schema.fields) {
+            const fieldDescriptions = Object.entries(schema.fields)
+                .map(([key, field]) => `  "${key}": ${field.type}${field.description ? ` - ${field.description}` : ''}`)
+                .join('\n');
+
+            return `Provide your response in the following JSON format:
+{
+${fieldDescriptions}
+}
+
+Ensure your response is valid JSON and matches this schema exactly.`;
+        }
+        return '';
+    }, []);
+
+    const handleCopyInstructions = async () => {
+        const instructions = generateOutputInstructions(outputSchema);
+        try {
+            await navigator.clipboard.writeText(instructions);
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy instructions:', err);
+        }
+    };
 
     // Initialize test parameters from template tokens when component loads
     useEffect(() => {
@@ -39,32 +70,6 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
         }
     }, [template]);
 
-    // Generate output format instructions based on schema
-    const generateOutputInstructions = (schema: PromptTemplateOutputSchema): string => {
-        if (schema.type === 'string') {
-            return '\n\nProvide your response as plain text.';
-        } else if (schema.type === 'object' && schema.schema) {
-            const fields = schema.schema.fields || {};
-            const fieldDescriptions = Object.entries(fields)
-                .map(([key, field]) => `  "${key}": ${field.type}${field.description ? ` - ${field.description}` : ''}`)
-                .join('\n');
-
-            return `\n\nProvide your response in the following JSON format:
-{
-${fieldDescriptions}
-}
-
-Ensure your response is valid JSON and matches this schema exactly.`;
-        }
-        return '';
-    };
-
-    // Update template text when output schema changes
-    useEffect(() => {
-        const outputInstructions = generateOutputInstructions(outputSchema);
-        setTemplateText(baseTemplateText + outputInstructions);
-    }, [outputSchema, baseTemplateText]);
-
     // Extract tokens from template text
     const extractTokens = (text: string): string[] => {
         const tokenRegex = /{{([^}]+)}}/g;
@@ -74,9 +79,7 @@ Ensure your response is valid JSON and matches this schema exactly.`;
 
     // Handle template text changes
     const handleTemplateChange = (content: string) => {
-        setBaseTemplateText(content);
-        const outputInstructions = generateOutputInstructions(outputSchema);
-        setTemplateText(content + outputInstructions);
+        setTemplateText(content);
 
         // Update test parameters based on tokens
         const tokens = extractTokens(content);
@@ -97,8 +100,8 @@ Ensure your response is valid JSON and matches this schema exactly.`;
             await onSave({
                 name,
                 description,
-                template: baseTemplateText, // Save the base template without output instructions
-                tokens: extractTokens(baseTemplateText),
+                template: templateText,
+                tokens: extractTokens(templateText),
                 output_schema: outputSchema
             });
         } catch (err) {
@@ -169,9 +172,11 @@ Ensure your response is valid JSON and matches this schema exactly.`;
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                            Template
-                        </label>
+                        <div className="flex justify-between items-center">
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                Template
+                            </label>
+                        </div>
                         <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                             Use double curly braces for variables (e.g. {"{{variableName}}"}). Separate multiple prompts with newlines.
                         </div>
@@ -195,10 +200,17 @@ Ensure your response is valid JSON and matches this schema exactly.`;
                         </label>
                         <select
                             value={outputSchema.type}
-                            onChange={(e) => setOutputSchema(prev => ({
-                                ...prev,
-                                type: e.target.value as 'string' | 'object'
-                            }))}
+                            onChange={(e) => {
+                                const newType = e.target.value as 'string' | 'object';
+                                setOutputSchema(newType === 'string'
+                                    ? { type: 'string', description: outputSchema.description }
+                                    : {
+                                        type: 'object',
+                                        description: outputSchema.description,
+                                        fields: {}
+                                    }
+                                );
+                            }}
                             className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                      shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
                                      focus:border-blue-500 sm:text-sm dark:bg-gray-800
@@ -208,32 +220,41 @@ Ensure your response is valid JSON and matches this schema exactly.`;
                             <option value="object" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Structured (JSON)</option>
                         </select>
                     </div>
+                    <div className="flex items-end">
+                        <button
+                            type="button"
+                            onClick={handleCopyInstructions}
+                            className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 
+                                     hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 
+                                     focus:outline-none"
+                        >
+                            {copySuccess ? (
+                                <span className="flex items-center">
+                                    <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Copied!
+                                </span>
+                            ) : (
+                                <span className="flex items-center">
+                                    <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                    </svg>
+                                    Copy Format Instructions
+                                </span>
+                            )}
+                        </button>
+                    </div>
 
                     {outputSchema.type === 'object' && (
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
                                 Output Schema
                             </label>
-                            <textarea
-                                value={JSON.stringify(outputSchema.schema || {}, null, 2)}
-                                onChange={(e) => {
-                                    try {
-                                        const schema = JSON.parse(e.target.value);
-                                        setOutputSchema(prev => ({
-                                            ...prev,
-                                            schema
-                                        }));
-                                    } catch (err) {
-                                        // Invalid JSON, ignore
-                                    }
-                                }}
-                                rows={8}
-                                placeholder="Enter JSON schema for structured output"
-                                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
-                                         shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                         focus:border-blue-500 sm:text-sm font-mono dark:bg-gray-800
-                                         text-gray-900 dark:text-gray-100 placeholder-gray-400 
-                                         dark:placeholder-gray-500"
+                            <SchemaEditor
+                                schema={outputSchema}
+                                onChange={setOutputSchema}
                             />
                         </div>
                     )}

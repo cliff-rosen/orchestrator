@@ -75,17 +75,6 @@ async def execute_llm(
                 token_value = " | ".join(str(v) for v in token_value)
             prompt = prompt.replace(f"{{{{{token}}}}}", str(token_value))
 
-        # Add output format instructions based on schema
-        if template.output_schema["type"] == "string":
-            prompt += "\n\nProvide your response as plain text."
-        elif template.output_schema["type"] == "object" and "schema" in template.output_schema:
-            fields = template.output_schema["schema"].get("fields", {})
-            field_descriptions = "\n".join(
-                f'  "{key}": {field["type"]}{" - " + field.get("description", "") if field.get("description") else ""}'
-                for key, field in fields.items()
-            )
-            prompt += f'\n\nProvide your response in the following JSON format:\n{{\n{field_descriptions}\n}}\n\nEnsure your response is valid JSON and matches this schema exactly.'
-
         # Execute the LLM request
         llm_response = await ai_service.provider.generate(
             prompt=prompt,

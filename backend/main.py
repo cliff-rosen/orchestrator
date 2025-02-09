@@ -26,9 +26,9 @@ app = FastAPI(
 async def log_requests(request: Request, call_next):
     logger.info("="*50)
     logger.info(f"Request: {request.method} {request.url}")
-    logger.info(f"Headers: {request.headers}")
-    logger.info(f"Path parameters: {request.path_params}")
-    logger.info(f"Auth header: {request.headers.get('authorization', 'No auth header')}")
+    # logger.info(f"Headers: {request.headers}")
+    # logger.info(f"Path parameters: {request.path_params}")
+    # logger.info(f"Auth header: {request.headers.get('authorization', 'No auth header')}")
     
     return await call_next(request)
 
