@@ -257,6 +257,17 @@ async def test_prompt_template(
             max_tokens=1000  # Reasonable default for testing
         )
 
+        # if output_schema is object, parse the response as JSON
+        if test_data.output_schema["type"] == "object":
+            import json
+            try:
+                llm_response = json.loads(llm_response) 
+            except json.JSONDecodeError as e:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"LLM response was not valid JSON: {str(e)}"
+                )
+
         # Process response based on schema type
         return {"response": llm_response, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
