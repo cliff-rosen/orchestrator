@@ -75,6 +75,17 @@ async def execute_llm(
                 token_value = " | ".join(str(v) for v in token_value)
             prompt = prompt.replace(f"{{{{{token}}}}}", str(token_value))
 
+        # Add output format instructions based on schema
+        if template.output_schema["type"] == "string":
+            prompt += "\n\nProvide your response as plain text."
+        elif template.output_schema["type"] == "object" and "schema" in template.output_schema:
+            fields = template.output_schema["schema"].get("fields", {})
+            field_descriptions = "\n".join(
+                f'  "{key}": {field["type"]}{" - " + field.get("description", "") if field.get("description") else ""}'
+                for key, field in fields.items()
+            )
+            prompt += f'\n\nProvide your response in the following JSON format:\n{{\n{field_descriptions}\n}}\n\nEnsure your response is valid JSON and matches this schema exactly.'
+
         # Execute the LLM request
         llm_response = await ai_service.provider.generate(
             prompt=prompt,
@@ -84,18 +95,46 @@ async def execute_llm(
 
         # Process response based on schema type
         response = llm_response  # Default to raw text response
-        if template.output_schema.get("type") == "object":
+        if template.output_schema["type"] == "object":
             try:
                 import json
                 from jsonschema import validate
                 
-                parsed_response = json.loads(llm_response)
-                # validate(instance=parsed_response, schema=template.output_schema)
-                response = parsed_response  # Use parsed JSON object
-            except json.JSONDecodeError:
+                # Try to parse as JSON first
+                try:
+                    parsed_response = json.loads(llm_response)
+                except json.JSONDecodeError:
+                    # If not valid JSON, try to extract JSON from the response
+                    # Look for content between curly braces
+                    import re
+                    json_match = re.search(r'{.*}', llm_response, re.DOTALL)
+                    if json_match:
+                        parsed_response = json.loads(json_match.group(0))
+                    else:
+                        raise HTTPException(
+                            status_code=422,
+                            detail="LLM response was not valid JSON and could not extract JSON content"
+                        )
+
+                # Convert template schema to JSON Schema format
+                json_schema = {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False
+                }
+                
+                for field_name, field_spec in template.output_schema["schema"]["fields"].items():
+                    json_schema["properties"][field_name] = {"type": field_spec["type"]}
+                    json_schema["required"].append(field_name)
+                
+                # Validate against schema
+                validate(instance=parsed_response, schema=json_schema)
+                response = parsed_response
+            except json.JSONDecodeError as e:
                 raise HTTPException(
                     status_code=422,
-                    detail="LLM response was not valid JSON as required by the template"
+                    detail=f"LLM response was not valid JSON: {str(e)}"
                 )
             except Exception as schema_error:
                 raise HTTPException(

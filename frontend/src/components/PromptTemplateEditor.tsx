@@ -26,6 +26,44 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [baseTemplateText, setBaseTemplateText] = useState(template?.template || '');
+
+    // Initialize test parameters from template tokens when component loads
+    useEffect(() => {
+        if (template?.tokens) {
+            const newParams: Record<string, string> = {};
+            template.tokens.forEach(token => {
+                newParams[token] = '';
+            });
+            setTestParameters(newParams);
+        }
+    }, [template]);
+
+    // Generate output format instructions based on schema
+    const generateOutputInstructions = (schema: PromptTemplateOutputSchema): string => {
+        if (schema.type === 'string') {
+            return '\n\nProvide your response as plain text.';
+        } else if (schema.type === 'object' && schema.schema) {
+            const fields = schema.schema.fields || {};
+            const fieldDescriptions = Object.entries(fields)
+                .map(([key, field]) => `  "${key}": ${field.type}${field.description ? ` - ${field.description}` : ''}`)
+                .join('\n');
+
+            return `\n\nProvide your response in the following JSON format:
+{
+${fieldDescriptions}
+}
+
+Ensure your response is valid JSON and matches this schema exactly.`;
+        }
+        return '';
+    };
+
+    // Update template text when output schema changes
+    useEffect(() => {
+        const outputInstructions = generateOutputInstructions(outputSchema);
+        setTemplateText(baseTemplateText + outputInstructions);
+    }, [outputSchema, baseTemplateText]);
 
     // Extract tokens from template text
     const extractTokens = (text: string): string[] => {
@@ -34,9 +72,14 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
         return [...new Set([...matches].map(match => match[1]))];
     };
 
-    // Initialize test parameters when component loads or template changes
-    useEffect(() => {
-        const tokens = extractTokens(templateText);
+    // Handle template text changes
+    const handleTemplateChange = (content: string) => {
+        setBaseTemplateText(content);
+        const outputInstructions = generateOutputInstructions(outputSchema);
+        setTemplateText(content + outputInstructions);
+
+        // Update test parameters based on tokens
+        const tokens = extractTokens(content);
         setTestParameters(prev => {
             const newParams: Record<string, string> = {};
             tokens.forEach(token => {
@@ -44,7 +87,7 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
             });
             return newParams;
         });
-    }, [templateText]);
+    };
 
     const handleSaveClick = async () => {
         try {
@@ -54,8 +97,8 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
             await onSave({
                 name,
                 description,
-                template: templateText,
-                tokens: extractTokens(templateText),
+                template: baseTemplateText, // Save the base template without output instructions
+                tokens: extractTokens(baseTemplateText),
                 output_schema: outputSchema
             });
         } catch (err) {
@@ -85,55 +128,45 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
         }
     };
 
-    const handleTemplateChange = (content: string) => {
-        setTemplateText(content);
-        // Update test parameters based on tokens
-        const tokens = extractTokens(content);
-        setTestParameters(prev => {
-            const newParams: Record<string, string> = {};
-            tokens.forEach(token => {
-                newParams[token] = prev[token] || '';
-            });
-            return newParams;
-        });
-    };
-
     return (
         <Dialog
             isOpen={true}
             title={template ? 'Edit Template' : 'Create Template'}
             onClose={onCancel}
+            maxWidth="4xl"
         >
-            <div className="space-y-6">
+            <div className="space-y-6 min-w-[800px]">
                 {/* Basic Info */}
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                            Name
-                        </label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
-                                     shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                     focus:border-blue-500 sm:text-sm dark:bg-gray-800
-                                     text-gray-900 dark:text-gray-100"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                            Description
-                        </label>
-                        <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            rows={2}
-                            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
-                                     shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                     focus:border-blue-500 sm:text-sm dark:bg-gray-800
-                                     text-gray-900 dark:text-gray-100"
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                Name
+                            </label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
+                                         shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
+                                         focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                         text-gray-900 dark:text-gray-100"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                Description
+                            </label>
+                            <input
+                                type="text"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
+                                         shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
+                                         focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                         text-gray-900 dark:text-gray-100"
+                            />
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -145,68 +178,39 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                         <textarea
                             value={templateText}
                             onChange={(e) => handleTemplateChange(e.target.value)}
-                            rows={6}
+                            rows={8}
                             className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                      shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
                                      focus:border-blue-500 sm:text-sm font-mono dark:bg-gray-800
                                      text-gray-900 dark:text-gray-100"
                         />
                     </div>
-
-                    {/* Display extracted variables */}
-                    {Object.keys(testParameters).length > 0 && (
-                        <div className="mt-4">
-                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                                Template Variables
-                            </label>
-                            <div className="mt-2 space-y-2">
-                                {Object.keys(testParameters).map((token) => (
-                                    <div key={token} className="flex items-center space-x-2">
-                                        <span className="text-sm font-mono text-gray-600 dark:text-gray-400 min-w-[120px]">
-                                            {"{{"}{token}{"}}"}
-                                        </span>
-                                        <input
-                                            type="text"
-                                            value={testParameters[token]}
-                                            onChange={(e) => setTestParameters(prev => ({
-                                                ...prev,
-                                                [token]: e.target.value
-                                            }))}
-                                            placeholder={`Value for ${token}`}
-                                            className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 
-                                                     shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
-                                                     focus:border-blue-500 dark:bg-gray-800
-                                                     text-gray-900 dark:text-gray-100"
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {/* Output Schema */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                        Output Type
-                    </label>
-                    <select
-                        value={outputSchema.type}
-                        onChange={(e) => setOutputSchema(prev => ({
-                            ...prev,
-                            type: e.target.value as 'string' | 'object'
-                        }))}
-                        className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
-                                 shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                 focus:border-blue-500 sm:text-sm dark:bg-gray-800
-                                 text-gray-900 dark:text-gray-100"
-                    >
-                        <option value="string" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Text</option>
-                        <option value="object" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Structured (JSON)</option>
-                    </select>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Output Type
+                        </label>
+                        <select
+                            value={outputSchema.type}
+                            onChange={(e) => setOutputSchema(prev => ({
+                                ...prev,
+                                type: e.target.value as 'string' | 'object'
+                            }))}
+                            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
+                                     shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
+                                     focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                     text-gray-900 dark:text-gray-100"
+                        >
+                            <option value="string" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Text</option>
+                            <option value="object" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Structured (JSON)</option>
+                        </select>
+                    </div>
 
                     {outputSchema.type === 'object' && (
-                        <div className="mt-4">
+                        <div className="col-span-2">
                             <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
                                 Output Schema
                             </label>
@@ -223,7 +227,7 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                                         // Invalid JSON, ignore
                                     }
                                 }}
-                                rows={6}
+                                rows={8}
                                 placeholder="Enter JSON schema for structured output"
                                 className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                          shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
@@ -242,6 +246,37 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                             Test Template
                         </h3>
 
+                        {/* Template Variables */}
+                        {Object.keys(testParameters).length > 0 && (
+                            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+                                    Template Variables
+                                </h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {Object.keys(testParameters).map((token) => (
+                                        <div key={token} className="flex items-center space-x-2">
+                                            <span className="text-sm font-mono text-gray-600 dark:text-gray-400 min-w-[150px]">
+                                                {"{{"}{token}{"}}"}
+                                            </span>
+                                            <input
+                                                type="text"
+                                                value={testParameters[token]}
+                                                onChange={(e) => setTestParameters(prev => ({
+                                                    ...prev,
+                                                    [token]: e.target.value
+                                                }))}
+                                                placeholder={`Value for ${token}`}
+                                                className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 
+                                                         shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
+                                                         focus:border-blue-500 dark:bg-gray-800
+                                                         text-gray-900 dark:text-gray-100"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <button
                             type="button"
                             onClick={handleTest}
@@ -253,18 +288,18 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                         >
                             {testing ? 'Testing...' : 'Test Template'}
                         </button>
-                    </div>
-                )}
 
-                {testResult && (
-                    <div>
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            Result
-                        </h4>
-                        <pre className="mt-1 p-4 bg-gray-50 dark:bg-gray-800 rounded-md overflow-auto
-                                      text-gray-900 dark:text-gray-100">
-                            {JSON.stringify(testResult, null, 2)}
-                        </pre>
+                        {testResult && (
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    Result
+                                </h4>
+                                <pre className="mt-1 p-4 bg-gray-50 dark:bg-gray-800 rounded-md overflow-auto
+                                              text-gray-900 dark:text-gray-100 max-h-[300px]">
+                                    {JSON.stringify(testResult, null, 2)}
+                                </pre>
+                            </div>
+                        )}
                     </div>
                 )}
 

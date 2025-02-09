@@ -5,42 +5,49 @@ interface DialogProps {
     onClose: () => void;
     title: string;
     children: React.ReactNode;
+    maxWidth?: string;  // Optional maxWidth prop
 }
 
-const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children }) => {
-    if (!isOpen) return null
+const Dialog: React.FC<DialogProps> = ({
+    isOpen,
+    onClose,
+    title,
+    children,
+    maxWidth = '2xl'  // Default value
+}) => {
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-            {/* Backdrop */}
-            <div 
-                className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
-                onClick={onClose}
-            />
-            
-            {/* Dialog */}
-            <div className="flex min-h-full items-center justify-center p-4">
-                <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                    <div className="absolute right-0 top-0 pr-4 pt-4">
-                        <button
-                            onClick={onClose}
-                            className="rounded-md text-gray-400 hover:text-gray-500 focus:outline-none"
-                        >
-                            <span className="sr-only">Close</span>
-                            <span className="text-2xl">&times;</span>
-                        </button>
-                    </div>
-                    
-                    <div className="mt-3 text-center sm:mt-0 sm:text-left">
-                        <h3 className="text-lg font-semibold leading-6 text-gray-900 dark:text-white">
-                            {title}
-                        </h3>
-                        <div className="mt-4">{children}</div>
+            <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                    <div className="absolute inset-0 bg-gray-500 dark:bg-gray-900 opacity-75"></div>
+                </div>
+
+                <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                <div className={`inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left 
+                               overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle 
+                               sm:max-w-${maxWidth} sm:w-full`}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="modal-headline">
+                    <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div className="sm:flex sm:items-start">
+                            <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100" id="modal-headline">
+                                    {title}
+                                </h3>
+                                <div className="mt-2">
+                                    {children}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    )
-}
+    );
+};
 
-export default Dialog 
+export default Dialog; 
