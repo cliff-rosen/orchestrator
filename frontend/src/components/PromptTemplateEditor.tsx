@@ -5,7 +5,7 @@ import SchemaEditor from './common/SchemaEditor';
 
 interface PromptTemplateEditorProps {
     template: PromptTemplate | null;
-    onSave: (template: Partial<PromptTemplate>) => Promise<void>;
+    onSave: (template: Partial<PromptTemplate>, shouldClose: boolean) => Promise<void>;
     onCancel: () => void;
     onTest?: (template: Partial<PromptTemplate>, parameters: Record<string, string>) => Promise<any>;
 }
@@ -28,6 +28,16 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     const [testParameters, setTestParameters] = useState<Record<string, string>>({});
     const [testResult, setTestResult] = useState<any>(null);
     const [copySuccess, setCopySuccess] = useState(false);
+
+    // Update editor state when template changes
+    useEffect(() => {
+        if (template) {
+            setName(template.name);
+            setDescription(template.description);
+            setTemplateText(template.template);
+            setOutputSchema(template.output_schema);
+        }
+    }, [template]);
 
     // Generate output format instructions based on schema
     const generateOutputInstructions = useCallback((schema: PromptTemplateOutputSchema): string => {
@@ -103,7 +113,27 @@ Ensure your response is valid JSON and matches this schema exactly.`;
                 template: templateText,
                 tokens: extractTokens(templateText),
                 output_schema: outputSchema
-            });
+            }, false);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to save template');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveAndExitClick = async () => {
+        try {
+            setSaving(true);
+            setError(null);
+
+            await onSave({
+                name,
+                description,
+                template: templateText,
+                tokens: extractTokens(templateText),
+                output_schema: outputSchema
+            }, true);
+            onCancel();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save template');
         } finally {
@@ -347,12 +377,24 @@ Ensure your response is valid JSON and matches this schema exactly.`;
                         type="button"
                         onClick={handleSaveClick}
                         disabled={saving}
+                        className="inline-flex justify-center py-2 px-4 border border-gray-300 
+                                 shadow-sm text-sm font-medium rounded-md text-gray-700 
+                                 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 
+                                 focus:ring-offset-2 focus:ring-blue-500 dark:bg-gray-800 
+                                 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                    >
+                        {saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSaveAndExitClick}
+                        disabled={saving}
                         className="inline-flex justify-center py-2 px-4 border border-transparent 
                                  shadow-sm text-sm font-medium rounded-md text-white 
                                  bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 
                                  focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                     >
-                        {saving ? 'Saving...' : 'Save Changes'}
+                        {saving ? 'Saving...' : 'Save & Exit'}
                     </button>
                 </div>
             </div>

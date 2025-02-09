@@ -37,17 +37,35 @@ const PromptTemplatesPage: React.FC = () => {
         setShowEditor(true);
     };
 
-    const handleSave = async (templateData: Partial<PromptTemplate>) => {
+    const handleSave = async (templateData: Partial<PromptTemplate>, shouldClose: boolean = false) => {
         try {
+            let savedTemplateId: string;
             if (selectedTemplate) {
                 // Update existing template
                 await toolApi.updatePromptTemplate(selectedTemplate.template_id, templateData);
+                savedTemplateId = selectedTemplate.template_id;
             } else {
                 // Create new template
-                await toolApi.createPromptTemplate(templateData);
+                const newTemplate = await toolApi.createPromptTemplate(templateData);
+                savedTemplateId = newTemplate.template_id;
             }
-            setShowEditor(false);
-            loadTemplates();
+
+            // Fetch the latest templates
+            const fetchedTemplates = await toolApi.getPromptTemplates();
+            setTemplates(fetchedTemplates);
+
+            // Update the selected template with the latest data
+            if (!shouldClose) {
+                const updatedTemplate = fetchedTemplates.find(t => t.template_id === savedTemplateId);
+                if (updatedTemplate) {
+                    setSelectedTemplate(updatedTemplate);
+                }
+            }
+
+            if (shouldClose) {
+                setShowEditor(false);
+                setSelectedTemplate(null);
+            }
         } catch (err) {
             console.error('Error saving template:', err);
             throw err;
