@@ -206,8 +206,8 @@ export const toolApi = {
         }));
 
         // Convert prompt output schema to tool output parameters
-        const outputs = template.output_schema.type === 'object' && template.output_schema.schema
-            ? Object.entries(template.output_schema.schema.fields).map(([key, field]: [string, { description?: string; type: string }]) => ({
+        const outputs = template.output_schema.type === 'object' && template.output_schema.fields
+            ? Object.entries(template.output_schema.fields as Record<string, { description?: string; type: string }>).map(([key, field]) => ({
                 name: key,
                 description: field.description || '',
                 schema: {

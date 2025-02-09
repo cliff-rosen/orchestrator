@@ -173,7 +173,7 @@ const Workflow: React.FC = () => {
 
                     for (const [outputName, varName] of Object.entries(currentStep.output_mappings)) {
                         const value = outputs[outputName as ToolOutputName];
-                        console.log(`Setting output ${outputName} to ${varName}:`, value);
+                        console.log(`Loading output ${outputName} into ${varName} with value`, value);
 
                         // Find and update the output variable
                         const outputVar = updatedOutputs.find(v => v.name === varName);
