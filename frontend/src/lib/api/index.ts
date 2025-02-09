@@ -15,6 +15,9 @@ export const api = axios.create({
   },
 });
 
+// Keep track of if we're already redirecting to avoid infinite loops
+let isRedirectingToLogin = false;
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
   if (token) {
@@ -26,15 +29,32 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && !error.config.url?.includes('/login')) {
+    // Check for authentication/authorization errors
+    if ((error.response?.status === 401 || error.response?.status === 403) &&
+      !error.config.url?.includes('/login') &&
+      !isRedirectingToLogin) {
+
+      // Clear auth data
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
+
+      // Set redirecting flag
+      isRedirectingToLogin = true;
 
       // Call the session expired handler if it exists
       if (sessionExpiredHandler) {
         sessionExpiredHandler();
+      } else {
+        // Default behavior: redirect to login
+        window.location.href = '/login';
       }
+
+      // Throw a user-friendly error
+      throw new Error('Please log in to continue');
     }
+
+    // Reset redirecting flag for other types of errors
+    isRedirectingToLogin = false;
     return Promise.reject(error);
   }
 );
@@ -42,6 +62,10 @@ api.interceptors.response.use(
 // Common error handling
 export const handleApiError = (error: any): string => {
   if (error.response) {
+    // Don't show auth errors since they're handled by the interceptor
+    if (error.response.status === 401 || error.response.status === 403) {
+      return 'Please log in to continue';
+    }
     const data = error.response.data;
     return data.detail || data.message || 'An error occurred';
   } else if (error.request) {

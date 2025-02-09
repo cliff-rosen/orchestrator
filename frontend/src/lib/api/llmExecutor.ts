@@ -31,9 +31,16 @@ export const executeLLM = async (parameters: ResolvedParameters): Promise<ToolOu
         return {
             ['response' as ToolOutputName]: res
         };
-
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error executing LLM:', error);
+
+        // Check if error is due to validation/authentication
+        if (error.response?.status === 401 || error.response?.status === 403) {
+            // Redirect to login page
+            window.location.href = '/login';
+            throw new Error('Please log in to continue');
+        }
+
         throw error;
     }
 }; 
