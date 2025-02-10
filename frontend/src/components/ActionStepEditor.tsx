@@ -132,8 +132,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     </h3>
                     <button
                         onClick={onDeleteRequest}
-                        className="px-3 py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 
-                                 border border-red-600 dark:border-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 
+                        className="px-1.5 py-0.5 text-[10px] text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 
+                                 border border-red-600 dark:border-red-400 rounded-sm hover:bg-red-50 dark:hover:bg-red-900/20 
                                  transition-colors duration-200"
                         aria-label="Delete step"
                     >
