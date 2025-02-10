@@ -69,7 +69,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     const handleTemplateChange = async (templateId: string) => {
         if (!step.tool) return;
 
-        const newSignature = await toolApi.updateLLMSignature(templateId);
+        const newSignature = await toolApi.createToolSignatureFromTemplate(templateId);
 
         // Always reset parameter mappings when template changes, even if there are no tokens
         const updatedStep = {

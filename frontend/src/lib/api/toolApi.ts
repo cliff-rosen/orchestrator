@@ -15,6 +15,13 @@ const toolRegistry = new Map<string, (parameters: ResolvedParameters) => Promise
 
 // Register utility tool implementations
 const registerUtilityTools = () => {
+
+    // LLM tool
+    registerToolExecutor('llm', executeLLM);
+
+    // Search tool
+    registerToolExecutor('search', executeSearch);
+
     // Echo tool
     registerToolExecutor('echo', async (parameters: ResolvedParameters) => {
         const input = parameters['input' as ToolParameterName] as string;
@@ -32,9 +39,6 @@ const registerUtilityTools = () => {
         };
     });
 
-    // Search tool
-    registerToolExecutor('search', executeSearch);
-
     // Retrieve tool
     registerToolExecutor('retrieve', async (parameters: ResolvedParameters) => {
         const urls = parameters['urls' as ToolParameterName] as string[];
@@ -44,8 +48,6 @@ const registerUtilityTools = () => {
         };
     });
 
-    // LLM tool
-    registerToolExecutor('llm', executeLLM);
 };
 
 // Function to register a tool's execution method
@@ -170,16 +172,26 @@ export const toolApi = {
         }
     },
 
+    // Get a specific prompt template
+    getPromptTemplate: async (templateId: string): Promise<PromptTemplate> => {
+        try {
+            const response = await api.get(`/api/prompt-templates/${templateId}`);
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
     // Clear the cache (useful when we need to force a refresh)
     clearCache: () => {
         toolsCache = null;
         promptTemplatesCache = null;
     },
 
-    // Update LLM tool signature based on selected template
-    updateLLMSignature: async (templateId: string): Promise<ToolSignature> => {
-        const templates = await toolApi.getPromptTemplates();
-        const template = templates.find((t: PromptTemplate) => t.template_id === templateId);
+    // Create tool signature based on prompt template
+    createToolSignatureFromTemplate: async (templateId: string): Promise<ToolSignature> => {
+        console.log('Creating tool signature from template:', templateId);
+        const template = await toolApi.getPromptTemplate(templateId);
         if (!template) {
             throw new Error(`Template not found: ${templateId}`);
         }
