@@ -260,8 +260,8 @@ const Workflow: React.FC = () => {
     if (!currentStep) {
         console.log('currentStep does not exist');
         // Reset to first step if current step doesn't exist
-        // setActiveStep(0);
-        // return null;
+        setActiveStep(0);
+        // Don't return null here, let the UI render
     }
 
 
@@ -342,26 +342,42 @@ const Workflow: React.FC = () => {
                                 <>
                                     {/* Step Detail */}
                                     <div className="mt-4">
-                                        <StepDetail
-                                            step={allSteps[activeStep]}
-                                            isEditMode={isEditMode}
-                                            onStepUpdate={handleStepUpdate}
-                                            onStepDelete={handleStepDelete}
-                                        />
+                                        {currentStep ? (
+                                            <StepDetail
+                                                step={allSteps[activeStep]}
+                                                isEditMode={isEditMode}
+                                                onStepUpdate={handleStepUpdate}
+                                                onStepDelete={handleStepDelete}
+                                            />
+                                        ) : (
+                                            <div className="text-center py-8">
+                                                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                                                    No steps in this workflow yet. Click the "Add Step" button to get started.
+                                                </p>
+                                                <button
+                                                    onClick={handleAddStep}
+                                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                >
+                                                    Add First Step
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <WorkflowNavigation
-                                        isEditMode={isEditMode}
-                                        activeStep={activeStep}
-                                        totalSteps={allSteps.length}
-                                        step_type={currentStep?.step_type as WorkflowStepType || WorkflowStepType.ACTION}
-                                        isLoading={isLoading || isExecuting}
-                                        stepExecuted={stepExecuted}
-                                        onBack={handleBack}
-                                        onNext={handleNext}
-                                        onExecute={handleExecuteTool}
-                                        onRestart={handleNewQuestion}
-                                    />
+                                    {currentStep && (
+                                        <WorkflowNavigation
+                                            isEditMode={isEditMode}
+                                            activeStep={activeStep}
+                                            totalSteps={allSteps.length}
+                                            step_type={currentStep?.step_type as WorkflowStepType || WorkflowStepType.ACTION}
+                                            isLoading={isLoading || isExecuting}
+                                            stepExecuted={stepExecuted}
+                                            onBack={handleBack}
+                                            onNext={handleNext}
+                                            onExecute={handleExecuteTool}
+                                            onRestart={handleNewQuestion}
+                                        />
+                                    )}
                                 </>
                             )}
                         </div>
