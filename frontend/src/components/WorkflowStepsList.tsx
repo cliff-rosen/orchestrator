@@ -5,7 +5,6 @@ interface WorkflowStepsListProps {
     steps: RuntimeWorkflowStep[];
     activeStep: number;
     isEditMode: boolean;
-    showConfig: boolean;
     onStepClick: (index: number) => void;
     onAddStep: () => void;
 }
@@ -14,9 +13,8 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
     steps,
     activeStep,
     isEditMode,
-    showConfig,
     onStepClick,
-    onAddStep
+    onAddStep,
 }) => {
     return (
         <div className="w-64 shrink-0 flex flex-col bg-white dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700">
@@ -28,13 +26,11 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
                             key={`${step.label}-${index}`}
                             onClick={() => onStepClick(index)}
                             className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${isEditMode ? 'cursor-pointer' : ''}
-                                } ${showConfig
-                                    ? 'opacity-50 pointer-events-none'
-                                    : index === activeStep
-                                        ? 'bg-blue-50 border-2 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-400 dark:text-blue-200'
-                                        : index < activeStep && !isEditMode
-                                            ? 'bg-emerald-50 border border-emerald-300 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-500/30 dark:text-emerald-200'
-                                            : 'bg-gray-50 border border-gray-200 text-gray-600 dark:bg-gray-800/50 dark:border-gray-700 dark:text-gray-400'
+                                } ${index === activeStep
+                                    ? 'bg-blue-50 border-2 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-400 dark:text-blue-200'
+                                    : index < activeStep && !isEditMode
+                                        ? 'bg-emerald-50 border border-emerald-300 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-500/30 dark:text-emerald-200'
+                                        : 'bg-gray-50 border border-gray-200 text-gray-600 dark:bg-gray-800/50 dark:border-gray-700 dark:text-gray-400'
                                 }`}
                         >
                             <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${index === activeStep

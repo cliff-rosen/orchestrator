@@ -4,15 +4,11 @@ import { useWorkflows } from '../context/WorkflowContext';
 
 interface MenuBarProps {
     isEditMode: boolean;
-    showConfig: boolean;
-    onToggleConfig: () => void;
     onToggleEditMode: () => void;
 }
 
 const MenuBar: React.FC<MenuBarProps> = ({
     isEditMode,
-    showConfig,
-    onToggleConfig,
     onToggleEditMode,
 }) => {
     const navigate = useNavigate();
@@ -122,60 +118,6 @@ const MenuBar: React.FC<MenuBarProps> = ({
 
                 {/* Right Section - Actions */}
                 <div className="flex items-center">
-                    {/* Configuration Mode Toggle */}
-                    <div className="mr-6">
-                        <button
-                            onClick={onToggleConfig}
-                            className={`group relative inline-flex h-9 w-[5.5rem] items-center rounded-lg transition-all
-                                ${showConfig
-                                    ? 'bg-blue-500 dark:bg-blue-500 shadow-sm'
-                                    : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700'
-                                }`}
-                            title="Configure workflow inputs and outputs"
-                        >
-                            {/* Toggle Circle */}
-                            <span
-                                className={`absolute flex h-7 w-7 items-center justify-center rounded-md 
-                                    transition-all duration-200 ease-in-out
-                                    ${showConfig
-                                        ? 'left-[2.75rem] bg-white dark:bg-gray-900 shadow-sm'
-                                        : 'left-0.5 bg-white dark:bg-gray-700'}`}
-                            >
-                                <svg
-                                    className={`h-4 w-4 transition-all
-                                        ${showConfig
-                                            ? 'rotate-180 text-blue-600 dark:text-blue-400'
-                                            : 'text-gray-500 dark:text-gray-400'}`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M19 9l-7 7-7-7"
-                                    />
-                                </svg>
-                            </span>
-
-                            {/* Labels */}
-                            <span className={`absolute font-medium transition-all duration-200
-                                ${showConfig
-                                    ? 'left-2 text-white dark:text-white'
-                                    : 'left-9 text-gray-600 dark:text-gray-400'}`}>
-                                I/O
-                            </span>
-
-                            {/* Tooltip */}
-                            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-xs
-                                           bg-gray-900 text-white rounded-md opacity-0 group-hover:opacity-100 
-                                           transition-opacity whitespace-nowrap pointer-events-none">
-                                Configure workflow inputs and outputs
-                            </span>
-                        </button>
-                    </div>
-
                     {/* Primary Actions */}
                     <div className="flex items-center space-x-3">
                         {/* Save Button */}

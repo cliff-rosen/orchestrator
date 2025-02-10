@@ -2,29 +2,16 @@ import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolParameterName
 import { PromptTemplate } from '../../types/prompts';
 import { PrimitiveValue, ValueType } from '../../types/schema';
 import { api, handleApiError } from './index';
-import { executeLLM } from './llmExecutor';
-import { searchApi } from './searchApi';
+import { executeLLM, executeSearch } from './toolExecutors';
 
-// Cache for tools and prompt templates
+// Caches for tools and prompt templates    
 let toolsCache: Tool[] | null = null;
 let promptTemplatesCache: PromptTemplate[] | null = null;
 
 // Tool registry to store tool execution methods
 const toolRegistry = new Map<string, (parameters: ResolvedParameters) => Promise<ToolOutputs>>();
 
-// Execute search tool function
-const executeSearch = async (parameters: ResolvedParameters): Promise<ToolOutputs> => {
-    const query = parameters['query' as ToolParameterName] as string;
-    try {
-        const searchResults = await searchApi.search(query);
-        return {
-            ['results' as ToolOutputName]: searchResults.map(result => `${result.title}\n${result.snippet}`)
-        };
-    } catch (error) {
-        console.error('Error executing search:', error);
-        throw error;
-    }
-};
+////// Tool executor functions //////
 
 // Register utility tool implementations
 const registerUtilityTools = () => {
@@ -70,6 +57,8 @@ export const registerToolExecutor = (toolId: string, executor: (parameters: Reso
 export const getToolExecutor = (toolId: string) => {
     return toolRegistry.get(toolId);
 };
+
+////// Tool API functions //////
 
 export const toolApi = {
     // Get all available tools with their signatures
@@ -195,15 +184,17 @@ export const toolApi = {
             throw new Error(`Template not found: ${templateId}`);
         }
 
-        // Convert prompt tokens to tool parameters
-        const parameters = template.tokens.map((token: string) => ({
-            name: token,
-            description: `Value for {{${token}}} in the prompt`,
-            schema: {
+        // Convert prompt tokens to tool parameters (handle case where there are no tokens)
+        const parameters = template.tokens?.length > 0
+            ? template.tokens.map((token: string) => ({
                 name: token,
-                type: 'string' as const
-            } as PrimitiveValue
-        }));
+                description: `Value for {{${token}}} in the prompt`,
+                schema: {
+                    name: token,
+                    type: 'string' as const
+                } as PrimitiveValue
+            }))
+            : [];
 
         // Convert prompt output schema to tool output parameters
         const outputs = template.output_schema.type === 'object' && template.output_schema.fields

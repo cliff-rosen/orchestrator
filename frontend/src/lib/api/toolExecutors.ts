@@ -1,6 +1,22 @@
 import { ResolvedParameters, ToolOutputName, ToolParameterName, ToolOutputs } from '../../types';
 import { api } from './index';
+import { searchApi } from './searchApi';
 
+// Execute search tool function
+export const executeSearch = async (parameters: ResolvedParameters): Promise<ToolOutputs> => {
+    const query = parameters['query' as ToolParameterName] as string;
+    try {
+        const searchResults = await searchApi.search(query);
+        return {
+            ['results' as ToolOutputName]: searchResults.map(result => `${result.title}\n${result.snippet}`)
+        };
+    } catch (error) {
+        console.error('Error executing search:', error);
+        throw error;
+    }
+};
+
+// Execute LLM tool function
 export const executeLLM = async (parameters: ResolvedParameters): Promise<ToolOutputs> => {
     // Get the template ID from parameters
     const templateId = parameters['templateId' as ToolParameterName] as string;

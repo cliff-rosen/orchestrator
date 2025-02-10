@@ -70,17 +70,20 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         if (!step.tool) return;
 
         const newSignature = await toolApi.updateLLMSignature(templateId);
-        onStepUpdate({
+
+        // Always reset parameter mappings when template changes, even if there are no tokens
+        const updatedStep = {
             ...step,
             tool: {
                 ...step.tool,
                 signature: newSignature,
             },
             prompt_template: templateId,
-            // Reset mappings when template changes
-            parameter_mappings: {},
-            output_mappings: {}
-        });
+            parameter_mappings: {},  // Reset parameter mappings
+            output_mappings: {}      // Reset output mappings for consistency
+        };
+
+        onStepUpdate(updatedStep);
     };
 
     const handleLabelChange = (label: string) => {
