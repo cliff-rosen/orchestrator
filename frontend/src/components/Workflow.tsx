@@ -223,6 +223,20 @@ const Workflow: React.FC = () => {
         }
     };
 
+    const handleStepReorder = (reorderedSteps: RuntimeWorkflowStep[]) => {
+        if (!workflow) return;
+
+        // Update sequence numbers based on new order
+        const updatedSteps = reorderedSteps.map((step, index) => ({
+            ...step,
+            sequence_number: index
+        }));
+
+        updateWorkflow({
+            steps: updatedSteps
+        });
+    };
+
     ///////////////////////// Workflow preparation /////////////////////////
 
     if (!workflow) return null;
@@ -328,6 +342,7 @@ const Workflow: React.FC = () => {
                             isEditMode={isEditMode}
                             onStepClick={handleStepClick}
                             onAddStep={handleAddStep}
+                            onReorder={handleStepReorder}
                         />
                     )}
                 </div>
