@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Tool } from '../types/tools';
-import { WorkflowStep, WorkflowStepType } from '../types/workflows';
+import { WorkflowStep } from '../types/workflows';
 import { PromptTemplate } from '../types/prompts';
 import { toolApi } from '../lib/api/toolApi';
 import { useWorkflows } from '../context/WorkflowContext';
@@ -53,7 +53,7 @@ const TOOL_TYPES = [
         icon: '🛠️',
         subTools: [
             { id: 'echo', name: 'Echo', description: 'Echo input to output' },
-            { id: 'concatenatelets add ', name: 'Cat', description: 'Concatenate inputs' }
+            { id: 'concatenate', name: 'Cat', description: 'Concatenate inputs' }
         ]
     }
 ];
@@ -71,11 +71,14 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     const [selectedToolType, setSelectedToolType] = useState<string | null>(
         step.tool?.tool_type || null
     );
+    console.log('Initial selectedToolType:', selectedToolType);  // Debug log
 
     useEffect(() => {
+        console.log('Fetching tools, selectedToolType:', selectedToolType);  // Debug log
         const fetchTools = async () => {
             try {
                 const availableTools = await toolApi.getAvailableTools();
+                console.log('Tools fetched:', availableTools);  // Debug log
                 setTools(availableTools);
                 setLoading(false);
             } catch (err) {
@@ -98,6 +101,11 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         fetchTools();
         fetchTemplates();
     }, []);
+
+    // Add effect to track selectedToolType changes
+    useEffect(() => {
+        console.log('selectedToolType changed to:', selectedToolType);  // Debug log
+    }, [selectedToolType]);
 
     const handleToolSelect = (tool: Tool) => {
         onStepUpdate({
@@ -170,8 +178,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     return (
         <div className="space-y-8">
             {/* Step 1: Basic Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-                <div className="flex justify-between items-center mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+                <div className="flex justify-between items-center mb-3">
                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
                         Step Information
                     </h3>
@@ -184,8 +192,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                         Delete Step
                     </button>
                 </div>
-                <div className="space-y-4">
-                    <div>
+                <div className="grid grid-cols-5 gap-4">
+                    <div className="col-span-2">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Step Label
                         </label>
@@ -193,21 +201,21 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                             type="text"
                             value={step.label}
                             onChange={(e) => onStepUpdate({ ...step, label: e.target.value })}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
+                            className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                                      bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                             placeholder="Enter a descriptive label for this step"
                         />
                     </div>
-                    <div>
+                    <div className="col-span-3">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Description
                         </label>
                         <textarea
                             value={step.description}
                             onChange={(e) => onStepUpdate({ ...step, description: e.target.value })}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
+                            className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                                      bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                            rows={2}
+                            rows={1}
                             placeholder="Describe what this step does"
                         />
                     </div>
@@ -215,38 +223,41 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
             </div>
 
             {/* Step 2: Tool Type Selection */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
                     Select Tool Type
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {TOOL_TYPES.map((type) => (
                         <button
                             key={type.id}
                             onClick={() => {
+                                console.log('Tool type button clicked:', type.id);  // Debug log
                                 setSelectedToolType(type.id);
                                 // If LLM is selected, automatically set the LLM tool
                                 if (type.id === 'llm') {
+                                    console.log('LLM type selected, looking for LLM tool');  // Debug log
                                     const llmTool = tools.find(t => t.tool_type === 'llm');
+                                    console.log('Found LLM tool:', llmTool);  // Debug log
                                     if (llmTool) handleToolSelect(llmTool);
                                 }
                             }}
-                            className={`p-3 rounded-lg border-2 transition-all duration-200 text-left h-full
+                            className={`p-2 rounded-lg border-2 transition-all duration-200 text-left
                                 ${selectedToolType === type.id
                                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                     : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
                                 }`}
                         >
-                            <div className="flex flex-col gap-2">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-2xl">{type.icon}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl">{type.icon}</span>
+                                <div>
                                     <h4 className="font-medium text-gray-900 dark:text-gray-100">
                                         {type.name}
                                     </h4>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {type.description}
+                                    </p>
                                 </div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {type.description}
-                                </p>
                             </div>
                         </button>
                     ))}
@@ -255,11 +266,11 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
             {/* Step 3: Tool Selection */}
             {selectedToolType && selectedToolType !== 'llm' && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
                         Select Tool
                     </h3>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {getToolTypeConfig(selectedToolType)?.subTools ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {getToolTypeConfig(selectedToolType)?.subTools?.map(subTool => {
@@ -327,8 +338,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
             {/* Step 4: Prompt Template Selection (for LLM tools) */}
             {selectedToolType === 'llm' && step.tool && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
                         Select Prompt Template
                     </h3>
                     <PromptTemplateSelector
@@ -341,17 +352,17 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
             {/* Step 5: Parameter and Output Mapping */}
             {step.tool && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
                         Tool Configuration
                     </h3>
 
                     {/* Tool Requirements Overview */}
-                    <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Tool Requirements
                         </h4>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             {/* Required Inputs */}
                             <div>
                                 <h5 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
@@ -411,7 +422,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     </div>
 
                     {/* Mapping Section */}
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {/* Input Mapping */}
                         <div>
                             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
