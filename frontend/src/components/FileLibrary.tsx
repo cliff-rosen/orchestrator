@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { File, fileApi } from '../lib/api/fileApi';
+import { FileInfo, fileApi } from '../lib/api/fileApi';
 import { Upload, Trash2, FileText } from 'lucide-react';
 
 interface FileLibraryProps {
@@ -8,7 +8,7 @@ interface FileLibraryProps {
 }
 
 const FileLibrary: React.FC<FileLibraryProps> = ({ onFileSelect, selectedFileId }) => {
-    const [files, setFiles] = useState<File[]>([]);
+    const [files, setFiles] = useState<FileInfo[]>([]);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +35,7 @@ const FileLibrary: React.FC<FileLibraryProps> = ({ onFileSelect, selectedFileId 
         setError(null);
 
         try {
-            await fileApi.uploadFile(file as any);
+            await fileApi.uploadFile(file);
             await loadFiles();
         } catch (err) {
             setError('Failed to upload file');

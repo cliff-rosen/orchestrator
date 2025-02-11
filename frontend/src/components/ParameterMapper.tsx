@@ -27,17 +27,11 @@ const ParameterMapper: React.FC<ParameterMapperProps> = ({
 
     // Helper function to check if a variable is compatible with a parameter
     const isCompatibleType = (paramSchema: SchemaValue, varSchema: SchemaValue) => {
-        // console.log('Checking compatibility:', {
-        //     paramSchema,
-        //     varSchema,
-        //     paramType: paramSchema.type,
-        //     varType: varSchema.type
-        // });
-
-        // For prompt templates, string parameters can accept string arrays
+        // For prompt templates, string parameters can accept string arrays or files
         if (paramSchema.type === 'string') {
-            // Accept either string or array of strings
+            // Accept string, array of strings, or file
             if (varSchema.type === 'string') return true;
+            if (varSchema.type === 'file') return true;  // Allow files for string parameters
             if (varSchema.type === 'array') {
                 return (varSchema as ArrayValue).items.type === 'string';
             }

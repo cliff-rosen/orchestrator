@@ -10,6 +10,7 @@ import { useWorkflows } from '../context/WorkflowContext';
 
 // API
 import { toolApi } from '../lib/api';
+import { fileApi } from '../lib/api/fileApi';
 
 // Page components
 import WorkflowConfig from './WorkflowConfig';
@@ -150,7 +151,35 @@ const Workflow: React.FC = () => {
                         const variable = workflow?.inputs?.find(v => v.name === varName) ||
                             workflow?.outputs?.find(v => v.name === varName);
                         console.log(`Resolving parameter ${paramName} from ${varName}:`, variable?.value);
-                        resolvedParameters[paramName as ToolParameterName] = variable?.value;
+alets reimagine the
+                        // If the variable is a file type and the parameter expects a string,
+                        // fetch the file content
+                        if (variable?.schema.type === 'file') {
+                            // For file variables, value should be { file_id: string, content?: string }
+                            const fileValue = variable.value;
+                            if (fileValue?.file_id) {
+                                try {
+                                    // If we don't have the content cached, fetch it
+                                    if (!fileValue.content) {
+                                        const fileContent = await fileApi.getFileContent(fileValue.file_id);
+                                        // Cache the content in the variable's value
+                                        variable.value = {
+                                            ...fileValue,
+                                            content: fileContent.content
+                                        };
+                                    }
+                                    resolvedParameters[paramName as ToolParameterName] = variable.value.content;
+                                } catch (err) {
+                                    console.error('Error fetching file content:', err);
+                                    throw new Error(`Failed to fetch content for file parameter ${paramName}`);
+                                }
+                            } else {
+                                console.warn(`File variable ${varName} has no file_id`);
+                                resolvedParameters[paramName as ToolParameterName] = '';
+                            }
+                        } else {
+                            resolvedParameters[paramName as ToolParameterName] = variable?.value;
+                        }
                     }
                 }
 

@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { SchemaValue, ValueType, ObjectValue, ArrayValue, FileValue } from '../types/schema';
 import { WorkflowVariable } from '../types';
 import { useWorkflows } from '../context/WorkflowContext';
-import { FileResponse } from '../types/files';
+import { FileInfo } from '../lib/api/fileApi';
+import Dialog from './common/Dialog';
+import FileLibrary from './FileLibrary';
+import { fileApi } from '../lib/api/fileApi';
 
 const VALUE_TYPES: ValueType[] = ['string', 'number', 'boolean', 'array', 'object', 'file'];
 
@@ -11,13 +14,21 @@ interface SchemaFieldProps {
     onChange: (value: SchemaValue) => void;
     onRemove: () => void;
     indent?: number;
-    onFileSelect?: (file: FileResponse, value: SchemaValue) => void;
+    onFileSelect?: (file: FileInfo, value: SchemaValue) => void;
 }
 
 const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, indent = 0, onFileSelect }) => {
+    const [showFileSelector, setShowFileSelector] = useState(false);
     const isObjectValue = (v: SchemaValue): v is ObjectValue => v.type === 'object';
     const isArrayValue = (v: SchemaValue): v is ArrayValue => v.type === 'array';
     const isFileValue = (v: SchemaValue): v is FileValue => v.type === 'file';
+
+    const handleFileSelect = (file: FileInfo) => {
+        if (onFileSelect) {
+            onFileSelect(file, value);
+            setShowFileSelector(false);
+        }
+    };
 
     return (
         <div className="space-y-2" style={{ marginLeft: `${indent * 20}px` }}>
@@ -129,14 +140,7 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
             {isFileValue(value) && onFileSelect && (
                 <div className="mt-2">
                     <button
-                        onClick={() => onFileSelect({
-                            file_id: value.file_id || '',
-                            name: value.name,
-                            mime_type: '',
-                            size: 0,
-                            created_at: '',
-                            updated_at: ''
-                        }, value)}
+                        onClick={() => setShowFileSelector(true)}
                         className="px-4 py-2 text-sm bg-blue-100 dark:bg-blue-900 
                                  text-blue-700 dark:text-blue-300 rounded-md
                                  hover:bg-blue-200 dark:hover:bg-blue-800"
@@ -145,8 +149,29 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
                     </button>
                     {value.file_id && (
                         <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                            File selected
+                            Selected: {value.name}
                         </span>
+                    )}
+
+                    {showFileSelector && (
+                        <Dialog
+                            isOpen={showFileSelector}
+                            onClose={() => setShowFileSelector(false)}
+                            title="Select File"
+                            maxWidth="2xl"
+                        >
+                            <FileLibrary
+                                selectedFileId={value.file_id}
+                                onFileSelect={async (fileId) => {
+                                    try {
+                                        const file = await fileApi.getFile(fileId);
+                                        handleFileSelect(file);
+                                    } catch (err) {
+                                        console.error('Error fetching file:', err);
+                                    }
+                                }}
+                            />
+                        </Dialog>
                     )}
                 </div>
             )}
@@ -159,7 +184,7 @@ interface VariableEditorProps {
     onChange: (variables: WorkflowVariable[]) => void;
     title: string;
     description: string;
-    onFileSelect?: (file: FileResponse, value: SchemaValue) => void;
+    onFileSelect?: (file: FileInfo, value: SchemaValue) => void;
 }
 
 const VariableEditor: React.FC<VariableEditorProps> = ({
@@ -337,10 +362,32 @@ const WorkflowIOEditor: React.FC = () => {
         updateWorkflow({ outputs: newOutputs });
     };
 
-    const handleFileSelect = (file: FileResponse, value: SchemaValue) => {
-        // Handle file selection for variables
-        if (value.type === 'file') {
-            value.file_id = file.file_id;
+    const handleFileSelect = (file: FileInfo, value: SchemaValue) => {
+        if (value.type !== 'file') return;
+
+        // Find the variable that contains this schema value
+        const variables = activeTab === 'inputs' ? inputs : outputs;
+        const updatedVariables = variables.map(variable => {
+            // Deep clone the variable to avoid mutating state
+            const newVariable = { ...variable };
+
+            // Check if this variable's schema is the one being updated
+            if (newVariable.schema === value) {
+                newVariable.schema = {
+                    type: 'file',
+                    name: file.name,
+                    file_id: file.file_id,
+                    description: file.description || value.description
+                };
+            }
+            return newVariable;
+        });
+
+        // Update the workflow with the new variables
+        if (activeTab === 'inputs') {
+            handleInputChange(updatedVariables);
+        } else {
+            handleOutputChange(updatedVariables);
         }
     };
 
