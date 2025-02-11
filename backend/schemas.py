@@ -471,3 +471,31 @@ class WorkflowExecuteResponse(BaseModel):
     execution_time: float = Field(description="Time taken to execute the workflow in seconds")
 
     model_config = ConfigDict(from_attributes=True)
+
+##### FILE SCHEMAS #####
+
+class FileBase(BaseModel):
+    """Base schema for files"""
+    name: str = Field(description="Name of the file")
+    description: Optional[str] = Field(None, description="Description of the file")
+    mime_type: str = Field(description="MIME type of the file")
+
+class FileCreate(FileBase):
+    """Schema for creating files"""
+    content: str = Field(description="File contents as text")
+
+class FileUpdate(BaseModel):
+    """Schema for updating files"""
+    name: Optional[str] = Field(None, description="New name for the file")
+    description: Optional[str] = Field(None, description="New description for the file")
+    content: Optional[str] = Field(None, description="New file contents")
+
+class FileResponse(FileBase):
+    """Schema for file responses"""
+    file_id: str = Field(description="Unique identifier for the file")
+    user_id: int = Field(description="ID of the user who owns this file")
+    size: int = Field(description="Size of the file in bytes")
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

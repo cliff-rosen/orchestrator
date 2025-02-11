@@ -1,18 +1,24 @@
 import React, { useState } from 'react';
-import { SchemaValue, ValueType } from '../types/schema';
+import { SchemaValue, ValueType, ObjectValue, ArrayValue, FileValue } from '../types/schema';
 import { WorkflowVariable } from '../types';
 import { useWorkflows } from '../context/WorkflowContext';
+import { FileResponse } from '../types/files';
 
-const VALUE_TYPES: ValueType[] = ['string', 'number', 'boolean', 'array', 'object'];
+const VALUE_TYPES: ValueType[] = ['string', 'number', 'boolean', 'array', 'object', 'file'];
 
 interface SchemaFieldProps {
     value: SchemaValue;
     onChange: (value: SchemaValue) => void;
     onRemove: () => void;
     indent?: number;
+    onFileSelect?: (file: FileResponse, value: SchemaValue) => void;
 }
 
-const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, indent = 0 }) => {
+const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, indent = 0, onFileSelect }) => {
+    const isObjectValue = (v: SchemaValue): v is ObjectValue => v.type === 'object';
+    const isArrayValue = (v: SchemaValue): v is ArrayValue => v.type === 'array';
+    const isFileValue = (v: SchemaValue): v is FileValue => v.type === 'file';
+
     return (
         <div className="space-y-2" style={{ marginLeft: `${indent * 20}px` }}>
             <div className="flex items-center gap-2">
@@ -20,21 +26,7 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
                     value={value.name}
                     onChange={e => {
                         const newName = e.target.value;
-                        if (value.type === 'object' && value.fields) {
-                            // For object fields, update both the key and the name
-                            const oldName = value.name;
-                            const { [oldName]: fieldValue, ...restFields } = value.fields;
-                            onChange({
-                                ...value,
-                                name: newName,
-                                fields: {
-                                    ...restFields,
-                                    [newName]: fieldValue
-                                }
-                            });
-                        } else {
-                            onChange({ ...value, name: newName });
-                        }
+                        onChange({ ...value, name: newName });
                     }}
                     placeholder="Field name"
                     className="flex-1 px-3 py-2 
@@ -48,9 +40,11 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
                     onChange={e => {
                         const type = e.target.value as ValueType;
                         if (type === 'object') {
-                            onChange({ ...value, type: 'object', fields: {} });
+                            onChange({ ...value, type: 'object', fields: {} } as ObjectValue);
                         } else if (type === 'array') {
-                            onChange({ ...value, type: 'array', items: { name: 'item', type: 'string' } });
+                            onChange({ ...value, type: 'array', items: { name: 'item', type: 'string' } } as ArrayValue);
+                        } else if (type === 'file') {
+                            onChange({ ...value, type: 'file' } as FileValue);
                         } else {
                             onChange({ ...value, type });
                         }
@@ -73,7 +67,7 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
                 </button>
             </div>
 
-            {value.type === 'object' && value.fields && (
+            {isObjectValue(value) && (
                 <div className="mt-2 space-y-2">
                     {Object.entries(value.fields).map(([key, field]) => (
                         <SchemaField
@@ -96,11 +90,12 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
                                 });
                             }}
                             indent={indent + 1}
+                            onFileSelect={onFileSelect}
                         />
                     ))}
                     <button
                         onClick={() => {
-                            const newName = `New Field ${Object.keys(value.fields).length + 1}`;
+                            const newName = `field_${Object.keys(value.fields).length + 1}`;
                             onChange({
                                 ...value,
                                 fields: {
@@ -116,7 +111,7 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
                 </div>
             )}
 
-            {value.type === 'array' && value.items && (
+            {isArrayValue(value) && (
                 <div className="mt-2">
                     <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Array items:</span>
@@ -126,7 +121,33 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
                         onChange={newValue => onChange({ ...value, items: newValue })}
                         onRemove={() => { }}
                         indent={indent + 1}
+                        onFileSelect={onFileSelect}
                     />
+                </div>
+            )}
+
+            {isFileValue(value) && onFileSelect && (
+                <div className="mt-2">
+                    <button
+                        onClick={() => onFileSelect({
+                            file_id: value.file_id || '',
+                            name: value.name,
+                            mime_type: '',
+                            size: 0,
+                            created_at: '',
+                            updated_at: ''
+                        }, value)}
+                        className="px-4 py-2 text-sm bg-blue-100 dark:bg-blue-900 
+                                 text-blue-700 dark:text-blue-300 rounded-md
+                                 hover:bg-blue-200 dark:hover:bg-blue-800"
+                    >
+                        {value.file_id ? 'Change File' : 'Select File'}
+                    </button>
+                    {value.file_id && (
+                        <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                            File selected
+                        </span>
+                    )}
                 </div>
             )}
         </div>
@@ -138,13 +159,15 @@ interface VariableEditorProps {
     onChange: (variables: WorkflowVariable[]) => void;
     title: string;
     description: string;
+    onFileSelect?: (file: FileResponse, value: SchemaValue) => void;
 }
 
 const VariableEditor: React.FC<VariableEditorProps> = ({
     variables = [],
     onChange,
     title,
-    description
+    description,
+    onFileSelect
 }) => {
     const [newVarName, setNewVarName] = useState('');
     const [selectedVar, setSelectedVar] = useState<string | null>(null);
@@ -176,19 +199,6 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
     const handleVariableChange = (variable_id: string, updates: Partial<WorkflowVariable>) => {
         onChange((variables || []).map(v => {
             if (v.variable_id !== variable_id) return v;
-
-            // If name is being updated, also update the schema name
-            if (updates.name) {
-                return {
-                    ...v,
-                    ...updates,
-                    schema: {
-                        ...v.schema,
-                        name: updates.name
-                    }
-                };
-            }
-
             return { ...v, ...updates };
         }));
     };
@@ -298,6 +308,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                                             value={variable.schema}
                                             onChange={schema => handleVariableChange(variable.variable_id, { schema })}
                                             onRemove={() => { }}
+                                            onFileSelect={onFileSelect}
                                         />
                                     </div>
                                 </div>
@@ -310,7 +321,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
     );
 };
 
-const WorkflowConfig: React.FC = () => {
+const WorkflowIOEditor: React.FC = () => {
     const { workflow, updateWorkflow } = useWorkflows();
     const inputs = workflow?.inputs || [];
     const outputs = workflow?.outputs || [];
@@ -326,79 +337,75 @@ const WorkflowConfig: React.FC = () => {
         updateWorkflow({ outputs: newOutputs });
     };
 
-    return (
-        <div className="space-y-6 rounded-lg border-2 border-blue-500 bg-blue-50 dark:border-blue-400 
-                      dark:bg-blue-900/30 p-6 transition-all animate-fade-in">
-            {/* Header */}
-            <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Workflow Configuration</h2>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Configure the inputs and outputs for your workflow. Inputs define the data required to run the workflow,
-                    while outputs define the data produced by the workflow.
-                </p>
-            </div>
+    const handleFileSelect = (file: FileResponse, value: SchemaValue) => {
+        // Handle file selection for variables
+        if (value.type === 'file') {
+            value.file_id = file.file_id;
+        }
+    };
 
-            {/* Tab Navigation */}
-            <div className="flex gap-4 border-b border-blue-200 dark:border-blue-700">
-                <button
-                    onClick={() => setActiveTab('inputs')}
-                    className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors flex items-center gap-2
-                        ${activeTab === 'inputs'
-                            ? 'border-blue-500 text-blue-700 dark:text-blue-300'
-                            : 'border-transparent text-blue-600/60 dark:text-blue-400/60 hover:text-blue-700 dark:hover:text-blue-300'
-                        }`}
-                >
-                    Input Variables
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 
-                                   text-blue-600 dark:text-blue-400">
-                        {inputs.length}
-                    </span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('outputs')}
-                    className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors flex items-center gap-2
-                        ${activeTab === 'outputs'
-                            ? 'border-blue-500 text-blue-700 dark:text-blue-300'
-                            : 'border-transparent text-blue-600/60 dark:text-blue-400/60 hover:text-blue-700 dark:hover:text-blue-300'
-                        }`}
-                >
-                    Output Variables
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 
-                                   text-blue-600 dark:text-blue-400">
-                        {outputs.length}
-                    </span>
-                </button>
+    return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+            {/* Header */}
+            <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                <div className="px-6 py-4">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        Workflow I/O Configuration
+                    </h1>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Configure the inputs and outputs for your workflow. Define what data your workflow needs and what it produces.
+                    </p>
+                </div>
+
+                {/* Tab Navigation */}
+                <div className="px-6 flex gap-4">
+                    <button
+                        onClick={() => setActiveTab('inputs')}
+                        className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors flex items-center gap-2
+                            ${activeTab === 'inputs'
+                                ? 'border-blue-500 text-blue-700 dark:text-blue-300'
+                                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        Input Variables
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 
+                                       text-blue-600 dark:text-blue-400">
+                            {inputs.length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('outputs')}
+                        className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors flex items-center gap-2
+                            ${activeTab === 'outputs'
+                                ? 'border-blue-500 text-blue-700 dark:text-blue-300'
+                                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        Output Variables
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 
+                                       text-blue-600 dark:text-blue-400">
+                            {outputs.length}
+                        </span>
+                    </button>
+                </div>
             </div>
 
             {/* Tab Content */}
-            <div className="pt-4">
+            <div className="p-6">
                 {activeTab === 'inputs' ? (
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                                 Define the variables that will be used as input throughout your workflow steps.
+                                You can use files, primitive types, arrays, and objects.
                             </p>
-                            <button
-                                onClick={() => handleInputChange([...inputs, {
-                                    variable_id: `var-${Date.now()}`,
-                                    name: `input_${inputs.length + 1}`,
-                                    description: '',
-                                    schema: { name: `input_${inputs.length + 1}`, type: 'string' }
-                                }])}
-                                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 
-                                         dark:hover:text-blue-300 flex items-center gap-1"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Add Input
-                            </button>
                         </div>
                         <VariableEditor
                             variables={inputs}
                             onChange={handleInputChange}
                             title="Input Variables"
                             description="Variables that must be provided before running the workflow"
+                            onFileSelect={handleFileSelect}
                         />
                     </div>
                 ) : (
@@ -406,28 +413,15 @@ const WorkflowConfig: React.FC = () => {
                         <div className="flex justify-between items-center">
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                                 Define the variables that will store the results produced by your workflow steps.
+                                You can output files, primitive types, arrays, and objects.
                             </p>
-                            <button
-                                onClick={() => handleOutputChange([...outputs, {
-                                    variable_id: `var-${Date.now()}`,
-                                    name: `output_${outputs.length + 1}`,
-                                    description: '',
-                                    schema: { name: `output_${outputs.length + 1}`, type: 'string' }
-                                }])}
-                                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 
-                                         dark:hover:text-blue-300 flex items-center gap-1"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Add Output
-                            </button>
                         </div>
                         <VariableEditor
                             variables={outputs}
                             onChange={handleOutputChange}
                             title="Output Variables"
                             description="Variables that will store workflow results"
+                            onFileSelect={handleFileSelect}
                         />
                     </div>
                 )}
@@ -436,4 +430,4 @@ const WorkflowConfig: React.FC = () => {
     );
 };
 
-export default WorkflowConfig; 
+export default WorkflowIOEditor; 

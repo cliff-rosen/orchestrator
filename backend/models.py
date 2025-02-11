@@ -22,6 +22,7 @@ class User(Base):
     # Relationships
     topics = relationship("Topic", back_populates="user")
     workflows = relationship("Workflow", back_populates="user")
+    files = relationship("File", back_populates="user", cascade="all, delete-orphan")
 
 class Topic(Base):
     __tablename__ = "topics"
@@ -117,4 +118,20 @@ class Workflow(Base):
                         cascade="all, delete-orphan",
                         order_by="WorkflowStep.sequence_number")
     variables = relationship("WorkflowVariable", back_populates="workflow", cascade="all, delete-orphan")
+
+class File(Base):
+    __tablename__ = "files"
+
+    file_id = Column(String(36), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    content = Column(Text, nullable=False)  # File contents stored as text
+    mime_type = Column(String(255), nullable=False)
+    size = Column(Integer, nullable=False)  # Size in bytes
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User", back_populates="files")
 

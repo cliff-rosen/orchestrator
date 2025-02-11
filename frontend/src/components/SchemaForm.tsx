@@ -1,5 +1,6 @@
 import React from 'react';
 import { SchemaValue } from '../types/schema';
+import FileLibrary from './FileLibrary';
 
 interface SchemaFormProps {
     schema: SchemaValue;
@@ -66,50 +67,52 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
         );
     }
 
-    switch (schema.type) {
-        case 'string':
-            return (
-                <input
-                    type="text"
-                    value={value === undefined ? '' : value}
-                    onChange={e => onChange(e.target.value)}
-                    className="w-full px-3 py-2 
-                             border border-gray-300 dark:border-gray-600
-                             bg-white dark:bg-gray-700 
-                             text-gray-900 dark:text-gray-100
-                             rounded-md"
-                />
-            );
-
-        case 'number':
-            return (
-                <input
-                    type="number"
-                    value={value === undefined ? '' : value}
-                    onChange={e => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
-                    className="w-full px-3 py-2 
-                             border border-gray-300 dark:border-gray-600
-                             bg-white dark:bg-gray-700 
-                             text-gray-900 dark:text-gray-100
-                             rounded-md"
-                />
-            );
-
-        case 'boolean':
-            return (
-                <input
-                    type="checkbox"
-                    checked={Boolean(value)}
-                    onChange={e => onChange(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 rounded 
-                             border-gray-300 dark:border-gray-600
-                             focus:ring-blue-500"
-                />
-            );
-
-        default:
-            return null;
+    if (schema.type === 'file') {
+        return (
+            <FileLibrary
+                selectedFileId={value?.file_id}
+                onFileSelect={(fileId) => onChange({ file_id: fileId })}
+            />
+        );
     }
+
+    if (schema.type === 'string') {
+        return (
+            <input
+                type="text"
+                value={value || ''}
+                onChange={e => onChange(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
+                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            />
+        );
+    }
+
+    if (schema.type === 'number') {
+        return (
+            <input
+                type="number"
+                value={value || ''}
+                onChange={e => onChange(parseFloat(e.target.value))}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
+                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            />
+        );
+    }
+
+    if (schema.type === 'boolean') {
+        return (
+            <input
+                type="checkbox"
+                checked={value || false}
+                onChange={e => onChange(e.target.checked)}
+                className="h-4 w-4 text-blue-600 dark:text-blue-400 border-gray-300 dark:border-gray-600 
+                         rounded focus:ring-blue-500 dark:focus:ring-blue-400"
+            />
+        );
+    }
+
+    return null;
 };
 
 export default SchemaForm; 

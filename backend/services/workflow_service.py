@@ -6,12 +6,13 @@ from database import get_db
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
 
-from models import Workflow, WorkflowStep, WorkflowVariable, Tool, PromptTemplate
+from models import Workflow, WorkflowStep, WorkflowVariable, Tool, PromptTemplate, File
 from schemas import (
     WorkflowCreate, WorkflowUpdate, WorkflowStepCreate,
     WorkflowVariableCreate, WorkflowExecuteRequest,
     WorkflowResponse, WorkflowStepResponse, WorkflowVariableResponse,
-    ToolResponse, ToolSignature, ParameterSchema, OutputSchema, SchemaValue
+    ToolResponse, ToolSignature, ParameterSchema, OutputSchema, SchemaValue,
+    WorkflowExecuteResponse
 )
 from exceptions import (
     WorkflowNotFoundError, InvalidWorkflowError, WorkflowExecutionError,
@@ -407,7 +408,7 @@ class WorkflowService:
             # This would involve checking types, ranges, patterns, etc.
             # based on the JSON Schema in var.schema
 
-    async def execute_workflow(self, workflow_id: str, execution_data: WorkflowExecuteRequest, user_id: int) -> Dict[str, Any]:
+    async def execute_workflow(self, workflow_id: str, execution_data: WorkflowExecuteRequest, user_id: int) -> WorkflowExecuteResponse:
         """Execute a workflow with given input data."""
         workflow = self.get_workflow(workflow_id, user_id)
         
@@ -452,17 +453,25 @@ class WorkflowService:
             workflow.updated_at = datetime.utcnow()
             self.db.commit()
             
-            return {
-                "status": "success",
-                "output": context["output"]
-            }
+            return WorkflowExecuteResponse(
+                workflow_id=workflow_id,
+                status="completed",
+                output=context["output"],
+                execution_time=0.0  # Calculate actual execution time
+            )
             
         except Exception as e:
             workflow.status = "failed"
             workflow.error = str(e)
             workflow.updated_at = datetime.utcnow()
             self.db.commit()
-            raise WorkflowExecutionError(str(e), workflow_id)
+            return WorkflowExecuteResponse(
+                workflow_id=workflow_id,
+                status="failed",
+                output={},
+                error=str(e),
+                execution_time=0.0
+            )
 
     async def _execute_step(self, step: WorkflowStep, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a single workflow step."""
