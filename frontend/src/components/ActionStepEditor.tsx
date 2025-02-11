@@ -68,8 +68,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedToolType, setSelectedToolType] = useState<string | null>(
-        step.tool?.tool_type || null
+    const [selectedToolType, setSelectedToolType] = useState<string | null>(step.tool?.tool_type || null
     );
     console.log('Initial selectedToolType:', selectedToolType);  // Debug log
 
@@ -105,7 +104,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     // Add effect to track selectedToolType changes
     useEffect(() => {
         console.log('selectedToolType changed to:', selectedToolType);  // Debug log
-    }, [selectedToolType]);
+        setSelectedToolType(step.tool?.tool_type || null);
+    }, [step]);
 
     const handleToolSelect = (tool: Tool) => {
         onStepUpdate({
