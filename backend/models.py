@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Enum, TIMESTAMP, JSON
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Enum, TIMESTAMP, JSON, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, foreign, remote
 from datetime import datetime
@@ -126,7 +126,7 @@ class File(Base):
     user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    content = Column(Text, nullable=False)  # File contents stored as text
+    content = Column(LargeBinary, nullable=False)  # File contents stored as binary
     mime_type = Column(String(255), nullable=False)
     size = Column(Integer, nullable=False)  # Size in bytes
     created_at = Column(DateTime, default=datetime.utcnow)

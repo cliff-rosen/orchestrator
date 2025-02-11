@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import FileLibrary from '../components/FileLibrary';
-import { FileInfo } from '../lib/api/fileApi';
 
 const Files: React.FC = () => {
     const [selectedFileId, setSelectedFileId] = useState<string | undefined>();

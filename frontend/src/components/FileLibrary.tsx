@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileInfo, fileApi } from '../lib/api/fileApi';
-import { Upload, Trash2, FileText } from 'lucide-react';
+import { Upload, Trash2, FileText, Download } from 'lucide-react';
 
 interface FileLibraryProps {
     onFileSelect?: (fileId: string) => void;
@@ -55,6 +55,23 @@ const FileLibrary: React.FC<FileLibraryProps> = ({ onFileSelect, selectedFileId 
         }
     };
 
+    const handleFileDownload = async (fileId: string, fileName: string) => {
+        try {
+            const blob = await fileApi.downloadFile(fileId);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (err) {
+            setError('Failed to download file');
+            console.error('Error downloading file:', err);
+        }
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -104,17 +121,33 @@ const FileLibrary: React.FC<FileLibraryProps> = ({ onFileSelect, selectedFileId 
                             </div>
                         </div>
 
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleFileDelete(file.file_id);
-                            }}
-                            className="p-1 text-gray-400 hover:text-red-600 dark:text-gray-500 
-                                     dark:hover:text-red-400 rounded-full hover:bg-gray-100 
-                                     dark:hover:bg-gray-700"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleFileDownload(file.file_id, file.name);
+                                }}
+                                className="p-1 text-gray-400 hover:text-blue-600 dark:text-gray-500 
+                                         dark:hover:text-blue-400 rounded-full hover:bg-gray-100 
+                                         dark:hover:bg-gray-700"
+                                title="Download file"
+                            >
+                                <Download className="w-4 h-4" />
+                            </button>
+
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleFileDelete(file.file_id);
+                                }}
+                                className="p-1 text-gray-400 hover:text-red-600 dark:text-gray-500 
+                                         dark:hover:text-red-400 rounded-full hover:bg-gray-100 
+                                         dark:hover:bg-gray-700"
+                                title="Delete file"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                 ))}
 

@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Union
 from enum import Enum
+import base64
 
 ##### USER SCHEMA #####
 
@@ -482,13 +483,13 @@ class FileBase(BaseModel):
 
 class FileCreate(FileBase):
     """Schema for creating files"""
-    content: str = Field(description="File contents as text")
+    content: bytes = Field(description="File contents as binary")
 
 class FileUpdate(BaseModel):
     """Schema for updating files"""
     name: Optional[str] = Field(None, description="New name for the file")
     description: Optional[str] = Field(None, description="New description for the file")
-    content: Optional[str] = Field(None, description="New file contents")
+    content: Optional[bytes] = Field(None, description="New file contents")
 
 class FileResponse(FileBase):
     """Schema for file responses"""
@@ -498,4 +499,17 @@ class FileResponse(FileBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    # Exclude content from the response
+    class Config:
+        from_attributes = True
+        exclude = {'content'}
+
+class FileContentResponse(BaseModel):
+    """Schema for file content responses"""
+    content: str = Field(description="File contents (text or base64 encoded)")
+    encoding: Optional[str] = Field(None, description="Encoding used for binary content (e.g., 'base64')")
+
+    class Config:
+        json_encoders = {
+            bytes: lambda v: base64.b64encode(v).decode('utf-8')
+        }

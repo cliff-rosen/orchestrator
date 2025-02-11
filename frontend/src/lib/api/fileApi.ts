@@ -12,6 +12,7 @@ export interface FileInfo {
 
 export interface FileContent {
     content: string;
+    encoding?: 'base64';
 }
 
 export const fileApi = {
@@ -46,6 +47,33 @@ export const fileApi = {
     async getFileContent(fileId: string): Promise<FileContent> {
         const response = await api.get(`/api/files/${fileId}/content`);
         return response.data;
+    },
+
+    // Download a file directly (returns a Blob)
+    async downloadFile(fileId: string): Promise<Blob> {
+        const response = await api.get(`/api/files/${fileId}/download`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    // Get a file's raw content (for binary files)
+    async getFileRawContent(fileId: string): Promise<Blob> {
+        const response = await api.get(`/api/files/${fileId}/content`);
+        const data = response.data;
+
+        // If the content is base64 encoded, decode it to a Blob
+        if (data.encoding === 'base64') {
+            const binaryString = atob(data.content);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return new Blob([bytes]);
+        }
+
+        // For text content, return as a Blob
+        return new Blob([data.content]);
     },
 
     // Update a file
