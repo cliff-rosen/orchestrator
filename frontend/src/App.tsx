@@ -9,6 +9,7 @@ import Workflow from './components/Workflow';
 import TopBar from './components/TopBar';
 import LoginForm from './components/auth/LoginForm';
 import PromptTemplatesPage from './pages/PromptTemplates';
+import FilesPage from './pages/Files';
 
 // Main app content when authenticated
 const AuthenticatedApp = () => {
@@ -59,6 +60,7 @@ const AuthenticatedApp = () => {
               <Route path="/" element={<WorkflowsManager />} />
               <Route path="/workflow/:workflowId/*" element={<Workflow />} />
               <Route path="/prompt-templates" element={<PromptTemplatesPage />} />
+              <Route path="/files" element={<FilesPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

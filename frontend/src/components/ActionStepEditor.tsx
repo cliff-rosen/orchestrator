@@ -53,7 +53,7 @@ const TOOL_TYPES = [
         icon: '🛠️',
         subTools: [
             { id: 'echo', name: 'Echo', description: 'Echo input to output' },
-            { id: 'concatenate', name: 'Cat', description: 'Concatenate inputs' }
+            { id: 'concatenatelets add ', name: 'Cat', description: 'Concatenate inputs' }
         ]
     }
 ];

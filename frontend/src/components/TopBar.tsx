@@ -1,8 +1,7 @@
-import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
-import { MoonIcon, SunIcon, DocumentTextIcon, Square2StackIcon } from '@heroicons/react/24/outline'
+import { MoonIcon, SunIcon, DocumentTextIcon, Square2StackIcon, FolderIcon } from '@heroicons/react/24/outline'
 import settings from '../config/settings'
 
 export default function TopBar() {
@@ -44,6 +43,18 @@ export default function TopBar() {
                             >
                                 <DocumentTextIcon className="h-5 w-5 mr-1" />
                                 Prompt Templates
+                            </Link>
+
+                            <Link
+                                to="/files"
+                                className={`${location.pathname === '/files'
+                                    ? 'border-blue-500 text-gray-900 dark:text-gray-100'
+                                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                    } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                                state={{ preserveWorkflowState: true }}
+                            >
+                                <FolderIcon className="h-5 w-5 mr-1" />
+                                Files
                             </Link>
                         </div>
                     </div>

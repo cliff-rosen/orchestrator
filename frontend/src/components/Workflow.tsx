@@ -151,7 +151,7 @@ const Workflow: React.FC = () => {
                         const variable = workflow?.inputs?.find(v => v.name === varName) ||
                             workflow?.outputs?.find(v => v.name === varName);
                         console.log(`Resolving parameter ${paramName} from ${varName}:`, variable?.value);
-alets reimagine the
+
                         // If the variable is a file type and the parameter expects a string,
                         // fetch the file content
                         if (variable?.schema.type === 'file') {
