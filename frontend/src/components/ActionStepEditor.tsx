@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Tool } from '../types/tools';
 import { WorkflowStep } from '../types/workflows';
 import { PromptTemplate } from '../types/prompts';
-import { toolApi } from '../lib/api/toolApi';
+import { toolApi, TOOL_TYPES } from '../lib/api/toolApi';
 import { useWorkflows } from '../context/WorkflowContext';
 import PromptTemplateSelector from './PromptTemplateSelector';
 import ParameterMapper from './ParameterMapper';
@@ -17,47 +17,6 @@ interface ActionStepEditorProps {
     onDeleteRequest: () => void;
 }
 
-// Tool type definitions
-const TOOL_TYPES = [
-    {
-        id: 'llm',
-        name: 'LLM',
-        description: 'Language Model tools for text generation and processing',
-        icon: '🤖',
-        requiresTemplate: true
-    },
-    {
-        id: 'search',
-        name: 'Search',
-        description: 'Tools for searching and retrieving information',
-        icon: '🔍',
-        subTools: [
-            { id: 'web-search', name: 'Web Search', description: 'Search the web for information' },
-            { id: 'doc-search', name: 'Document Search', description: 'Search through document repositories' }
-        ]
-    },
-    {
-        id: 'api',
-        name: 'API',
-        description: 'External API integrations and data processing',
-        icon: '🔌',
-        subTools: [
-            { id: 'rest-api', name: 'REST API', description: 'Make REST API calls' },
-            { id: 'graphql', name: 'GraphQL', description: 'Execute GraphQL queries' }
-        ]
-    },
-    {
-        id: 'utility',
-        name: 'Utils',
-        description: 'Utility tools for basic operations',
-        icon: '🛠️',
-        subTools: [
-            { id: 'echo', name: 'Echo', description: 'Echo input to output' },
-            { id: 'concatenate', name: 'Cat', description: 'Concatenate inputs' }
-        ]
-    }
-];
-
 const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     step,
     onStepUpdate,
@@ -68,8 +27,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedToolType, setSelectedToolType] = useState<string | null>(step.tool?.tool_type || null
-    );
+    const [selectedToolType, setSelectedToolType] = useState<string | null>(step.tool?.tool_type || null);
 
     useEffect(() => {
         console.log('ActionStepEditor fetching tools and templates');  // Debug log
@@ -131,6 +89,19 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         });
     };
 
+    const handleTemplateUpdate = async (template: PromptTemplate) => {
+        try {
+            await toolApi.updatePromptTemplate(template.template_id, template);
+            // Refresh the current template
+            if (step.prompt_template === template.template_id) {
+                handleTemplateChange(template.template_id);
+            }
+        } catch (error) {
+            console.error('Error updating template:', error);
+            throw error;
+        }
+    };
+
     const handleParameterMappingChange = (mappings: Record<string, string>) => {
         onStepUpdate({
             ...step,
@@ -147,8 +118,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
     // Function to get the tool type config
     const getToolTypeConfig = (typeId: string) => {
-        const res = TOOL_TYPES.find(type => type.id === typeId);
-        return res;
+        return TOOL_TYPES.find(type => type.tool_type_id === typeId);
     };
 
     // Function to check if a tool belongs to a type
@@ -156,8 +126,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         const config = getToolTypeConfig(typeId);
         if (!config) return false;
 
-        if (config.subTools) {
-            // For utils and other sub-tool types, match by tool_type
+        if (config.tools) {
+            // For utils and other tool types with subtools, match by tool_type
             return tool.tool_type === typeId;
         }
         return tool.tool_type === typeId;
@@ -230,18 +200,18 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {TOOL_TYPES.map((type) => (
                         <button
-                            key={type.id}
+                            key={type.tool_type_id}
                             onClick={() => {
-                                setSelectedToolType(type.id);
+                                setSelectedToolType(type.tool_type_id);
                                 // If LLM is selected, automatically set the LLM tool
-                                if (type.id === 'llm') {
+                                if (type.tool_type_id === 'llm') {
                                     console.log('LLM type selected, looking for LLM tool');  // Debug log
                                     const llmTool = tools.find(t => t.tool_type === 'llm');
                                     if (llmTool) handleToolSelect(llmTool);
                                 }
                             }}
                             className={`p-2 rounded-lg border-2 transition-all duration-200 text-left
-                                ${selectedToolType === type.id
+                                ${selectedToolType === type.tool_type_id
                                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                     : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
                                 }`}
@@ -269,37 +239,33 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                         Select Tool
                     </h3>
                     <div className="space-y-3">
-                        {getToolTypeConfig(selectedToolType)?.subTools ? (
+                        {getToolTypeConfig(selectedToolType)?.tools ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {getToolTypeConfig(selectedToolType)?.subTools?.map(subTool => {
-                                    // Find the matching tool
-                                    const matchingTool = tools.find(t => t.tool_id === subTool.id || t.name.toLowerCase() === subTool.name.toLowerCase());
-                                    //console.log('Matching tool for', selectedToolType, ':', matchingTool);
+                                {getToolTypeConfig(selectedToolType)?.tools?.map(tool => {
 
                                     return (
                                         <button
-                                            key={subTool.id}
+                                            key={tool.tool_id}
                                             onClick={() => {
-                                                console.log('Selected sub-tool:', subTool);
-                                                console.log('Available tools:', tools);
-                                                const tool = tools.find(t =>
-                                                    t.tool_id === subTool.id ||
-                                                    t.name.toLowerCase() === subTool.name.toLowerCase()
+                                                console.log('Selected tool:', tool);
+                                                const toolToUse = tools.find(t =>
+                                                    t.tool_id === tool.tool_id ||
+                                                    t.name.toLowerCase() === tool.name.toLowerCase()
                                                 );
-                                                console.log('Found tool:', tool);
-                                                if (tool) handleToolSelect(tool);
+                                                console.log('Found tool:', toolToUse);
+                                                if (toolToUse) handleToolSelect(toolToUse);
                                             }}
                                             className={`p-3 rounded-lg border text-left transition-colors
-                                                ${(step.tool?.tool_id === subTool.id || step.tool?.name.toLowerCase() === subTool.name.toLowerCase())
+                                                ${(step.tool?.tool_id === tool.tool_id || step.tool?.name.toLowerCase() === tool.name.toLowerCase())
                                                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                                     : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
                                                 }`}
                                         >
                                             <div className="font-medium text-gray-900 dark:text-gray-100">
-                                                {subTool.name}
+                                                {tool.name}
                                             </div>
                                             <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                                {subTool.description}
+                                                {tool.description}
                                             </div>
                                         </button>
                                     );
@@ -344,6 +310,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                         step={step}
                         promptTemplates={promptTemplates}
                         onTemplateChange={handleTemplateChange}
+                        onTemplateUpdate={handleTemplateUpdate}
                     />
                 </div>
             )}

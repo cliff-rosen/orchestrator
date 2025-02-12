@@ -11,6 +11,47 @@ let promptTemplatesCache: PromptTemplate[] | null = null;
 // Tool registry to store tool execution methods
 const toolRegistry = new Map<string, (parameters: ResolvedParameters) => Promise<ToolOutputs>>();
 
+// Tool type definitions
+export const TOOL_TYPES = [
+    {
+        tool_type_id: 'llm',
+        name: 'LLM',
+        description: 'Language Model tools for text generation and processing',
+        icon: '🤖',
+        requiresTemplate: true
+    },
+    {
+        tool_type_id: 'search',
+        name: 'Search',
+        description: 'Tools for searching and retrieving information',
+        icon: '🔍',
+        tools: [
+            { tool_id: 'web-search', name: 'Web Search', description: 'Search the web for information' },
+            { tool_id: 'doc-search', name: 'Document Search', description: 'Search through document repositories' }
+        ]
+    },
+    {
+        tool_type_id: 'api',
+        name: 'API',
+        description: 'External API integrations and data processing',
+        icon: '🔌',
+        tools: [
+            { tool_id: 'rest-api', name: 'REST API', description: 'Make REST API calls' },
+            { tool_id: 'graphql', name: 'GraphQL', description: 'Execute GraphQL queries' }
+        ]
+    },
+    {
+        tool_type_id: 'utility',
+        name: 'Utils',
+        description: 'Utility tools for basic operations',
+        icon: '🛠️',
+        tools: [
+            { tool_id: 'echo', name: 'Echo', description: 'Echo input to output' },
+            { tool_id: 'concatenate', name: 'Cat', description: 'Concatenate inputs' }
+        ]
+    }
+];
+
 ////// Tool executor functions //////
 
 // Register utility tool implementations
