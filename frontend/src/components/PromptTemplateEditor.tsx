@@ -36,6 +36,13 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
             setDescription(template.description);
             setTemplateText(template.template);
             setOutputSchema(template.output_schema);
+            if (template?.tokens) {
+                const newParams: Record<string, string> = {};
+                template.tokens.forEach(token => {
+                    newParams[token] = '';
+                });
+                setTestParameters(newParams);
+            }
         }
     }, [template]);
 
@@ -68,17 +75,6 @@ Ensure your response is valid JSON and matches this schema exactly.`;
             console.error('Failed to copy instructions:', err);
         }
     };
-
-    // Initialize test parameters from template tokens when component loads
-    useEffect(() => {
-        if (template?.tokens) {
-            const newParams: Record<string, string> = {};
-            template.tokens.forEach(token => {
-                newParams[token] = '';
-            });
-            setTestParameters(newParams);
-        }
-    }, [template]);
 
     // Extract tokens from template text
     const extractTokens = (text: string): string[] => {

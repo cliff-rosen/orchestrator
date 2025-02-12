@@ -13,11 +13,11 @@ import { toolApi } from '../lib/api';
 import { fileApi } from '../lib/api/fileApi';
 
 // Page components
-import WorkflowConfig from './WorkflowConfig';
-import MenuBar from './MenuBar';
-import WorkflowStepsList from './WorkflowStepsList';
-import StepDetail from './StepDetail';
-import WorkflowNavigation from './WorkflowNavigation';
+import WorkflowConfig from '../components/WorkflowConfig';
+import MenuBar from '../components/MenuBar';
+import WorkflowStepsList from '../components/WorkflowStepsList';
+import StepDetail from '../components/StepDetail';
+import WorkflowNavigation from '../components/WorkflowNavigation';
 
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();

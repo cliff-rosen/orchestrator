@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import FileLibrary from '../components/FileLibrary';
 
-const Files: React.FC = () => {
+const FilesManager: React.FC = () => {
     const [selectedFileId, setSelectedFileId] = useState<string | undefined>();
 
     console.log('Files component rendered');
@@ -26,4 +26,4 @@ const Files: React.FC = () => {
     );
 };
 
-export default Files; 
+export default FilesManager; 

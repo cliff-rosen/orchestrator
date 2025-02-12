@@ -70,7 +70,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [selectedToolType, setSelectedToolType] = useState<string | null>(step.tool?.tool_type || null
     );
-    console.log('Initial selectedToolType:', selectedToolType);  // Debug log
+    console.log('ActionStepEditor');  // Debug log
 
     useEffect(() => {
         console.log('Fetching tools, selectedToolType:', selectedToolType);  // Debug log

@@ -3,7 +3,7 @@ import { PromptTemplate } from '../types/prompts';
 import { toolApi } from '../lib/api';
 import PromptTemplateEditor from '../components/PromptTemplateEditor';
 
-const PromptTemplatesPage: React.FC = () => {
+const PromptTemplateManagerPage: React.FC = () => {
     const [templates, setTemplates] = useState<PromptTemplate[]>([]);
     const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
     const [showEditor, setShowEditor] = useState(false);
@@ -206,4 +206,4 @@ const PromptTemplatesPage: React.FC = () => {
     );
 };
 
-export default PromptTemplatesPage; 
+export default PromptTemplateManagerPage; 

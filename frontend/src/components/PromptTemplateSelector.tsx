@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
 import { PromptTemplate } from '../types/prompts';
 import { WorkflowStep } from '../types/workflows';
-import Dialog from './common/Dialog';
+import PromptTemplateEditor from './PromptTemplateEditor';
 
 interface PromptTemplateSelectorProps {
     step: WorkflowStep;
     promptTemplates: PromptTemplate[];
     onTemplateChange: (templateId: string) => void;
+    onTemplateUpdate: (template: PromptTemplate) => Promise<void>;
 }
 
 const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
     step,
     promptTemplates,
-    onTemplateChange
+    onTemplateChange,
+    onTemplateUpdate
 }) => {
-    const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+    const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     if (!step.tool || step.tool.tool_type !== 'llm') {
         return null;
@@ -23,6 +26,33 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
     const selectedTemplate = step.prompt_template
         ? promptTemplates.find(t => t.template_id === step.prompt_template)
         : null;
+
+    const handleSave = async (template: Partial<PromptTemplate>, shouldClose: boolean) => {
+        try {
+            setSaving(true);
+
+            // If we have a template_id, this is an existing template being edited
+            if (template.template_id && selectedTemplate) {
+                // Merge the changes with the existing template
+                const updatedTemplate = {
+                    ...selectedTemplate,
+                    ...template
+                } as PromptTemplate;
+
+                // Save the changes
+                await onTemplateUpdate(updatedTemplate);
+
+                // Refresh the current selection
+                onTemplateChange(template.template_id);
+            }
+
+            if (shouldClose) {
+                setShowTemplateEditor(false);
+            }
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <div className="space-y-2">
@@ -46,7 +76,7 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
                 </select>
                 {selectedTemplate && (
                     <button
-                        onClick={() => setShowTemplateDialog(true)}
+                        onClick={() => setShowTemplateEditor(true)}
                         className="px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 
                                  dark:text-blue-400 dark:hover:text-blue-300 border border-blue-600 
                                  dark:border-blue-400 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 
@@ -57,47 +87,14 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
                 )}
             </div>
 
-            {/* Template Dialog */}
-            <Dialog
-                isOpen={showTemplateDialog && selectedTemplate !== null}
-                onClose={() => setShowTemplateDialog(false)}
-                title={selectedTemplate?.name || ''}
-            >
-                <div className="space-y-4">
-                    <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Description
-                        </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {selectedTemplate?.description}
-                        </p>
-                    </div>
-                    <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Template Content
-                        </h4>
-                        <pre className="p-4 bg-gray-50 dark:bg-gray-800 rounded-md text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                            {selectedTemplate?.template}
-                        </pre>
-                    </div>
-                    <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Available Tokens
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                            {selectedTemplate?.tokens.map((token, index) => (
-                                <span
-                                    key={index}
-                                    className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 
-                                             dark:text-blue-200 rounded-md"
-                                >
-                                    {token}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </Dialog>
+            {/* Template Editor */}
+            {showTemplateEditor && selectedTemplate && (
+                <PromptTemplateEditor
+                    template={selectedTemplate}
+                    onSave={handleSave}
+                    onCancel={() => setShowTemplateEditor(false)}
+                />
+            )}
         </div>
     );
 };

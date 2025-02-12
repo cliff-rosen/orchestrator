@@ -4,12 +4,12 @@ import { ThemeProvider } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
 import { WorkflowProvider, useWorkflows } from './context/WorkflowContext';
 import { setStreamSessionExpiredHandler } from './lib/api/streamUtils';
-import WorkflowsManager from './components/WorkflowsManager';
-import Workflow from './components/Workflow';
 import TopBar from './components/TopBar';
 import LoginForm from './components/auth/LoginForm';
-import PromptTemplatesPage from './pages/PromptTemplates';
-import FilesPage from './pages/Files';
+import WorkflowsManager from './pages/WorkflowsManager';
+import Workflow from './pages/Workflow';
+import PromptTemplateManagerPage from './pages/PromptTemplateManager';
+import FilesManager from './pages/FilesManager';
 
 // Main app content when authenticated
 const AuthenticatedApp = () => {
@@ -59,8 +59,8 @@ const AuthenticatedApp = () => {
             <Routes>
               <Route path="/" element={<WorkflowsManager />} />
               <Route path="/workflow/:workflowId/*" element={<Workflow />} />
-              <Route path="/prompt-templates" element={<PromptTemplatesPage />} />
-              <Route path="/files" element={<FilesPage />} />
+              <Route path="/prompt-templates" element={<PromptTemplateManagerPage />} />
+              <Route path="/files" element={<FilesManager />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
