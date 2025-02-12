@@ -38,7 +38,16 @@ const Workflow: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(true);
     const [isExecuting, setIsExecuting] = useState(false);
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        // Initialize from localStorage, default to false if not set
+        const saved = localStorage.getItem('workflowNavCollapsed');
+        return saved ? JSON.parse(saved) : false;
+    });
+
+    // Save collapse state to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem('workflowNavCollapsed', JSON.stringify(isCollapsed));
+    }, [isCollapsed]);
 
     // Initialize workflow based on URL parameter
     useEffect(() => {
