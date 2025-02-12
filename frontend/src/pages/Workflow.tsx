@@ -60,7 +60,6 @@ const Workflow: React.FC = () => {
         // Only load if we don't have this workflow or it's a different one
         if (!workflow || (workflow.workflow_id !== workflowId && workflowId !== 'new')) {
             const loadWorkflowData = async () => {
-                console.log('useEffect loading workflow:', workflowId);
                 try {
                     await loadWorkflow(workflowId);
                 } catch (err) {
@@ -160,7 +159,7 @@ const Workflow: React.FC = () => {
                         // Find the variable in either inputs or outputs
                         const variable = workflow?.inputs?.find(v => v.name === varName) ||
                             workflow?.outputs?.find(v => v.name === varName);
-                        console.log(`Resolving parameter ${paramName} from ${varName}:`, variable?.value);
+                        // console.log(`Resolving parameter ${paramName} from ${varName}:`, variable?.value);
 
                         // If the variable is a file type and the parameter expects a string,
                         // fetch the file content
@@ -201,7 +200,7 @@ const Workflow: React.FC = () => {
                     resolvedParameters['templateId' as ToolParameterName] = currentStep.prompt_template;
                 }
 
-                console.log('Executing tool with parameters:', resolvedParameters);
+                // console.log('Executing tool with parameters:', resolvedParameters);
                 const toolId = currentStep.tool.tool_id;
                 const outputs = await toolApi.executeTool(toolId, resolvedParameters);
                 console.log('Tool execution outputs:', outputs);
@@ -212,7 +211,7 @@ const Workflow: React.FC = () => {
 
                     for (const [outputName, varName] of Object.entries(currentStep.output_mappings)) {
                         const value = outputs[outputName as ToolOutputName];
-                        console.log(`Loading output ${outputName} into ${varName} with value`, value);
+                        // console.log(`Loading output ${outputName} into ${varName} with value`, value);
 
                         // Find and update the output variable
                         const outputVar = updatedOutputs.find(v => v.name === varName);
@@ -311,7 +310,7 @@ const Workflow: React.FC = () => {
     // Get current step
     const currentStep = allSteps[activeStep];
     if (!currentStep) {
-        console.log('currentStep does not exist');
+        //console.log('currentStep does not exist');
         // Reset to first step if current step doesn't exist
         setActiveStep(0);
         // Don't return null here, let the UI render

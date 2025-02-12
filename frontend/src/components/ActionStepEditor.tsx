@@ -70,14 +70,13 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [selectedToolType, setSelectedToolType] = useState<string | null>(step.tool?.tool_type || null
     );
-    console.log('ActionStepEditor', step.tool?.tool_type);  // Debug log
 
     useEffect(() => {
-        console.log('Fetching tools, selectedToolType:', selectedToolType);  // Debug log
+        console.log('ActionStepEditor fetching tools and templates');  // Debug log
         const fetchTools = async () => {
             try {
                 const availableTools = await toolApi.getAvailableTools();
-                console.log('Tools fetched:', availableTools);  // Debug log
+                //console.log('Tools fetched:', availableTools);  // Debug log
                 setTools(availableTools);
                 setLoading(false);
             } catch (err) {
@@ -103,7 +102,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
     // Add effect to track selectedToolType changes
     useEffect(() => {
-        console.log('selectedToolType changed to:', selectedToolType);  // Debug log
+        // console.log('selectedToolType changed to:', step);  // Debug log
         setSelectedToolType(step.tool?.tool_type || null);
     }, [step]);
 
@@ -149,7 +148,6 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     // Function to get the tool type config
     const getToolTypeConfig = (typeId: string) => {
         const res = TOOL_TYPES.find(type => type.id === typeId);
-        console.log('getToolTypeConfig', typeId, res);
         return res;
     };
 
@@ -234,13 +232,11 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                         <button
                             key={type.id}
                             onClick={() => {
-                                console.log('Tool type button clicked:', type.id);  // Debug log
                                 setSelectedToolType(type.id);
                                 // If LLM is selected, automatically set the LLM tool
                                 if (type.id === 'llm') {
                                     console.log('LLM type selected, looking for LLM tool');  // Debug log
                                     const llmTool = tools.find(t => t.tool_type === 'llm');
-                                    console.log('Found LLM tool:', llmTool);  // Debug log
                                     if (llmTool) handleToolSelect(llmTool);
                                 }
                             }}
@@ -278,7 +274,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                                 {getToolTypeConfig(selectedToolType)?.subTools?.map(subTool => {
                                     // Find the matching tool
                                     const matchingTool = tools.find(t => t.tool_id === subTool.id || t.name.toLowerCase() === subTool.name.toLowerCase());
-                                    console.log('Matching tool for', selectedToolType, ':', matchingTool);
+                                    //console.log('Matching tool for', selectedToolType, ':', matchingTool);
 
                                     return (
                                         <button
