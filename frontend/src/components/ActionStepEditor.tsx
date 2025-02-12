@@ -47,7 +47,7 @@ const TOOL_TYPES = [
         ]
     },
     {
-        id: 'utils',
+        id: 'utility',
         name: 'Utils',
         description: 'Utility tools for basic operations',
         icon: '🛠️',
@@ -70,7 +70,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [selectedToolType, setSelectedToolType] = useState<string | null>(step.tool?.tool_type || null
     );
-    console.log('ActionStepEditor');  // Debug log
+    console.log('ActionStepEditor', step.tool?.tool_type);  // Debug log
 
     useEffect(() => {
         console.log('Fetching tools, selectedToolType:', selectedToolType);  // Debug log
@@ -148,7 +148,9 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
     // Function to get the tool type config
     const getToolTypeConfig = (typeId: string) => {
-        return TOOL_TYPES.find(type => type.id === typeId);
+        const res = TOOL_TYPES.find(type => type.id === typeId);
+        console.log('getToolTypeConfig', typeId, res);
+        return res;
     };
 
     // Function to check if a tool belongs to a type
@@ -276,7 +278,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                                 {getToolTypeConfig(selectedToolType)?.subTools?.map(subTool => {
                                     // Find the matching tool
                                     const matchingTool = tools.find(t => t.tool_id === subTool.id || t.name.toLowerCase() === subTool.name.toLowerCase());
-                                    console.log('Matching tool for', subTool.name, ':', matchingTool);
+                                    console.log('Matching tool for', selectedToolType, ':', matchingTool);
 
                                     return (
                                         <button
