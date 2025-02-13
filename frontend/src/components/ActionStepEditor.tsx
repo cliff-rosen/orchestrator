@@ -64,11 +64,34 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         if (!step.tool) return;
 
         const signature = await toolApi.createToolSignatureFromTemplate(templateId);
+
+        // Only clear mappings if the parameters/outputs have changed
+        const parameterMappings = { ...step.parameter_mappings };
+        const outputMappings = { ...step.output_mappings };
+
+        // Clear parameter mappings for parameters that no longer exist
+        if (step.parameter_mappings) {
+            Object.keys(step.parameter_mappings).forEach(param => {
+                if (!signature.parameters.find(p => p.name === param)) {
+                    delete parameterMappings[param];
+                }
+            });
+        }
+
+        // Clear output mappings for outputs that no longer exist
+        if (step.output_mappings) {
+            Object.keys(step.output_mappings).forEach(output => {
+                if (!signature.outputs.find(o => o.name === output)) {
+                    delete outputMappings[output];
+                }
+            });
+        }
+
         onStepUpdate({
             ...step,
             prompt_template: templateId,
-            parameter_mappings: {},
-            output_mappings: {},
+            parameter_mappings: parameterMappings,
+            output_mappings: outputMappings,
             tool: {
                 ...step.tool,
                 signature
