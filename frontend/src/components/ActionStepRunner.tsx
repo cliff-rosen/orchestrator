@@ -14,12 +14,27 @@ const formatValue = (value: any): JSX.Element => {
     if (Array.isArray(value)) {
         return (
             <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                <div className="p-3 text-gray-600 dark:text-gray-300 font-mono text-sm whitespace-pre-wrap">
-                    {value.map((item, index) => (
-                        <div key={index}>
-                            {typeof item === 'object' ? JSON.stringify(item, null, 2) : String(item)}
-                        </div>
-                    ))}
+                <div className="p-3 text-gray-600 dark:text-gray-300 font-mono text-sm">
+                    <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 mb-1">
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                        <span>Array ({value.length} items)</span>
+                    </div>
+                    <div className="space-y-1">
+                        {value.map((item, index) => (
+                            <div key={index} className="flex items-start gap-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 p-1 rounded">
+                                <span className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5 select-none">{index}</span>
+                                <div className="flex-1">
+                                    {typeof item === 'object' ? (
+                                        <div className="whitespace-pre-wrap">{JSON.stringify(item, null, 2)}</div>
+                                    ) : (
+                                        <div className="break-all">{String(item)}</div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         );
