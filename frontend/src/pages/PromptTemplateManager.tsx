@@ -59,7 +59,11 @@ const PromptTemplateManager: React.FC = () => {
                                     Edit
                                 </button>
                                 <button
-                                    onClick={() => deleteTemplate(template.template_id)}
+                                    onClick={() => {
+                                        if (window.confirm(`Are you sure you want to delete template "${template.name}"?`)) {
+                                            deleteTemplate(template.template_id);
+                                        }
+                                    }}
                                     className="text-red-600 hover:text-red-700 dark:text-red-400 
                                              dark:hover:text-red-300"
                                 >
