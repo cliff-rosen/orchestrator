@@ -350,7 +350,7 @@ const Workflow: React.FC = () => {
                     {/* Collapse Button */}
                     <button
                         onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="absolute -right-3 top-4 p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 z-10"
+                        className="absolute -right-3 top-14 p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 z-10"
                         title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                     >
                         <svg
@@ -364,13 +364,14 @@ const Workflow: React.FC = () => {
                     </button>
 
                     {/* Config Section */}
-                    <div className={`${isCollapsed ? 'hidden' : ''}`}>
+                    <div className={`${isCollapsed ? 'hidden' : 'p-2'}`}>
                         <button
                             onClick={() => setShowConfig(!showConfig)}
-                            className={`w-full flex items-center gap-2 p-2 text-sm font-medium transition-colors
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors
                                 ${showConfig
                                     ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+                                    : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400'
+                                }`}
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -388,7 +389,8 @@ const Workflow: React.FC = () => {
                                 className={`w-full flex justify-center p-2 rounded-md transition-colors
                                     ${showConfig
                                         ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'}`}
+                                        : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400'
+                                    }`}
                                 title="Workflow Configuration"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -401,60 +403,15 @@ const Workflow: React.FC = () => {
 
                     {/* Show Steps List when not in config mode */}
                     {!showConfig && (
-                        <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'hidden' : ''}`}>
-                            <WorkflowStepsList
-                                steps={allSteps}
-                                activeStep={activeStep}
-                                isEditMode={isEditMode}
-                                onStepClick={handleStepClick}
-                                onAddStep={handleAddStep}
-                                onReorder={handleStepReorder}
-                            />
-                        </div>
-                    )}
-
-                    {/* Collapsed Steps List */}
-                    {!showConfig && isCollapsed && (
-                        <div className="flex-1 overflow-y-auto p-2">
-                            {allSteps.map((step, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => handleStepClick(index)}
-                                    className={`w-full flex justify-center p-2 mb-2 rounded-md transition-colors ${index === activeStep
-                                        ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                                        }`}
-                                    title={step.label}
-                                >
-                                    <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium
-                                        ${index === activeStep
-                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
-                                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                                        }`}
-                                    >
-                                        {!isEditMode && step.step_type === WorkflowStepType.INPUT ? (
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        ) : (
-                                            isEditMode ? index + 1 : index
-                                        )}
-                                    </div>
-                                </button>
-                            ))}
-                            {isEditMode && (
-                                <button
-                                    onClick={handleAddStep}
-                                    className="w-full flex justify-center p-2 text-gray-600 dark:text-gray-300 
-                                             hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-md transition-colors"
-                                    title="Add Step"
-                                >
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                    </svg>
-                                </button>
-                            )}
-                        </div>
+                        <WorkflowStepsList
+                            steps={allSteps}
+                            activeStep={activeStep}
+                            isEditMode={isEditMode}
+                            onStepClick={handleStepClick}
+                            onAddStep={handleAddStep}
+                            onReorder={handleStepReorder}
+                            isCollapsed={isCollapsed}
+                        />
                     )}
                 </div>
 
