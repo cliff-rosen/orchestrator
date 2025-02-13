@@ -1,15 +1,16 @@
 // Rename from ActionEditor.tsx
 // This is for editing action steps in edit mode 
 
-import React, { useState, useEffect } from 'react';
-import { Tool } from '../types/tools';
+import React, { useEffect, useState } from 'react';
 import { WorkflowStep } from '../types/workflows';
-import { PromptTemplate } from '../types/prompts';
+import { Tool } from '../types/tools';
 import { toolApi, TOOL_TYPES } from '../lib/api/toolApi';
-import { useWorkflows } from '../context/WorkflowContext';
+import ToolSelector from './ToolSelector';
 import PromptTemplateSelector from './PromptTemplateSelector';
 import ParameterMapper from './ParameterMapper';
 import OutputMapper from './OutputMapper';
+import { usePromptTemplates } from '../context/PromptTemplateContext';
+import { useWorkflows } from '../context/WorkflowContext';
 
 interface ActionStepEditorProps {
     step: WorkflowStep;
@@ -24,43 +25,28 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 }) => {
     const { workflow } = useWorkflows();
     const [tools, setTools] = useState<Tool[]>([]);
-    const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedToolType, setSelectedToolType] = useState<string | null>(step.tool?.tool_type || null);
 
     useEffect(() => {
-        console.log('ActionStepEditor fetching tools and templates');  // Debug log
-        const fetchTools = async () => {
+        const loadTools = async () => {
             try {
+                setLoading(true);
                 const availableTools = await toolApi.getAvailableTools();
-                //console.log('Tools fetched:', availableTools);  // Debug log
                 setTools(availableTools);
-                setLoading(false);
             } catch (err) {
-                console.error('Error fetching tools:', err);
+                console.error('Error loading tools:', err);
                 setError('Failed to load tools');
+            } finally {
                 setLoading(false);
             }
         };
-
-        const fetchTemplates = async () => {
-            try {
-                const templates = await toolApi.getPromptTemplates();
-                setPromptTemplates(templates);
-            } catch (err) {
-                console.error('Error fetching templates:', err);
-                setError('Failed to load prompt templates');
-            }
-        };
-
-        fetchTools();
-        fetchTemplates();
+        loadTools();
     }, []);
 
-    // Add effect to track selectedToolType changes
+    // Update selectedToolType when step changes
     useEffect(() => {
-        // console.log('selectedToolType changed to:', step);  // Debug log
         setSelectedToolType(step.tool?.tool_type || null);
     }, [step]);
 
@@ -68,38 +54,27 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         onStepUpdate({
             ...step,
             tool,
+            tool_id: tool.tool_id,
             parameter_mappings: {},
-            output_mappings: {}
+            output_mappings: {},
+            prompt_template: undefined
         });
     };
 
     const handleTemplateChange = async (templateId: string) => {
         if (!step.tool) return;
 
-        const newSignature = await toolApi.createToolSignatureFromTemplate(templateId);
+        const signature = await toolApi.createToolSignatureFromTemplate(templateId);
         onStepUpdate({
             ...step,
-            tool: {
-                ...step.tool,
-                signature: newSignature,
-            },
             prompt_template: templateId,
             parameter_mappings: {},
-            output_mappings: {}
-        });
-    };
-
-    const handleTemplateUpdate = async (template: PromptTemplate) => {
-        try {
-            await toolApi.updatePromptTemplate(template.template_id, template);
-            // Refresh the current template
-            if (step.prompt_template === template.template_id) {
-                handleTemplateChange(template.template_id);
+            output_mappings: {},
+            tool: {
+                ...step.tool,
+                signature
             }
-        } catch (error) {
-            console.error('Error updating template:', error);
-            throw error;
-        }
+        });
     };
 
     const handleParameterMappingChange = (mappings: Record<string, string>) => {
@@ -125,11 +100,6 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     const isToolOfType = (tool: Tool, typeId: string) => {
         const config = getToolTypeConfig(typeId);
         if (!config) return false;
-
-        if (config.tools) {
-            // For utils and other tool types with subtools, match by tool_type
-            return tool.tool_type === typeId;
-        }
         return tool.tool_type === typeId;
     };
 
@@ -205,7 +175,6 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                                 setSelectedToolType(type.tool_type_id);
                                 // If LLM is selected, automatically set the LLM tool
                                 if (type.tool_type_id === 'llm') {
-                                    console.log('LLM type selected, looking for LLM tool');  // Debug log
                                     const llmTool = tools.find(t => t.tool_type === 'llm');
                                     if (llmTool) handleToolSelect(llmTool);
                                 }
@@ -241,35 +210,30 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     <div className="space-y-3">
                         {getToolTypeConfig(selectedToolType)?.tools ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {getToolTypeConfig(selectedToolType)?.tools?.map(tool => {
-
-                                    return (
-                                        <button
-                                            key={tool.tool_id}
-                                            onClick={() => {
-                                                console.log('Selected tool:', tool);
-                                                const toolToUse = tools.find(t =>
-                                                    t.tool_id === tool.tool_id ||
-                                                    t.name.toLowerCase() === tool.name.toLowerCase()
-                                                );
-                                                console.log('Found tool:', toolToUse);
-                                                if (toolToUse) handleToolSelect(toolToUse);
-                                            }}
-                                            className={`p-3 rounded-lg border text-left transition-colors
-                                                ${(step.tool?.tool_id === tool.tool_id || step.tool?.name.toLowerCase() === tool.name.toLowerCase())
-                                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                                }`}
-                                        >
-                                            <div className="font-medium text-gray-900 dark:text-gray-100">
-                                                {tool.name}
-                                            </div>
-                                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                                {tool.description}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
+                                {getToolTypeConfig(selectedToolType)?.tools?.map(tool => (
+                                    <button
+                                        key={tool.tool_id}
+                                        onClick={() => {
+                                            const toolToUse = tools.find(t =>
+                                                t.tool_id === tool.tool_id ||
+                                                t.name.toLowerCase() === tool.name.toLowerCase()
+                                            );
+                                            if (toolToUse) handleToolSelect(toolToUse);
+                                        }}
+                                        className={`p-3 rounded-lg border text-left transition-colors
+                                            ${(step.tool?.tool_id === tool.tool_id || step.tool?.name.toLowerCase() === tool.name.toLowerCase())
+                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                                : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                            }`}
+                                    >
+                                        <div className="font-medium text-gray-900 dark:text-gray-100">
+                                            {tool.name}
+                                        </div>
+                                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                            {tool.description}
+                                        </div>
+                                    </button>
+                                ))}
                             </div>
                         ) : (
                             <select
@@ -291,11 +255,6 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                                     ))}
                             </select>
                         )}
-                        {step.tool && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {step.tool.description}
-                            </p>
-                        )}
                     </div>
                 </div>
             )}
@@ -308,9 +267,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     </h3>
                     <PromptTemplateSelector
                         step={step}
-                        promptTemplates={promptTemplates}
                         onTemplateChange={handleTemplateChange}
-                        onTemplateUpdate={handleTemplateUpdate}
                     />
                 </div>
             )}
@@ -387,159 +344,32 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     </div>
 
                     {/* Mapping Section */}
-                    <div className="space-y-3">
+                    <div className="space-y-6">
                         {/* Input Mapping */}
                         <div>
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                                <span>Input Mapping</span>
-                                <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900 
-                                               text-blue-800 dark:text-blue-200 rounded-full">
-                                    Map tool inputs from workflow variables
-                                </span>
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Input Mapping
                             </h4>
-                            <div className="relative">
-                                {/* Visual Flow Lines */}
-                                <div className="absolute inset-0 pointer-events-none">
-                                    <div className="w-full h-full bg-gradient-to-r from-blue-50 to-blue-50 dark:from-blue-900/10 dark:to-blue-900/10 
-                                                  opacity-50 rounded-lg"></div>
-                                </div>
-
-                                <div className="grid grid-cols-12 gap-3">
-                                    {/* Available Variables (Left) */}
-                                    <div className="col-span-5 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                                        <h5 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                                            Available Variables
-                                        </h5>
-                                        <div className="space-y-2">
-                                            {/* Workflow Inputs */}
-                                            <div>
-                                                <h6 className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                                    Workflow Inputs
-                                                </h6>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {workflow?.inputs?.map(input => (
-                                                        <span
-                                                            key={input.name}
-                                                            className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900 
-                                                                     text-blue-800 dark:text-blue-200 rounded"
-                                                            title={`Type: ${input.schema.type}${input.description ? `\n${input.description}` : ''}`}
-                                                        >
-                                                            {input.name}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Previous Outputs */}
-                                            <div>
-                                                <h6 className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                                    Previous Outputs
-                                                </h6>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {workflow?.outputs?.map(output => (
-                                                        <span
-                                                            key={output.name}
-                                                            className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900 
-                                                                     text-green-800 dark:text-green-200 rounded"
-                                                            title={`Type: ${output.schema.type}${output.description ? `\n${output.description}` : ''}`}
-                                                        >
-                                                            {output.name}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Arrow */}
-                                    <div className="col-span-2 flex items-center justify-center">
-                                        <svg className="w-6 h-6 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                        </svg>
-                                    </div>
-
-                                    {/* Parameter Mapping (Right) */}
-                                    <div className="col-span-5 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                                        <h5 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                                            Tool Parameters
-                                        </h5>
-                                        <div className="space-y-2">
-                                            <ParameterMapper
-                                                tool={step.tool}
-                                                parameter_mappings={step.parameter_mappings || {}}
-                                                inputs={workflow?.inputs || []}
-                                                outputs={workflow?.outputs || []}
-                                                onChange={handleParameterMappingChange}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <ParameterMapper
+                                tool={step.tool}
+                                parameter_mappings={step.parameter_mappings || {}}
+                                inputs={workflow?.inputs || []}
+                                outputs={workflow?.outputs || []}
+                                onChange={handleParameterMappingChange}
+                            />
                         </div>
 
                         {/* Output Mapping */}
                         <div>
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                                <span>Output Mapping</span>
-                                <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900 
-                                               text-green-800 dark:text-green-200 rounded-full">
-                                    Map tool outputs to workflow variables
-                                </span>
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Output Mapping
                             </h4>
-                            <div className="relative">
-                                {/* Visual Flow Lines */}
-                                <div className="absolute inset-0 pointer-events-none">
-                                    <div className="w-full h-full bg-gradient-to-r from-green-50 to-green-50 dark:from-green-900/10 dark:to-green-900/10 
-                                                  opacity-50 rounded-lg"></div>
-                                </div>
-
-                                <div className="grid grid-cols-12 gap-3">
-                                    {/* Tool Outputs (Left) */}
-                                    <div className="col-span-5 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                                        <h5 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                                            Tool Outputs
-                                        </h5>
-                                        <div className="space-y-1">
-                                            {step.tool.signature.outputs.map(output => (
-                                                <div
-                                                    key={output.name}
-                                                    className="py-1 px-2 bg-green-50 dark:bg-green-900/20 
-                                                             border border-green-200 dark:border-green-800 rounded text-xs"
-                                                >
-                                                    <span className="font-medium text-green-800 dark:text-green-200">
-                                                        {output.name}
-                                                    </span>
-                                                    <span className="ml-1.5 text-green-600 dark:text-green-300">
-                                                        ({output.schema.type})
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Arrow */}
-                                    <div className="col-span-2 flex items-center justify-center">
-                                        <svg className="w-6 h-6 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                        </svg>
-                                    </div>
-
-                                    {/* Output Variable Selection (Right) */}
-                                    <div className="col-span-5 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                                        <h5 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                                            Workflow Outputs
-                                        </h5>
-                                        <div className="space-y-2">
-                                            <OutputMapper
-                                                tool={step.tool}
-                                                output_mappings={step.output_mappings || {}}
-                                                outputs={workflow?.outputs || []}
-                                                onChange={handleOutputMappingChange}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <OutputMapper
+                                tool={step.tool}
+                                output_mappings={step.output_mappings || {}}
+                                outputs={workflow?.outputs || []}
+                                onChange={handleOutputMappingChange}
+                            />
                         </div>
                     </div>
                 </div>

@@ -1,14 +1,18 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+// contexts
 import { useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
 import { WorkflowProvider, useWorkflows } from './context/WorkflowContext';
+import { PromptTemplateProvider } from './context/PromptTemplateContext';
+// utils
 import { setStreamSessionExpiredHandler } from './lib/api/streamUtils';
+// components
 import TopBar from './components/TopBar';
 import LoginForm from './components/auth/LoginForm';
 import WorkflowsManager from './pages/WorkflowsManager';
 import Workflow from './pages/Workflow';
-import PromptTemplateManagerPage from './pages/PromptTemplateManager';
+import PromptTemplateManager from './pages/PromptTemplateManager';
 import FilesManager from './pages/FilesManager';
 
 // Main app content when authenticated
@@ -59,7 +63,7 @@ const AuthenticatedApp = () => {
             <Routes>
               <Route path="/" element={<WorkflowsManager />} />
               <Route path="/workflow/:workflowId/*" element={<Workflow />} />
-              <Route path="/prompt-templates" element={<PromptTemplateManagerPage />} />
+              <Route path="/prompt-templates" element={<PromptTemplateManager />} />
               <Route path="/files" element={<FilesManager />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
@@ -102,7 +106,9 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
         <WorkflowProvider>
-          <AuthenticatedApp />
+          <PromptTemplateProvider>
+            <AuthenticatedApp />
+          </PromptTemplateProvider>
         </WorkflowProvider>
       </ThemeProvider>
     </BrowserRouter>

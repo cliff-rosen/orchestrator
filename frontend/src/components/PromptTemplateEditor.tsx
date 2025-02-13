@@ -2,20 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { PromptTemplate, PromptTemplateOutputSchema } from '../types/prompts';
 import Dialog from './common/Dialog';
 import SchemaEditor from './common/SchemaEditor';
+import { usePromptTemplates } from '../context/PromptTemplateContext';
 
 interface PromptTemplateEditorProps {
     template: PromptTemplate | null;
-    onSave: (template: Partial<PromptTemplate>, shouldClose: boolean) => Promise<void>;
-    onCancel: () => void;
-    onTest?: (template: Partial<PromptTemplate>, parameters: Record<string, string>) => Promise<any>;
 }
 
 const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
-    template,
-    onSave,
-    onCancel,
-    onTest
+    template
 }) => {
+    const { updateTemplate, createTemplate, setIsEditing, testTemplate } = usePromptTemplates();
     const [name, setName] = useState(template?.name || '');
     const [description, setDescription] = useState(template?.description || '');
     const [templateText, setTemplateText] = useState(template?.template || '');
@@ -103,13 +99,19 @@ Ensure your response is valid JSON and matches this schema exactly.`;
             setSaving(true);
             setError(null);
 
-            await onSave({
+            const templateData = {
                 name,
                 description,
                 template: templateText,
                 tokens: extractTokens(templateText),
                 output_schema: outputSchema
-            }, false);
+            };
+
+            if (template?.template_id) {
+                await updateTemplate(template.template_id, templateData);
+            } else {
+                await createTemplate(templateData);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save template');
         } finally {
@@ -122,14 +124,20 @@ Ensure your response is valid JSON and matches this schema exactly.`;
             setSaving(true);
             setError(null);
 
-            await onSave({
+            const templateData = {
                 name,
                 description,
                 template: templateText,
                 tokens: extractTokens(templateText),
                 output_schema: outputSchema
-            }, true);
-            onCancel();
+            };
+
+            if (template?.template_id) {
+                await updateTemplate(template.template_id, templateData);
+            } else {
+                await createTemplate(templateData);
+            }
+            setIsEditing(false);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save template');
         } finally {
@@ -138,13 +146,11 @@ Ensure your response is valid JSON and matches this schema exactly.`;
     };
 
     const handleTest = async () => {
-        if (!onTest) return;
-
         setTesting(true);
         try {
             setError(null);
 
-            const result = await onTest({
+            const result = await testTemplate({
                 template: templateText,
                 tokens: extractTokens(templateText),
                 output_schema: outputSchema
@@ -161,7 +167,7 @@ Ensure your response is valid JSON and matches this schema exactly.`;
         <Dialog
             isOpen={true}
             title={template ? 'Edit Template' : 'Create Template'}
-            onClose={onCancel}
+            onClose={() => setIsEditing(false)}
             maxWidth="4xl"
         >
             <div className="space-y-6 min-w-[800px]">
@@ -287,42 +293,40 @@ Ensure your response is valid JSON and matches this schema exactly.`;
                 </div>
 
                 {/* Test Section */}
-                {onTest && (
+                {Object.keys(testParameters).length > 0 && (
                     <div className="space-y-4">
                         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
                             Test Template
                         </h3>
 
                         {/* Template Variables */}
-                        {Object.keys(testParameters).length > 0 && (
-                            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                                    Template Variables
-                                </h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {Object.keys(testParameters).map((token) => (
-                                        <div key={token} className="flex items-center space-x-2">
-                                            <span className="text-sm font-mono text-gray-600 dark:text-gray-400 min-w-[150px]">
-                                                {"{{"}{token}{"}}"}
-                                            </span>
-                                            <input
-                                                type="text"
-                                                value={testParameters[token]}
-                                                onChange={(e) => setTestParameters(prev => ({
-                                                    ...prev,
-                                                    [token]: e.target.value
-                                                }))}
-                                                placeholder={`Value for ${token}`}
-                                                className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 
-                                                         shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
-                                                         focus:border-blue-500 dark:bg-gray-800
-                                                         text-gray-900 dark:text-gray-100"
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
+                        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+                                Template Variables
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                {Object.keys(testParameters).map((token) => (
+                                    <div key={token} className="flex items-center space-x-2">
+                                        <span className="text-sm font-mono text-gray-600 dark:text-gray-400 min-w-[150px]">
+                                            {"{{"}{token}{"}}"}
+                                        </span>
+                                        <input
+                                            type="text"
+                                            value={testParameters[token]}
+                                            onChange={(e) => setTestParameters(prev => ({
+                                                ...prev,
+                                                [token]: e.target.value
+                                            }))}
+                                            placeholder={`Value for ${token}`}
+                                            className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 
+                                                     shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
+                                                     focus:border-blue-500 dark:bg-gray-800
+                                                     text-gray-900 dark:text-gray-100"
+                                        />
+                                    </div>
+                                ))}
                             </div>
-                        )}
+                        </div>
 
                         <button
                             type="button"
@@ -360,7 +364,7 @@ Ensure your response is valid JSON and matches this schema exactly.`;
                 <div className="flex justify-end space-x-3">
                     <button
                         type="button"
-                        onClick={onCancel}
+                        onClick={() => setIsEditing(false)}
                         className="inline-flex justify-center py-2 px-4 border border-gray-300 
                                  shadow-sm text-sm font-medium rounded-md text-gray-700 
                                  bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 
