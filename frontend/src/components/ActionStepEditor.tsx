@@ -6,8 +6,7 @@ import { WorkflowStep } from '../types/workflows';
 import { Tool } from '../types/tools';
 import { toolApi, TOOL_TYPES } from '../lib/api/toolApi';
 import PromptTemplateSelector from './PromptTemplateSelector';
-import ParameterMapper from './ParameterMapper';
-import OutputMapper from './OutputMapper';
+import DataFlowMapper from './DataFlowMapper';
 import { useWorkflows } from '../context/WorkflowContext';
 
 interface ActionStepEditorProps {
@@ -298,102 +297,17 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
             {step.tool && (
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
-                        Tool Configuration
+                        Data Flow Configuration
                     </h3>
-
-                    {/* Tool Requirements Overview */}
-                    <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Tool Requirements
-                        </h4>
-                        <div className="grid grid-cols-2 gap-3">
-                            {/* Required Inputs */}
-                            <div>
-                                <h5 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                                    Required Inputs
-                                </h5>
-                                <div className="space-y-1">
-                                    {step.tool.signature.parameters.map(param => (
-                                        <div
-                                            key={param.name}
-                                            className="flex items-center py-1 px-2 bg-blue-50 dark:bg-blue-900/20 
-                                                     border border-blue-200 dark:border-blue-800 rounded-md text-xs"
-                                        >
-                                            <span className="font-medium text-blue-800 dark:text-blue-200">
-                                                {param.name}
-                                            </span>
-                                            <span className="ml-1.5 text-blue-600 dark:text-blue-300">
-                                                ({param.schema.type})
-                                            </span>
-                                            {param.description && (
-                                                <span className="ml-1.5 text-blue-500 dark:text-blue-400">
-                                                    - {param.description}
-                                                </span>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Provided Outputs */}
-                            <div>
-                                <h5 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                                    Provided Outputs
-                                </h5>
-                                <div className="space-y-1">
-                                    {step.tool.signature.outputs.map(output => (
-                                        <div
-                                            key={output.name}
-                                            className="flex items-center py-1 px-2 bg-green-50 dark:bg-green-900/20 
-                                                     border border-green-200 dark:border-green-800 rounded-md text-xs"
-                                        >
-                                            <span className="font-medium text-green-800 dark:text-green-200">
-                                                {output.name}
-                                            </span>
-                                            <span className="ml-1.5 text-green-600 dark:text-green-300">
-                                                ({output.schema.type})
-                                            </span>
-                                            {output.description && (
-                                                <span className="ml-1.5 text-green-500 dark:text-green-400">
-                                                    - {output.description}
-                                                </span>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Mapping Section */}
-                    <div className="space-y-6">
-                        {/* Input Mapping */}
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Input Mapping
-                            </h4>
-                            <ParameterMapper
-                                tool={step.tool}
-                                parameter_mappings={step.parameter_mappings || {}}
-                                inputs={workflow?.inputs || []}
-                                outputs={workflow?.outputs || []}
-                                onChange={handleParameterMappingChange}
-                            />
-                        </div>
-
-                        {/* Output Mapping */}
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Output Mapping
-                            </h4>
-                            <OutputMapper
-                                tool={step.tool}
-                                output_mappings={step.output_mappings || {}}
-                                outputs={workflow?.outputs || []}
-                                onChange={handleOutputMappingChange}
-                            />
-                        </div>
-                    </div>
+                    <DataFlowMapper
+                        tool={step.tool}
+                        parameter_mappings={step.parameter_mappings || {}}
+                        output_mappings={step.output_mappings || {}}
+                        inputs={workflow?.inputs || []}
+                        outputs={workflow?.outputs || []}
+                        onParameterMappingChange={handleParameterMappingChange}
+                        onOutputMappingChange={handleOutputMappingChange}
+                    />
                 </div>
             )}
         </div>

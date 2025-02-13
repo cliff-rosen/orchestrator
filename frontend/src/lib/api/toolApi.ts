@@ -26,7 +26,7 @@ export const TOOL_TYPES = [
         description: 'Tools for searching and retrieving information',
         icon: '🔍',
         tools: [
-            { tool_id: 'web-search', name: 'Web Search', description: 'Search the web for information' },
+            { tool_id: 'search', name: 'Web Search', description: 'Search the web for information' },
             { tool_id: 'doc-search', name: 'Document Search', description: 'Search through document repositories' }
         ]
     },
