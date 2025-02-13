@@ -40,10 +40,10 @@ export const SortableStep: React.FC<SortableStepProps> = ({
         <div
             ref={setNodeRef}
             style={style}
-            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${isEditMode ? 'cursor-pointer' : ''}
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isEditMode ? 'cursor-pointer' : ''}
                 ${isDragging ? 'opacity-50' : ''}
                 ${isActive
-                    ? 'bg-blue-50 border-2 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-400 dark:text-blue-200'
+                    ? 'bg-blue-50 border border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-400 dark:text-blue-200'
                     : isCompleted
                         ? 'bg-emerald-50 border border-emerald-300 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-500/30 dark:text-emerald-200'
                         : 'bg-gray-50 border border-gray-200 text-gray-600 dark:bg-gray-800/50 dark:border-gray-700 dark:text-gray-400'
@@ -54,12 +54,12 @@ export const SortableStep: React.FC<SortableStepProps> = ({
                 <div
                     {...attributes}
                     {...listeners}
-                    className="cursor-grab active:cursor-grabbing p-1 -ml-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                    className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                 >
                     <GripVertical className="w-4 h-4" />
                 </div>
             )}
-            <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium 
+            <div className={`flex items-center justify-center w-6 h-6 rounded-full text-sm font-medium shrink-0
                 ${isActive
                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
                     : isCompleted
@@ -75,9 +75,11 @@ export const SortableStep: React.FC<SortableStepProps> = ({
                     !isEditMode ? index : index + 1
                 )}
             </div>
-            <div className="flex flex-col">
-                <div className="font-medium">{step.label}</div>
-                <div className="text-xs opacity-80">{step.description}</div>
+            <div className="min-w-0 flex-1">
+                <div className="font-medium text-sm truncate">{step.label}</div>
+                {step.description && (
+                    <div className="text-xs opacity-80 truncate">{step.description}</div>
+                )}
             </div>
         </div>
     );

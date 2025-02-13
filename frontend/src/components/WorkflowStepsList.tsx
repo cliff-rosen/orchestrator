@@ -54,9 +54,9 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
     };
 
     return (
-        <div className="w-64 shrink-0 flex flex-col bg-white dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700">
+        <div className="w-72 shrink-0 flex flex-col bg-white dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700">
             {/* Steps List - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto">
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -66,7 +66,7 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
                         items={steps.map(step => step.step_id)}
                         strategy={verticalListSortingStrategy}
                     >
-                        <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-2 p-2">
                             {steps.map((step, index) => (
                                 <SortableStep
                                     key={step.step_id}
@@ -85,7 +85,7 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
 
             {/* Add Step Button - Fixed at bottom */}
             {isEditMode && (
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="p-2 border-t border-gray-200 dark:border-gray-700">
                     <button
                         onClick={onAddStep}
                         className="w-full flex items-center justify-center gap-2 px-3 py-2 
