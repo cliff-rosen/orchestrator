@@ -5,11 +5,9 @@ import React, { useEffect, useState } from 'react';
 import { WorkflowStep } from '../types/workflows';
 import { Tool } from '../types/tools';
 import { toolApi, TOOL_TYPES } from '../lib/api/toolApi';
-import ToolSelector from './ToolSelector';
 import PromptTemplateSelector from './PromptTemplateSelector';
 import ParameterMapper from './ParameterMapper';
 import OutputMapper from './OutputMapper';
-import { usePromptTemplates } from '../context/PromptTemplateContext';
 import { useWorkflows } from '../context/WorkflowContext';
 
 interface ActionStepEditorProps {
@@ -62,6 +60,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     };
 
     const handleTemplateChange = async (templateId: string) => {
+        console.log('handleTemplateChange', templateId);
         if (!step.tool) return;
 
         const signature = await toolApi.createToolSignatureFromTemplate(templateId);

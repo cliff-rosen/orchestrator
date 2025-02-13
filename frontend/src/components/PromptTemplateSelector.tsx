@@ -67,6 +67,7 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
             {isEditing && selectedTemplate && (
                 <PromptTemplateEditor
                     template={selectedTemplate}
+                    onTemplateChange={onTemplateChange}
                 />
             )}
         </div>

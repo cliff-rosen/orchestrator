@@ -6,10 +6,12 @@ import { usePromptTemplates } from '../context/PromptTemplateContext';
 
 interface PromptTemplateEditorProps {
     template: PromptTemplate | null;
+    onTemplateChange?: (templateId: string) => void;
 }
 
 const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
-    template
+    template,
+    onTemplateChange
 }) => {
     const { updateTemplate, createTemplate, setIsEditing, testTemplate } = usePromptTemplates();
     const [name, setName] = useState(template?.name || '');
@@ -108,9 +110,17 @@ Ensure your response is valid JSON and matches this schema exactly.`;
             };
 
             if (template?.template_id) {
-                await updateTemplate(template.template_id, templateData);
+                const updatedTemplate = await updateTemplate(template.template_id, templateData);
+                // Call onTemplateChange if it exists to update the workflow
+                if (onTemplateChange) {
+                    onTemplateChange(template.template_id);
+                }
             } else {
-                await createTemplate(templateData);
+                const newTemplate = await createTemplate(templateData);
+                // Call onTemplateChange if it exists to update the workflow
+                if (onTemplateChange) {
+                    onTemplateChange(newTemplate.template_id);
+                }
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save template');
@@ -133,9 +143,17 @@ Ensure your response is valid JSON and matches this schema exactly.`;
             };
 
             if (template?.template_id) {
-                await updateTemplate(template.template_id, templateData);
+                const updatedTemplate = await updateTemplate(template.template_id, templateData);
+                // Call onTemplateChange if it exists to update the workflow
+                if (onTemplateChange) {
+                    onTemplateChange(template.template_id);
+                }
             } else {
-                await createTemplate(templateData);
+                const newTemplate = await createTemplate(templateData);
+                // Call onTemplateChange if it exists to update the workflow
+                if (onTemplateChange) {
+                    onTemplateChange(newTemplate.template_id);
+                }
             }
             setIsEditing(false);
         } catch (err) {
