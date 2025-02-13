@@ -50,7 +50,7 @@ const MenuBar: React.FC<MenuBarProps> = ({
     };
 
     return (
-        <div className="bg-white dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+        <div className="bg-white dark:bg-gray-800/50 px-4 py-3">
             <div className="flex items-center justify-between max-w-7xl mx-auto">
                 {/* Left Section - Back Button and Title */}
                 <div className="flex items-center space-x-4">
