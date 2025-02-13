@@ -54,7 +54,7 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
     };
 
     return (
-        <div className="w-72 shrink-0 flex flex-col bg-white dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700">
+        <div className="w-72 shrink-0 flex flex-col bg-white dark:bg-gray-800/50">
             {/* Steps List - Scrollable */}
             <div className="flex-1 overflow-y-auto">
                 <DndContext
