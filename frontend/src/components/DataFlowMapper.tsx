@@ -123,7 +123,7 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
                 {/* Tool Parameters */}
                 <div className="space-y-4">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-                        Tool Parameters
+                        Tool Inputs
                     </h4>
                     {tool.signature.parameters.map(param => (
                         <div
