@@ -13,14 +13,14 @@ interface ActionStepRunnerProps {
 const formatValue = (value: any): JSX.Element => {
     if (Array.isArray(value)) {
         return (
-            <div className="space-y-2">
-                {value.map((item, index) => (
-                    <div key={index} className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                        <div className="p-3 text-gray-600 dark:text-gray-300 font-mono text-sm whitespace-pre-wrap">
+            <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                <div className="p-3 text-gray-600 dark:text-gray-300 font-mono text-sm whitespace-pre-wrap">
+                    {value.map((item, index) => (
+                        <div key={index}>
                             {typeof item === 'object' ? JSON.stringify(item, null, 2) : String(item)}
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         );
     }
@@ -35,17 +35,13 @@ const formatValue = (value: any): JSX.Element => {
         );
     }
 
-    if (typeof value === 'string' && value.length > 100) {
-        return (
-            <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                <div className="p-3 text-gray-600 dark:text-gray-300 font-mono text-sm whitespace-pre-wrap">
-                    {value}
-                </div>
+    return (
+        <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+            <div className="p-3 text-gray-600 dark:text-gray-300 font-mono text-sm whitespace-pre-wrap">
+                {String(value)}
             </div>
-        );
-    }
-
-    return <span className="text-gray-600 dark:text-gray-300 font-mono">{String(value)}</span>;
+        </div>
+    );
 };
 
 const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
@@ -59,7 +55,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         Object.entries(actionStep.parameter_mappings).forEach(([paramName, varName]) => {
             const variable = workflow?.inputs?.find(v => v.name === varName) ||
                 workflow?.outputs?.find(v => v.name === varName);
-            inputValues[varName] = variable?.value;
+            inputValues[paramName] = variable?.value;
         });
     }
 
@@ -68,7 +64,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     if (actionStep.output_mappings) {
         Object.entries(actionStep.output_mappings).forEach(([outputName, varName]) => {
             const variable = workflow?.outputs?.find(v => v.name === varName);
-            outputValues[varName] = variable?.value;
+            outputValues[outputName] = variable?.value;
         });
     }
 
@@ -90,77 +86,75 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
 
             {/* Parameters Section */}
             <div className="space-y-4">
-                <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">Parameters</h4>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Parameter Mappings */}
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                            Parameter Mappings
-                        </h5>
-                        <div className="space-y-2">
+                <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">Inputs</h4>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead>
+                            <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Workflow Variable
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Tool Parameter
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Value
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                             {actionStep.parameter_mappings && Object.entries(actionStep.parameter_mappings).map(([paramName, varName]) => (
-                                <div key={paramName} className="space-y-1">
-                                    <div className="font-medium text-gray-700 dark:text-gray-300">{paramName}:</div>
-                                    <div className="text-gray-600 dark:text-gray-400 font-mono pl-4">{String(varName)}</div>
-                                </div>
+                                <tr key={paramName}>
+                                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 font-mono">
+                                        {varName}
+                                    </td>
+                                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
+                                        {paramName}
+                                    </td>
+                                    <td className="px-4 py-2">
+                                        {formatValue(inputValues[paramName])}
+                                    </td>
+                                </tr>
                             ))}
-                        </div>
-                    </div>
-
-                    {/* Current Input Values */}
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                            Current Values
-                        </h5>
-                        <div className="space-y-2">
-                            {Object.entries(inputValues).map(([varName, value]) => (
-                                <div key={varName} className="space-y-1">
-                                    <div className="font-medium text-gray-700 dark:text-gray-300">{varName}:</div>
-                                    <div className="pl-4">
-                                        {formatValue(value)}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
             {/* Outputs Section */}
             <div className="space-y-4">
                 <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">Outputs</h4>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Output Mappings */}
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                            Output Mappings
-                        </h5>
-                        <div className="space-y-2">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead>
+                            <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Tool Output
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Workflow Variable
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Value
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                             {actionStep.output_mappings && Object.entries(actionStep.output_mappings).map(([outputName, varName]) => (
-                                <div key={outputName} className="space-y-1">
-                                    <div className="font-medium text-gray-700 dark:text-gray-300">{outputName}:</div>
-                                    <div className="text-gray-600 dark:text-gray-400 font-mono pl-4">{String(varName)}</div>
-                                </div>
+                                <tr key={outputName}>
+                                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
+                                        {outputName}
+                                    </td>
+                                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 font-mono">
+                                        {varName}
+                                    </td>
+                                    <td className="px-4 py-2">
+                                        {formatValue(outputValues[outputName])}
+                                    </td>
+                                </tr>
                             ))}
-                        </div>
-                    </div>
-
-                    {/* Current Output Values */}
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                            Current Values
-                        </h5>
-                        <div className="space-y-2">
-                            {Object.entries(outputValues).map(([varName, value]) => (
-                                <div key={varName} className="space-y-1">
-                                    <div className="font-medium text-gray-700 dark:text-gray-300">{varName}:</div>
-                                    <div className="pl-4">
-                                        {formatValue(value)}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
