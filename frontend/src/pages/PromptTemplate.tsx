@@ -37,6 +37,7 @@ const PromptTemplate: React.FC = () => {
     // Initialize template based on URL parameter
     // Effect ensures that the selectedTemplate and template state are synced to the URL parameter
     useEffect(() => {
+        console.log('PromptTemplate.useEffect', templateId);
         if (!templateId) {
             navigate('/prompts');
             return;
@@ -158,9 +159,11 @@ const PromptTemplate: React.FC = () => {
             };
 
             if (template?.template_id && template.template_id !== 'new') {
-                await updateTemplate(template.template_id, templateData);
+                const updatedTemplate = await updateTemplate(template.template_id, templateData);
+                setSelectedTemplate(updatedTemplate);
             } else {
                 const newTemplate = await createTemplate(templateData);
+                setSelectedTemplate(newTemplate);
                 navigate(`/prompt/${newTemplate.template_id}`);
             }
             await refreshTemplates();
