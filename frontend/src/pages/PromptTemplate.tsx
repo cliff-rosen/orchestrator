@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
-import MenuBar from '../components/MenuBar';
 import SchemaEditor from '../components/common/SchemaEditor';
 import { extractTokens } from '../lib/utils';
 import PromptMenuBar from '../components/PromptMenuBar';
+import { PromptTemplateOutputSchema } from '../types/prompts';
 
 const PromptTemplate: React.FC = () => {
     const { templateId } = useParams();
@@ -23,48 +23,61 @@ const PromptTemplate: React.FC = () => {
     const [name, setName] = useState(template?.name || '');
     const [description, setDescription] = useState(template?.description || '');
     const [templateText, setTemplateText] = useState(template?.template || '');
-    const [outputSchema, setOutputSchema] = useState(template?.output_schema || { type: 'string', description: '' });
+    const [outputSchema, setOutputSchema] = useState<PromptTemplateOutputSchema>({
+        type: 'string',
+        description: ''
+    });
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [testParameters, setTestParameters] = useState<Record<string, string>>({});
     const [testResult, setTestResult] = useState<any>(null);
-    const [isEditMode, setIsEditMode] = useState(true);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     // Initialize template based on URL parameter
+    // Effect ensures that the selectedTemplate and template state are synced to the URL parameter
     useEffect(() => {
         if (!templateId) {
-            navigate('/');
+            navigate('/prompts');
             return;
         }
 
         // Only load if we don't have this template or it's a different one
-        if (!template || (template.template_id !== templateId && templateId !== 'new')) {
+        if (!template || (template?.template_id !== templateId)) {
             const loadTemplate = async () => {
                 try {
-                    const foundTemplate = templates.find(t => t.template_id === templateId);
-                    if (foundTemplate) {
-                        setSelectedTemplate(foundTemplate);
-                        setName(foundTemplate.name);
-                        setDescription(foundTemplate.description);
-                        setTemplateText(foundTemplate.template);
-                        setOutputSchema(foundTemplate.output_schema);
-                        if (foundTemplate.tokens) {
-                            const newParams: Record<string, string> = {};
-                            foundTemplate.tokens.forEach(token => {
-                                newParams[token] = '';
-                            });
-                            setTestParameters(newParams);
-                        }
+                    if (templateId === 'new') {
+                        // Initialize new template with default values
+                        setSelectedTemplate(null);
+                        setName('');
+                        setDescription('');
+                        setTemplateText('');
+                        setOutputSchema({ type: 'string', description: '' });
+                        setTestParameters({});
                     } else {
-                        setError('Template not found');
-                        navigate('/');
+                        const foundTemplate = templates.find(t => t.template_id === templateId);
+                        if (foundTemplate) {
+                            setSelectedTemplate(foundTemplate);
+                            setName(foundTemplate.name);
+                            setDescription(foundTemplate.description);
+                            setTemplateText(foundTemplate.template);
+                            setOutputSchema(foundTemplate.output_schema);
+                            if (foundTemplate.tokens) {
+                                const newParams: Record<string, string> = {};
+                                foundTemplate.tokens.forEach(token => {
+                                    newParams[token] = '';
+                                });
+                                setTestParameters(newParams);
+                            }
+                        } else {
+                            setError('Template not found');
+                            navigate('/prompts');
+                        }
                     }
                 } catch (err) {
                     console.error('Error loading template:', err);
                     setError('Failed to load template');
-                    navigate('/');
+                    navigate('/prompts');
                 }
             };
             loadTemplate();
@@ -176,7 +189,7 @@ const PromptTemplate: React.FC = () => {
         }
     };
 
-    if (!template && templateId !== 'new') return null;
+    if (!templateId) return null;
 
     return (
         <div className="flex flex-col h-full">
@@ -209,6 +222,7 @@ const PromptTemplate: React.FC = () => {
                                                  shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
                                                  focus:border-blue-500 sm:text-sm dark:bg-gray-800
                                                  text-gray-900 dark:text-gray-100"
+                                        placeholder="Enter template name"
                                     />
                                 </div>
                                 <div>
@@ -223,163 +237,93 @@ const PromptTemplate: React.FC = () => {
                                                  shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
                                                  focus:border-blue-500 sm:text-sm dark:bg-gray-800
                                                  text-gray-900 dark:text-gray-100"
+                                        placeholder="Enter template description"
                                     />
                                 </div>
                             </div>
 
                             {/* Template */}
                             <div>
-                                <div className="flex justify-between items-center">
-                                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                                        Template
-                                    </label>
-                                </div>
-                                <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    Use double curly braces for variables (e.g. {"{{variableName}}"}). Separate multiple prompts with newlines.
-                                </div>
+                                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    Template
+                                </label>
                                 <textarea
                                     value={templateText}
                                     onChange={(e) => setTemplateText(e.target.value)}
-                                    rows={8}
+                                    rows={5}
                                     className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                              shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                             focus:border-blue-500 sm:text-sm font-mono dark:bg-gray-800
-                                             text-gray-900 dark:text-gray-100"
+                                             focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                             text-gray-900 dark:text-gray-100 font-mono"
+                                    placeholder="Enter your template with {{variable}} placeholders"
                                 />
                             </div>
 
                             {/* Output Schema */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    Output Type
+                                    Output Schema
                                 </label>
-                                <select
-                                    value={outputSchema.type}
-                                    onChange={(e) => {
-                                        const newType = e.target.value as 'string' | 'object';
-                                        setOutputSchema(newType === 'string'
-                                            ? { type: 'string', description: outputSchema.description }
-                                            : {
-                                                type: 'object',
-                                                description: outputSchema.description,
-                                                fields: {}
-                                            }
-                                        );
-                                    }}
-                                    className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
-                                             shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                             focus:border-blue-500 sm:text-sm dark:bg-gray-800
-                                             text-gray-900 dark:text-gray-100"
-                                >
-                                    <option value="string" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Text</option>
-                                    <option value="object" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Structured (JSON)</option>
-                                </select>
-
-                                {outputSchema.type === 'object' && (
-                                    <div className="mt-4">
-                                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                                            Output Schema
-                                        </label>
-                                        <SchemaEditor
-                                            schema={outputSchema}
-                                            onChange={setOutputSchema}
-                                        />
-                                    </div>
-                                )}
+                                <SchemaEditor
+                                    schema={outputSchema}
+                                    onChange={setOutputSchema}
+                                />
                             </div>
 
                             {/* Test Section */}
-                            {Object.keys(testParameters).length > 0 && (
-                                <div className="space-y-4">
-                                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                                        Test Template
-                                    </h3>
+                            <div>
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                                    Test Template
+                                </h3>
 
-                                    {/* Template Variables */}
-                                    <div>
-                                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                                            Template Variables
-                                        </h4>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {Object.keys(testParameters).map((token) => (
-                                                <div key={token} className="flex items-center space-x-2">
-                                                    <span className="text-sm font-mono text-gray-600 dark:text-gray-400 min-w-[150px]">
-                                                        {"{{"}{token}{"}}"}
-                                                    </span>
-                                                    <input
-                                                        type="text"
-                                                        value={testParameters[token]}
-                                                        onChange={(e) => setTestParameters(prev => ({
-                                                            ...prev,
-                                                            [token]: e.target.value
-                                                        }))}
-                                                        placeholder={`Value for ${token}`}
-                                                        className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 
-                                                                 shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
-                                                                 focus:border-blue-500 dark:bg-gray-800
-                                                                 text-gray-900 dark:text-gray-100"
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
+                                {/* Test Parameters */}
+                                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+                                        Template Variables
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {Object.keys(testParameters).map((token) => (
+                                            <div key={token} className="flex items-center space-x-2">
+                                                <span className="text-sm font-mono text-gray-600 dark:text-gray-400 min-w-[150px]">
+                                                    {"{{"}{token}{"}}"}
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    value={testParameters[token]}
+                                                    onChange={(e) => setTestParameters(prev => ({
+                                                        ...prev,
+                                                        [token]: e.target.value
+                                                    }))}
+                                                    placeholder={`Value for ${token}`}
+                                                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 
+                                                             shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
+                                                             focus:border-blue-500 dark:bg-gray-800
+                                                             text-gray-900 dark:text-gray-100"
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={handleTest}
-                                        disabled={testing}
-                                        className="inline-flex justify-center py-2 px-4 border border-transparent 
-                                                 shadow-sm text-sm font-medium rounded-md text-white 
-                                                 bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 
-                                                 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                                    >
-                                        {testing ? 'Testing...' : 'Test Template'}
-                                    </button>
-
-                                    {testResult && (
-                                        <div>
-                                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                Result
-                                            </h4>
-                                            <pre className="mt-1 p-4 bg-gray-50 dark:bg-gray-800 rounded-md overflow-auto
-                                                          text-gray-900 dark:text-gray-100 max-h-[300px]">
-                                                {JSON.stringify(testResult, null, 2)}
-                                            </pre>
-                                        </div>
-                                    )}
                                 </div>
-                            )}
 
-                            {error && (
-                                <div className="text-sm text-red-600 dark:text-red-400">
-                                    {error}
-                                </div>
-                            )}
+                                {/* Test Results */}
+                                {testResult && (
+                                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+                                            Test Results
+                                        </h4>
+                                        <pre className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                                            {JSON.stringify(testResult, null, 2)}
+                                        </pre>
+                                    </div>
+                                )}
 
-                            {/* Actions */}
-                            <div className="flex justify-end space-x-3">
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/prompts')}
-                                    className="inline-flex justify-center py-2 px-4 border border-gray-300 
-                                             shadow-sm text-sm font-medium rounded-md text-gray-700 
-                                             bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 
-                                             focus:ring-offset-2 focus:ring-blue-500 dark:bg-gray-800 
-                                             dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleSave}
-                                    disabled={saving}
-                                    className="inline-flex justify-center py-2 px-4 border border-transparent 
-                                             shadow-sm text-sm font-medium rounded-md text-white 
-                                             bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 
-                                             focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                                >
-                                    {saving ? 'Saving...' : 'Save'}
-                                </button>
+                                {error && (
+                                    <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                                        <p className="text-sm text-red-600 dark:text-red-400">
+                                            {error}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

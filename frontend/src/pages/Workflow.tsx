@@ -14,7 +14,6 @@ import { fileApi } from '../lib/api/fileApi';
 
 // Page components
 import WorkflowConfig from '../components/WorkflowConfig';
-import MenuBar from '../components/MenuBar';
 import WorkflowStepsList from '../components/WorkflowStepsList';
 import StepDetail from '../components/StepDetail';
 import WorkflowNavigation from '../components/WorkflowNavigation';
