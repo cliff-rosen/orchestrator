@@ -18,6 +18,7 @@ import MenuBar from '../components/MenuBar';
 import WorkflowStepsList from '../components/WorkflowStepsList';
 import StepDetail from '../components/StepDetail';
 import WorkflowNavigation from '../components/WorkflowNavigation';
+import WorkflowMenuBar from '../components/WorkflowMenuBar';
 
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
@@ -112,7 +113,6 @@ const Workflow: React.FC = () => {
         updateWorkflow({
             steps: [...workflow.steps, newStep]
         });
-
         // Set the new step as active
         setActiveStep(workflow.steps.length);
     };
@@ -341,7 +341,7 @@ const Workflow: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full">
-            <MenuBar
+            <WorkflowMenuBar
                 isEditMode={isEditMode}
                 onToggleEditMode={() => setIsEditMode(!isEditMode)}
             />

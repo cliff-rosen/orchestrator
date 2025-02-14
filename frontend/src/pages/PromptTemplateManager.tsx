@@ -1,29 +1,21 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
-import PromptTemplateEditor from '../components/PromptTemplateEditor';
 import AssetList from '../components/common/AssetList';
 
 const PromptTemplateManager: React.FC = () => {
+    const navigate = useNavigate();
     const {
         templates,
-        selectedTemplate,
-        setSelectedTemplate,
-        isEditing,
-        setIsEditing,
         deleteTemplate
     } = usePromptTemplates();
 
     const handleCreateNew = () => {
-        setSelectedTemplate(null);
-        setIsEditing(true);
+        navigate('/prompt/new');
     };
 
     const handleEdit = (templateId: string) => {
-        const template = templates.find(t => t.template_id === templateId);
-        if (template) {
-            setSelectedTemplate(template);
-            setIsEditing(true);
-        }
+        navigate(`/prompt/${templateId}`);
     };
 
     const assets = templates.map(template => ({
@@ -45,23 +37,15 @@ const PromptTemplateManager: React.FC = () => {
     }));
 
     return (
-        <>
-            <AssetList
-                title="Prompt Templates"
-                assets={assets}
-                onCreateNew={handleCreateNew}
-                onEdit={handleEdit}
-                onDelete={deleteTemplate}
-                createButtonText="Create New Template"
-                emptyStateMessage="No prompt templates found. Create one to get started."
-            />
-
-            {isEditing && (
-                <PromptTemplateEditor
-                    template={selectedTemplate}
-                />
-            )}
-        </>
+        <AssetList
+            title="Prompt Templates"
+            assets={assets}
+            onCreateNew={handleCreateNew}
+            onEdit={handleEdit}
+            onDelete={deleteTemplate}
+            createButtonText="Create New Template"
+            emptyStateMessage="No prompt templates found. Create one to get started."
+        />
     );
 };
 
