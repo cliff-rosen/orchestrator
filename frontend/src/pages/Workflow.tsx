@@ -311,20 +311,20 @@ const Workflow: React.FC = () => {
 
     // Get current step
     const currentStep = allSteps[activeStep];
-    if (!currentStep) {
-        //console.log('currentStep does not exist');
-        // Reset to first step if current step doesn't exist
-        setActiveStep(0);
-        // Don't return null here, let the UI render
-    }
 
+    // Effect to handle invalid active step
+    useEffect(() => {
+        if (!currentStep && allSteps.length > 0) {
+            setActiveStep(0);
+        }
+    }, [currentStep, allSteps.length, setActiveStep]);
 
     ///////////////////////// Render /////////////////////////
 
     if (isLoading) {
         return (
             <div className="flex flex-col h-full">
-                <MenuBar
+                <WorkflowMenuBar
                     isEditMode={isEditMode}
                     onToggleEditMode={() => setIsEditMode(!isEditMode)}
                 />
