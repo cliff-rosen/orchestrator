@@ -42,7 +42,36 @@ const AuthenticatedApp = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center dark:bg-gray-900 bg-gray-50">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 dark:border-gray-100"></div>
+        <div className="text-center space-y-8">
+          {/* Flowing Dots Animation */}
+          <div className="relative px-8">
+            <div className="flex space-x-6">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className={`w-4 h-4 rounded-full 
+                                    bg-blue-500 
+                                    ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900
+                                    dark:bg-blue-400
+                                    shadow-[0_0_10px_rgba(59,130,246,0.5)]
+                                    dark:shadow-[0_0_10px_rgba(96,165,250,0.5)]
+                                    animate-[flowingDot_1.5s_ease-in-out_infinite]`}
+                  style={{
+                    animationDelay: `${i * 0.2}s`
+                  }}
+                />
+              ))}
+            </div>
+            {/* Connection Lines */}
+            <div className="absolute top-1/2 left-0 w-full -translate-y-1/2 -z-10">
+              <div className="h-1.5 bg-gradient-to-r from-transparent via-blue-500/70 to-transparent animate-glow-pulse" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-lg font-medium text-gray-700 dark:text-gray-200">Processing...</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Please wait while we set things up...</p>
+          </div>
+        </div>
       </div>
     );
   }
