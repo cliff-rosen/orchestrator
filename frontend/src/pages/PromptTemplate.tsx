@@ -130,17 +130,21 @@ const PromptTemplate: React.FC = () => {
             if (shouldSave) {
                 try {
                     await handleSave();
+                    setSelectedTemplate(null);
                     navigate('/prompts');
                 } catch (err) {
                     console.error('Error saving template:', err);
                     if (window.confirm('Failed to save changes. Leave anyway?')) {
+                        setSelectedTemplate(null);
                         navigate('/prompts');
                     }
                 }
             } else {
+                setSelectedTemplate(null);
                 navigate('/prompts');
             }
         } else {
+            setSelectedTemplate(null);
             navigate('/prompts');
         }
     };

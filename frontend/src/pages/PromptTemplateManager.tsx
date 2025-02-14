@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
 import AssetList from '../components/common/AssetList';
@@ -7,9 +7,23 @@ const PromptTemplateManager: React.FC = () => {
     const navigate = useNavigate();
     const {
         templates,
+        selectedTemplate,
+        setSelectedTemplate,
         deleteTemplate
     } = usePromptTemplates();
     const [error, setError] = useState<string | null>(null);
+
+    // Clear selected template when component mounts
+    useEffect(() => {
+        setSelectedTemplate(null);
+    }, [setSelectedTemplate]);
+
+    // Redirect to template page if there's a selected template
+    useEffect(() => {
+        if (selectedTemplate) {
+            navigate(`/prompt/${selectedTemplate.template_id}`);
+        }
+    }, [selectedTemplate, navigate]);
 
     const handleCreateNew = () => {
         navigate('/prompt/new');
