@@ -118,18 +118,36 @@ const Workflow: React.FC = () => {
     };
 
     const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {
-        console.log('handleStepUpdate', step);
+        console.log('handleStepUpdate called with step:', step);
         if (!workflow) return;
+
+        // Find the existing step to preserve tool information
+        const existingStep = workflow.steps.find(s => s.step_id === step.step_id);
+        console.log('Existing step:', existingStep);
 
         // Preserve the tool object and ensure tool_id is set
         const updatedStep = {
             ...step,
-            tool: step.tool,  // Explicitly preserve the tool object
-            tool_id: step.tool?.tool_id
+            tool: step.tool || existingStep?.tool,  // Keep existing tool if not provided in update
+            tool_id: step.tool?.tool_id || existingStep?.tool_id,
+            parameter_mappings: {
+                ...(existingStep?.parameter_mappings || {}),  // Keep existing mappings as base
+                ...(step.parameter_mappings || {})  // Override with any new mappings
+            },
+            output_mappings: {
+                ...(existingStep?.output_mappings || {}),  // Keep existing mappings as base
+                ...(step.output_mappings || {})  // Override with any new mappings
+            }
         };
+        console.log('Updated step:', updatedStep);
+
+        const updatedSteps = workflow.steps.map((s: WorkflowStep) =>
+            s.step_id === step.step_id ? updatedStep : s
+        );
+        console.log('All steps after update:', updatedSteps);
 
         updateWorkflow({
-            steps: workflow.steps.map((s: WorkflowStep) => s.step_id === step.step_id ? updatedStep : s)
+            steps: updatedSteps
         });
     };
 
@@ -286,12 +304,25 @@ const Workflow: React.FC = () => {
     // console.log('currentWorkflow', currentWorkflow);
 
     // Convert workflow steps to RuntimeWorkflowStep interface
-    const workflowSteps: RuntimeWorkflowStep[] = workflow.steps.map((step: WorkflowStep) => ({
-        ...step,
-        action: handleExecuteTool,
-        actionButtonText: () => stepExecuted ? 'Next Step' : 'Execute Tool',
-        isDisabled: () => step.step_type === WorkflowStepType.ACTION && stepExecuted,
-    }));
+    const workflowSteps: RuntimeWorkflowStep[] = workflow.steps.map((step: WorkflowStep) => {
+        console.log('Converting workflow step to runtime step:', {
+            step_id: step.step_id,
+            tool: step.tool,
+            parameter_mappings: step.parameter_mappings
+        });
+        const runtimeStep = {
+            ...step,
+            action: handleExecuteTool,
+            actionButtonText: () => stepExecuted ? 'Next Step' : 'Execute Tool',
+            isDisabled: () => step.step_type === WorkflowStepType.ACTION && stepExecuted,
+        };
+        console.log('Resulting runtime step:', {
+            step_id: runtimeStep.step_id,
+            tool: runtimeStep.tool,
+            parameter_mappings: runtimeStep.parameter_mappings
+        });
+        return runtimeStep;
+    });
 
     // Add input step at the beginning when in run mode
     const inputStep: RuntimeWorkflowStep = {
@@ -311,9 +342,19 @@ const Workflow: React.FC = () => {
     };
 
     const allSteps = !isEditMode ? [inputStep, ...workflowSteps] : workflowSteps;
+    console.log('All prepared steps:', allSteps.map(step => ({
+        step_id: step.step_id,
+        tool: step.tool,
+        parameter_mappings: step.parameter_mappings
+    })));
 
     // Get current step
     const currentStep = allSteps[activeStep];
+    console.log('Current step being passed to StepDetail:', {
+        step_id: currentStep?.step_id,
+        tool: currentStep?.tool,
+        parameter_mappings: currentStep?.parameter_mappings
+    });
 
     // Effect to handle invalid active step
     useEffect(() => {
@@ -329,7 +370,29 @@ const Workflow: React.FC = () => {
             <div className="flex flex-col h-full">
                 <WorkflowMenuBar
                     isEditMode={isEditMode}
-                    onToggleEditMode={() => setIsEditMode(!isEditMode)}
+                    onToggleEditMode={() => {
+                        const newIsEditMode = !isEditMode;
+                        if (newIsEditMode) {
+                            // When switching to edit mode, keep the same step index but adjust for input step offset
+                            const editModeIndex = activeStep > 0 ? activeStep - 1 : 0;
+                            setActiveStep(editModeIndex);
+                        } else {
+                            // When switching to run mode
+                            // Check if any inputs are not supplied
+                            const hasUnsetInputs = workflow?.inputs?.some(input =>
+                                input.value === undefined || input.value === null
+                            );
+
+                            if (hasUnsetInputs) {
+                                // Go to input step if any inputs need values
+                                setActiveStep(0);
+                            } else {
+                                // Stay on current step but adjust index for input step
+                                setActiveStep(activeStep + 1);
+                            }
+                        }
+                        setIsEditMode(newIsEditMode);
+                    }}
                 />
                 <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                     <div className="text-center">
@@ -345,7 +408,29 @@ const Workflow: React.FC = () => {
         <div className="flex flex-col h-full">
             <WorkflowMenuBar
                 isEditMode={isEditMode}
-                onToggleEditMode={() => setIsEditMode(!isEditMode)}
+                onToggleEditMode={() => {
+                    const newIsEditMode = !isEditMode;
+                    if (newIsEditMode) {
+                        // When switching to edit mode, keep the same step index but adjust for input step offset
+                        const editModeIndex = activeStep > 0 ? activeStep - 1 : 0;
+                        setActiveStep(editModeIndex);
+                    } else {
+                        // When switching to run mode
+                        // Check if any inputs are not supplied
+                        const hasUnsetInputs = workflow?.inputs?.some(input =>
+                            input.value === undefined || input.value === null
+                        );
+
+                        if (hasUnsetInputs) {
+                            // Go to input step if any inputs need values
+                            setActiveStep(0);
+                        } else {
+                            // Stay on current step but adjust index for input step
+                            setActiveStep(activeStep + 1);
+                        }
+                    }
+                    setIsEditMode(newIsEditMode);
+                }}
             />
 
             {/* Main Content Area */}

@@ -19,6 +19,14 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     isExecuted,
     isExecuting
 }) => {
+    console.log('ActionStepRunner received props:', {
+        step_id: actionStep.step_id,
+        tool: actionStep.tool,
+        parameter_mappings: actionStep.parameter_mappings,
+        isExecuted,
+        isExecuting
+    });
+
     const { workflow, updateWorkflow } = useWorkflows();
     const [editingInput, setEditingInput] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<any>(null);
@@ -49,16 +57,22 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
 
     // Get input values from workflow variables
     const inputValues: Record<string, any> = {};
+    console.log('ActionStepRunner - Current step:', actionStep);
+    console.log('ActionStepRunner - Current workflow:', workflow);
     if (actionStep.parameter_mappings) {
+        console.log('ActionStepRunner - Parameter mappings:', actionStep.parameter_mappings);
         Object.entries(actionStep.parameter_mappings).forEach(([paramName, varName]) => {
+            console.log(`Looking up variable for parameter ${paramName} -> ${varName}`);
             const variable = workflow?.inputs?.find(v => v.name === varName) ||
                 workflow?.outputs?.find(v => v.name === varName);
+            console.log('Found variable:', variable);
             inputValues[paramName] = {
                 value: variable?.value,
                 schema: variable?.schema
             };
         });
     }
+    console.log('ActionStepRunner - Resolved input values:', inputValues);
 
     // Get output values from workflow variables
     const outputValues: Record<string, any> = {};

@@ -49,6 +49,17 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
         }
     };
 
+    const handleParameterMappingChange = (paramName: string, value: string) => {
+        console.log('DataFlowMapper - Parameter mapping change:', { paramName, value });
+        console.log('DataFlowMapper - Current mappings:', parameter_mappings);
+        const newMappings = {
+            ...parameter_mappings,
+            [paramName]: value
+        };
+        console.log('DataFlowMapper - New mappings:', newMappings);
+        onParameterMappingChange(newMappings);
+    };
+
     return (
         <div className="relative">
             {/* Visual Data Flow Diagram */}
@@ -143,10 +154,7 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
                             )}
                             <select
                                 value={parameter_mappings[param.name] || ''}
-                                onChange={(e) => onParameterMappingChange({
-                                    ...parameter_mappings,
-                                    [param.name]: e.target.value
-                                })}
+                                onChange={(e) => handleParameterMappingChange(param.name, e.target.value)}
                                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 
                                          rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                 onMouseEnter={() => setHoveredConnection(parameter_mappings[param.name])}
