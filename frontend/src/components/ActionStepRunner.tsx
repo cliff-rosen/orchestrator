@@ -340,7 +340,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                     <div className={`flex items-center ${isExecuted ? 'text-gray-500 dark:text-gray-400' : 'text-blue-600 dark:text-blue-400'}`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 
                             ${isExecuted ? 'border-gray-300 dark:border-gray-600' : 'border-blue-600 dark:border-blue-400'}`}>
-                            1
+                            A
                         </div>
                         <span className="ml-2">Preparation</span>
                     </div>
@@ -348,7 +348,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                     <div className={`flex items-center ${isExecuting ? 'text-blue-600 dark:text-blue-400' : (isExecuted ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500')}`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 
                             ${isExecuting ? 'border-blue-600 dark:border-blue-400 animate-pulse' : (isExecuted ? 'border-gray-300 dark:border-gray-600' : 'border-gray-300 dark:border-gray-600')}`}>
-                            <div className={`${isExecuting ? 'animate-pulse' : ''}`}>2</div>
+                            <div className={`${isExecuting ? 'animate-pulse' : ''}`}>B</div>
                         </div>
                         <span className={`ml-2 ${isExecuting ? 'animate-pulse' : ''}`}>Execution</span>
                     </div>
@@ -356,7 +356,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                     <div className={`flex items-center ${isExecuted ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 
                             ${isExecuted ? 'border-blue-600 dark:border-blue-400' : 'border-gray-300 dark:border-gray-600'}`}>
-                            3
+                            C
                         </div>
                         <span className="ml-2">Results</span>
                     </div>
