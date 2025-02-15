@@ -17,14 +17,14 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
     const [isEditing, setIsEditing] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
 
-    if (!step.tool || step.tool.tool_type !== 'llm') {
-        return null;
-    }
-
     const currentTemplate = useMemo(() =>
         templates.find(t => t.template_id === step.prompt_template),
         [templates, step.prompt_template]
     );
+
+    if (!step.tool || step.tool.tool_type !== 'llm') {
+        return null;
+    }
 
     const handleTemplateSelect = async (templateId: string) => {
         if (templateId === 'new') {

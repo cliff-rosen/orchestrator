@@ -63,11 +63,11 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                     </button>
                 )}
 
-                {(step_type === WorkflowStepType.INPUT || stepExecuted) && (
+                {(step_type === WorkflowStepType.INPUT || stepExecuted) && activeStep < totalSteps - 1 && (
                     <button
                         onClick={onNext}
-                        disabled={isLoading || activeStep === totalSteps - 1}
-                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md flex items-center space-x-2 ${isLoading || activeStep === totalSteps - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+                        disabled={isLoading}
+                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md flex items-center space-x-2 ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
                             }`}
                     >
                         {isLoading ? (
@@ -76,7 +76,7 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                                 <span>Processing...</span>
                             </>
                         ) : (
-                            <span>{activeStep === totalSteps - 1 ? 'Finish' : 'Next'}</span>
+                            <span>Next</span>
                         )}
                     </button>
                 )}
