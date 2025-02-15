@@ -48,9 +48,9 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                 {step_type === WorkflowStepType.ACTION && (
                     <button
                         onClick={onExecute}
-                        disabled={isLoading || stepExecuted}
-                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md flex items-center space-x-2 ${isLoading || stepExecuted ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
-                            }`}
+                        disabled={isLoading}
+                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md flex items-center space-x-2 
+                            ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
                     >
                         {isLoading ? (
                             <>
@@ -58,7 +58,7 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                                 <span>Running...</span>
                             </>
                         ) : (
-                            <span>Execute Tool</span>
+                            <span>{stepExecuted ? 'Re-execute Tool' : 'Execute Tool'}</span>
                         )}
                     </button>
                 )}
