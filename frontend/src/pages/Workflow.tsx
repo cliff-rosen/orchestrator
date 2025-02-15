@@ -448,6 +448,8 @@ const Workflow: React.FC = () => {
                                             <StepDetail
                                                 step={allSteps[activeStep]}
                                                 isEditMode={isEditMode}
+                                                stepExecuted={stepExecuted}
+                                                isExecuting={isExecuting}
                                                 onStepUpdate={handleStepUpdate}
                                                 onStepDelete={handleStepDelete}
                                             />

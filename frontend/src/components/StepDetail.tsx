@@ -8,6 +8,8 @@ import { WorkflowStepType } from '../types/workflows';
 interface StepDetailProps {
     step: RuntimeWorkflowStep;
     isEditMode: boolean;
+    stepExecuted: boolean;
+    isExecuting: boolean;
     onStepUpdate: (step: RuntimeWorkflowStep) => void;
     onStepDelete: (stepId: string) => void;
 }
@@ -15,6 +17,8 @@ interface StepDetailProps {
 const StepDetail: React.FC<StepDetailProps> = ({
     step,
     isEditMode,
+    stepExecuted,
+    isExecuting,
     onStepUpdate,
     onStepDelete
 }) => {
@@ -58,6 +62,8 @@ const StepDetail: React.FC<StepDetailProps> = ({
     return (
         <ActionStepRunner
             actionStep={step}
+            isExecuted={stepExecuted}
+            isExecuting={isExecuting}
         />
     );
 };

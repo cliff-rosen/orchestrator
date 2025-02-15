@@ -1,20 +1,24 @@
 // Rename from ActionStepContent.tsx
 // This is for executing action steps in run mode 
 
-import React from 'react';
+import React, { useState } from 'react';
 import { RuntimeWorkflowStep } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
 
 interface ActionStepRunnerProps {
     actionStep: RuntimeWorkflowStep;
     isExecuted: boolean;
+    isExecuting: boolean;
 }
 
 const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     actionStep,
-    isExecuted
+    isExecuted,
+    isExecuting
 }) => {
-    const { workflow } = useWorkflows();
+    const { workflow, updateWorkflow } = useWorkflows();
+    const [editingInput, setEditingInput] = useState<string | null>(null);
+    const [editValue, setEditValue] = useState<any>(null);
 
     // Get input values from workflow variables
     const inputValues: Record<string, any> = {};
@@ -34,6 +38,39 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             outputValues[outputName] = variable?.value;
         });
     }
+
+    const handleStartEdit = (paramName: string, value: any) => {
+        setEditingInput(paramName);
+        setEditValue(value);
+    };
+
+    // Set the workflow variable named varName (param) to the value of editValue (stat)
+    const handleSaveEdit = (paramName: string, varName: string) => {
+        if (!workflow) return;
+
+        // Find and update the variable
+        const updatedInputs = [...(workflow.inputs || [])];
+        const updatedOutputs = [...(workflow.outputs || [])];
+
+        const inputVar = updatedInputs.find(v => v.name === varName);
+        const outputVar = updatedOutputs.find(v => v.name === varName);
+
+        if (inputVar) {
+            inputVar.value = editValue;
+            updateWorkflow({ inputs: updatedInputs });
+        } else if (outputVar) {
+            outputVar.value = editValue;
+            updateWorkflow({ outputs: updatedOutputs });
+        }
+
+        setEditingInput(null);
+        setEditValue(null);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingInput(null);
+        setEditValue(null);
+    };
 
     if (!actionStep.tool) {
         return <div className="text-gray-500 dark:text-gray-400">No tool selected</div>;
@@ -93,6 +130,77 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         );
     };
 
+    // Helper function to render editable value
+    const renderEditableValue = (paramName: string, varName: string, value: any) => {
+        if (editingInput === paramName) {
+            return (
+                <div className="flex flex-col gap-2">
+                    {typeof value === 'object' ? (
+                        <textarea
+                            value={typeof editValue === 'object' ? JSON.stringify(editValue, null, 2) : editValue}
+                            onChange={(e) => {
+                                try {
+                                    const parsed = JSON.parse(e.target.value);
+                                    setEditValue(parsed);
+                                } catch {
+                                    setEditValue(e.target.value);
+                                }
+                            }}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
+                                     bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                            rows={4}
+                        />
+                    ) : (
+                        <input
+                            type={typeof value === 'number' ? 'number' : 'text'}
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
+                                     bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        />
+                    )}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => handleSaveEdit(paramName, varName)}
+                            className="px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 
+                                     dark:bg-blue-500 dark:hover:bg-blue-600 rounded-md transition-colors"
+                        >
+                            Save
+                        </button>
+                        <button
+                            onClick={handleCancelEdit}
+                            className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-700 
+                                     dark:text-gray-400 dark:hover:text-gray-300 bg-gray-100 hover:bg-gray-200 
+                                     dark:bg-gray-800 dark:hover:bg-gray-700 rounded-md transition-colors"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="group relative">
+                {formatValue(value)}
+                {!isExecuted && (
+                    <button
+                        onClick={() => handleStartEdit(paramName, value)}
+                        className="absolute top-2 right-2 p-1 rounded-md bg-gray-100 dark:bg-gray-800 
+                                 text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 
+                                 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                        title="Edit value"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </button>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="space-y-6">
             {/* Stage Indicator */}
@@ -129,9 +237,18 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                 <div className="mt-6 space-y-4">
                     <div className="flex items-center">
                         <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">Input Parameters</h4>
-                        {!isExecuted && (
+                        {isExecuting ? (
+                            <div className="ml-2 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded flex items-center gap-2">
+                                <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 dark:border-blue-400 border-t-transparent"></div>
+                                <span>Executing...</span>
+                            </div>
+                        ) : !isExecuted ? (
                             <div className="ml-2 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded">
                                 Ready to Execute
+                            </div>
+                        ) : (
+                            <div className="ml-2 px-2 py-1 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded">
+                                Executed
                             </div>
                         )}
                     </div>
@@ -160,7 +277,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                                             {paramName}
                                         </td>
                                         <td className="px-4 py-2">
-                                            {formatValue(inputValues[paramName])}
+                                            {renderEditableValue(paramName, varName, inputValues[paramName])}
                                         </td>
                                     </tr>
                                 ))}
@@ -173,7 +290,12 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                 <div className="mt-8 space-y-4">
                     <div className="flex items-center">
                         <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">Outputs</h4>
-                        {isExecuted && (
+                        {isExecuting ? (
+                            <div className="ml-2 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded flex items-center gap-2">
+                                <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 dark:border-blue-400 border-t-transparent"></div>
+                                <span>Executing...</span>
+                            </div>
+                        ) : isExecuted && (
                             <div className="ml-2 px-2 py-1 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded">
                                 Execution Complete
                             </div>
@@ -217,9 +339,9 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             {/* Execution State Description */}
             <div className="text-center text-sm text-gray-600 dark:text-gray-400">
                 {!isExecuted ? (
-                    <p>This step is ready to be executed</p>
+                    <p>Configure the input parameters above and click Execute to run this step</p>
                 ) : (
-                    <p>This step has been executed and produced results</p>
+                    <p>This step has been executed. You can view the results above or proceed to the next step</p>
                 )}
             </div>
         </div>
