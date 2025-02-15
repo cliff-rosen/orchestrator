@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy.sql import text
 from sqlalchemy.sql.schema import CheckConstraint, ForeignKeyConstraint
+from uuid import uuid4
 
 Base = declarative_base()
 
@@ -131,7 +132,17 @@ class File(Base):
     size = Column(Integer, nullable=False)  # Size in bytes
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    extracted_text = Column(Text, nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="files")
+
+class FileImage(Base):
+    __tablename__ = 'file_images'
+
+    image_id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid4()))
+    file_id = Column(String(36), ForeignKey('files.file_id'), nullable=False)
+    image_data = Column(LargeBinary, nullable=False)
+    mime_type = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 

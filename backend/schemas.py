@@ -491,18 +491,31 @@ class FileUpdate(BaseModel):
     description: Optional[str] = Field(None, description="New description for the file")
     content: Optional[bytes] = Field(None, description="New file contents")
 
-class FileResponse(FileBase):
+class FileResponse(BaseModel):
     """Schema for file responses"""
     file_id: str = Field(description="Unique identifier for the file")
     user_id: int = Field(description="ID of the user who owns this file")
+    name: str = Field(description="Name of the file")
+    description: Optional[str] = Field(None, description="Description of the file")
+    mime_type: str = Field(description="MIME type of the file")
     size: int = Field(description="Size of the file in bytes")
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime = Field(description="When the file was created")
+    updated_at: datetime = Field(description="When the file was last updated")
+    extracted_text: Optional[str] = Field(None, description="Extracted text from the file")
 
-    # Exclude content from the response
-    class Config:
-        from_attributes = True
-        exclude = {'content'}
+    @classmethod
+    def model_validate(cls, db_obj):
+        return cls(
+            file_id=db_obj.file_id,
+            user_id=db_obj.user_id,
+            name=db_obj.name,
+            description=db_obj.description,
+            mime_type=db_obj.mime_type,
+            size=db_obj.size,
+            created_at=db_obj.created_at,
+            updated_at=db_obj.updated_at,
+            extracted_text=getattr(db_obj, 'extracted_text', None)
+        )
 
 class FileContentResponse(BaseModel):
     """Schema for file content responses"""
@@ -513,3 +526,9 @@ class FileContentResponse(BaseModel):
         json_encoders = {
             bytes: lambda v: base64.b64encode(v).decode('utf-8')
         }
+
+class FileImageResponse(BaseModel):
+    image_id: str = Field(description="Unique identifier for the image")
+    file_id: str = Field(description="ID of the file this image belongs to")
+    mime_type: str = Field(description="MIME type of the image")
+    image_data: str = Field(description="Base64 encoded image data")
