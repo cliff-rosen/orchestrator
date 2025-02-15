@@ -331,10 +331,18 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                         <span className="ml-2">Preparation</span>
                     </div>
                     <div className={`flex-grow h-0.5 ${isExecuted ? 'bg-gray-300 dark:bg-gray-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
+                    <div className={`flex items-center ${isExecuting ? 'text-blue-600 dark:text-blue-400' : (isExecuted ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500')}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 
+                            ${isExecuting ? 'border-blue-600 dark:border-blue-400 animate-pulse' : (isExecuted ? 'border-gray-300 dark:border-gray-600' : 'border-gray-300 dark:border-gray-600')}`}>
+                            <div className={`${isExecuting ? 'animate-pulse' : ''}`}>2</div>
+                        </div>
+                        <span className={`ml-2 ${isExecuting ? 'animate-pulse' : ''}`}>Execution</span>
+                    </div>
+                    <div className={`flex-grow h-0.5 ${isExecuted ? 'bg-gray-300 dark:bg-gray-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
                     <div className={`flex items-center ${isExecuted ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 
                             ${isExecuted ? 'border-blue-600 dark:border-blue-400' : 'border-gray-300 dark:border-gray-600'}`}>
-                            2
+                            3
                         </div>
                         <span className="ml-2">Results</span>
                     </div>
