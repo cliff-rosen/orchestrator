@@ -30,13 +30,18 @@ async def create_file(
     """Create a new file"""
     try:
         content = await file.read()
-        
+        extracted_text = ""
+        if file.content_type == 'text/plain':
+            extracted_text = content.decode('utf-8')
+        else:
+            extracted_text = ""
         db_file = File(
             file_id=str(uuid4()),
             user_id=current_user.user_id,
             name=file.filename,
             description=description,
-            content=content,  # Store as binary
+            content=content,  # Store as binary,
+            extracted_text=extracted_text,
             mime_type=file.content_type,
             size=len(content)
         )
@@ -45,32 +50,49 @@ async def create_file(
         db.commit()
         db.refresh(db_file)
 
+        print("File content type: ", file.content_type)
         if file.content_type == 'application/pdf':
+            print("Extracting pdf content...")
             try:
+                # Extract text first
                 pdf_reader = PyPDF2.PdfReader(BytesIO(content))
                 extracted_text = ""
+                print("Extracting text from PDF pages. Pages: ", len(pdf_reader.pages))
                 for page in pdf_reader.pages:
                     text = page.extract_text()
                     if text:
                         extracted_text += text
+                
+                # Save text extraction immediately
                 db_file.extracted_text = extracted_text
-
-                images = convert_from_bytes(content)
-                for image in images:
-                    buffered = BytesIO()
-                    image.save(buffered, format="PNG")
-                    image_data = buffered.getvalue()
-                    db_image = FileImage(
-                        image_id=str(uuid4()),
-                        file_id=db_file.file_id,
-                        image_data=image_data,
-                        mime_type="image/png"
-                    )
-                    db.add(db_image)
                 db.commit()
+                print("Successfully saved PDF text extraction")
+
+                # Try image extraction
+                try:
+                    print("Attempting to extract images from PDF")
+                    images = convert_from_bytes(content)
+                    for image in images:
+                        buffered = BytesIO()
+                        image.save(buffered, format="PNG")
+                        image_data = buffered.getvalue()
+                        db_image = FileImage(
+                            image_id=str(uuid4()),
+                            file_id=db_file.file_id,
+                            image_data=image_data,
+                            mime_type="image/png"
+                        )
+                        db.add(db_image)
+                    db.commit()
+                    print("Successfully extracted and saved PDF images")
+                except Exception as image_error:
+                    print("Error extracting PDF images (text extraction was still saved):", str(image_error))
+                
                 db.refresh(db_file)
             except Exception as extraction_error:
                 print("Error extracting PDF data:", extraction_error)
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(extraction_error)}")
 
         return FileResponse.model_validate(db_file)
     except Exception as e:
