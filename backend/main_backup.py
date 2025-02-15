@@ -98,4 +98,4 @@ async def test_endpoint():
     logger.info("Test endpoint called")
     return {"status": "ok"}
 
-logger.info("Application startup complete")
+logger.info("Application startup complete") 
