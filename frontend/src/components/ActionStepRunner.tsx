@@ -183,7 +183,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         return (
             <div className="group relative">
                 {formatValue(value)}
-                {!isExecuted && (
+                {!isExecuting && (
                     <button
                         onClick={() => handleStartEdit(paramName, value)}
                         className="absolute top-2 right-2 p-1 rounded-md bg-gray-100 dark:bg-gray-800 
