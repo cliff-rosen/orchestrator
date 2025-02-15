@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { WorkflowStep } from '../types/workflows';
 import PromptTemplateEditor from './PromptTemplateEditor';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
@@ -12,21 +12,19 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
     step,
     onTemplateChange,
 }) => {
-    const {
-        templates,
-        selectedTemplate,
-        setSelectedTemplate,
-        isEditing,
-        setIsEditing
-    } = usePromptTemplates();
+    const { templates } = usePromptTemplates();
+    const [isEditing, setIsEditing] = useState(false);
 
     if (!step.tool || step.tool.tool_type !== 'llm') {
         return null;
     }
 
+    const currentTemplate = useMemo(() =>
+        templates.find(t => t.template_id === step.prompt_template),
+        [templates, step.prompt_template]
+    );
+
     const handleTemplateSelect = (templateId: string) => {
-        const template = templates.find(t => t.template_id === templateId);
-        setSelectedTemplate(template || null);
         onTemplateChange(templateId);
     };
 
@@ -50,7 +48,7 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
                         </option>
                     ))}
                 </select>
-                {selectedTemplate && (
+                {currentTemplate && (
                     <button
                         onClick={() => setIsEditing(true)}
                         className="px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 
@@ -64,10 +62,11 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
             </div>
 
             {/* Template Editor */}
-            {isEditing && selectedTemplate && (
+            {isEditing && currentTemplate && (
                 <PromptTemplateEditor
-                    template={selectedTemplate}
+                    template={currentTemplate}
                     onTemplateChange={onTemplateChange}
+                    onClose={() => setIsEditing(false)}
                 />
             )}
         </div>

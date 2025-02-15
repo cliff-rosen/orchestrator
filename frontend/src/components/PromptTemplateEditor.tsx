@@ -7,11 +7,13 @@ import { usePromptTemplates } from '../context/PromptTemplateContext';
 interface PromptTemplateEditorProps {
     template: PromptTemplate | null;
     onTemplateChange?: (templateId: string) => void;
+    onClose: () => void;  // No longer optional since it's always needed in workflow context
 }
 
 const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     template,
-    onTemplateChange
+    onTemplateChange,
+    onClose
 }) => {
     const { updateTemplate, createTemplate, setIsEditing, testTemplate } = usePromptTemplates();
     const [name, setName] = useState(template?.name || '');
@@ -111,51 +113,16 @@ Ensure your response is valid JSON and matches this schema exactly.`;
 
             if (template?.template_id) {
                 const updatedTemplate = await updateTemplate(template.template_id, templateData);
-                // Call onTemplateChange if it exists to update the workflow
                 if (onTemplateChange) {
                     onTemplateChange(template.template_id);
                 }
             } else {
                 const newTemplate = await createTemplate(templateData);
-                // Call onTemplateChange if it exists to update the workflow
                 if (onTemplateChange) {
                     onTemplateChange(newTemplate.template_id);
                 }
             }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to save template');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleSaveAndExitClick = async () => {
-        try {
-            setSaving(true);
-            setError(null);
-
-            const templateData = {
-                name,
-                description,
-                template: templateText,
-                tokens: extractTokens(templateText),
-                output_schema: outputSchema
-            };
-
-            if (template?.template_id) {
-                const updatedTemplate = await updateTemplate(template.template_id, templateData);
-                // Call onTemplateChange if it exists to update the workflow
-                if (onTemplateChange) {
-                    onTemplateChange(template.template_id);
-                }
-            } else {
-                const newTemplate = await createTemplate(templateData);
-                // Call onTemplateChange if it exists to update the workflow
-                if (onTemplateChange) {
-                    onTemplateChange(newTemplate.template_id);
-                }
-            }
-            setIsEditing(false);
+            onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save template');
         } finally {
@@ -185,7 +152,7 @@ Ensure your response is valid JSON and matches this schema exactly.`;
         <Dialog
             isOpen={true}
             title={template ? 'Edit Template' : 'Create Template'}
-            onClose={() => setIsEditing(false)}
+            onClose={onClose}
             maxWidth="4xl"
         >
             <div className="space-y-6 min-w-[800px]">
@@ -382,7 +349,7 @@ Ensure your response is valid JSON and matches this schema exactly.`;
                 <div className="flex justify-end space-x-3">
                     <button
                         type="button"
-                        onClick={() => setIsEditing(false)}
+                        onClick={onClose}
                         className="inline-flex justify-center py-2 px-4 border border-gray-300 
                                  shadow-sm text-sm font-medium rounded-md text-gray-700 
                                  bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 
@@ -402,17 +369,6 @@ Ensure your response is valid JSON and matches this schema exactly.`;
                                  dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
                     >
                         {saving ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleSaveAndExitClick}
-                        disabled={saving}
-                        className="inline-flex justify-center py-2 px-4 border border-transparent 
-                                 shadow-sm text-sm font-medium rounded-md text-white 
-                                 bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 
-                                 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                    >
-                        {saving ? 'Saving...' : 'Save & Exit'}
                     </button>
                 </div>
             </div>
