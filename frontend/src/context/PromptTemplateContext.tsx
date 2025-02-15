@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { PromptTemplate } from '../types/prompts';
 import { toolApi } from '../lib/api/toolApi';
+import { ToolSignature } from '../types/tools';
 
 interface PromptTemplateContextType {
     templates: PromptTemplate[];
@@ -14,6 +15,7 @@ interface PromptTemplateContextType {
     setSelectedTemplate: (template: PromptTemplate | null) => void;
     setIsEditing: (isEditing: boolean) => void;
     refreshTemplates: () => Promise<void>;
+    createToolSignatureFromTemplate: (templateId: string) => Promise<ToolSignature>;
 }
 
 const PromptTemplateContext = createContext<PromptTemplateContextType | null>(null);
@@ -54,6 +56,10 @@ export const PromptTemplateProvider: React.FC<{ children: React.ReactNode }> = (
         return await toolApi.testPromptTemplate(template, parameters);
     };
 
+    const createToolSignatureFromTemplate = async (templateId: string) => {
+        return await toolApi.createToolSignatureFromTemplate(templateId);
+    };
+
     return (
         <PromptTemplateContext.Provider value={{
             templates,
@@ -65,7 +71,8 @@ export const PromptTemplateProvider: React.FC<{ children: React.ReactNode }> = (
             testTemplate,
             setSelectedTemplate,
             setIsEditing,
-            refreshTemplates
+            refreshTemplates,
+            createToolSignatureFromTemplate
         }}>
             {children}
         </PromptTemplateContext.Provider>

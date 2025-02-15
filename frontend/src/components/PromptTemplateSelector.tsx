@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { WorkflowStep } from '../types/workflows';
 import PromptTemplateEditor from './PromptTemplateEditor';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
+import { toolApi } from '../lib/api/toolApi';
 
 interface PromptTemplateSelectorProps {
     step: WorkflowStep;
@@ -14,6 +15,7 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
 }) => {
     const { templates } = usePromptTemplates();
     const [isEditing, setIsEditing] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
 
     if (!step.tool || step.tool.tool_type !== 'llm') {
         return null;
@@ -24,8 +26,17 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
         [templates, step.prompt_template]
     );
 
-    const handleTemplateSelect = (templateId: string) => {
-        onTemplateChange(templateId);
+    const handleTemplateSelect = async (templateId: string) => {
+        if (templateId === 'new') {
+            setIsCreating(true);
+        } else {
+            try {
+                await toolApi.updateWorkflowStepWithTemplate(step, templateId);
+                onTemplateChange(templateId);
+            } catch (err) {
+                console.error('Error updating step with template:', err);
+            }
+        }
     };
 
     return (
@@ -41,6 +52,9 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
                              bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                     <option key="default" value="" disabled>Select a prompt template</option>
+                    <option key="new" value="new" className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                        + New Template
+                    </option>
                     {templates.map(template => (
                         <option key={template.template_id} value={template.template_id}
                             className="text-sm text-gray-900 dark:text-gray-100">
@@ -48,6 +62,7 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
                         </option>
                     ))}
                 </select>
+
                 {currentTemplate && (
                     <button
                         onClick={() => setIsEditing(true)}
@@ -67,6 +82,15 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
                     template={currentTemplate}
                     onTemplateChange={onTemplateChange}
                     onClose={() => setIsEditing(false)}
+                />
+            )}
+
+            {/* New Template Creator */}
+            {isCreating && (
+                <PromptTemplateEditor
+                    template={null}
+                    onTemplateChange={onTemplateChange}
+                    onClose={() => setIsCreating(false)}
                 />
             )}
         </div>

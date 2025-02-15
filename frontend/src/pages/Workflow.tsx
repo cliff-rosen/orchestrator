@@ -44,10 +44,6 @@ const Workflow: React.FC = () => {
         return saved ? JSON.parse(saved) : false;
     });
 
-    // Save collapse state to localStorage whenever it changes
-    useEffect(() => {
-        localStorage.setItem('workflowNavCollapsed', JSON.stringify(isCollapsed));
-    }, [isCollapsed]);
 
     // Initialize workflow based on URL parameter
     useEffect(() => {
@@ -89,6 +85,11 @@ const Workflow: React.FC = () => {
     useEffect(() => {
         setStepExecuted(false);
     }, [activeStep]);
+
+    // Save collapse state to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem('workflowNavCollapsed', JSON.stringify(isCollapsed));
+    }, [isCollapsed]);
 
     //////////////////////// Handlers ////////////////////////
 

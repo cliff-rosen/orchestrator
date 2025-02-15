@@ -8,6 +8,7 @@ import { toolApi, TOOL_TYPES } from '../lib/api/toolApi';
 import PromptTemplateSelector from './PromptTemplateSelector';
 import DataFlowMapper from './DataFlowMapper';
 import { useWorkflows } from '../context/WorkflowContext';
+import { usePromptTemplates } from '../context/PromptTemplateContext';
 
 interface ActionStepEditorProps {
     step: WorkflowStep;
@@ -62,40 +63,12 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         console.log('handleTemplateChange', templateId);
         if (!step.tool) return;
 
-        const signature = await toolApi.createToolSignatureFromTemplate(templateId);
-
-        // Only clear mappings if the parameters/outputs have changed
-        const parameterMappings = { ...step.parameter_mappings };
-        const outputMappings = { ...step.output_mappings };
-
-        // Clear parameter mappings for parameters that no longer exist
-        if (step.parameter_mappings) {
-            Object.keys(step.parameter_mappings).forEach(param => {
-                if (!signature.parameters.find(p => p.name === param)) {
-                    delete parameterMappings[param];
-                }
-            });
+        try {
+            const updatedStep = await toolApi.updateWorkflowStepWithTemplate(step, templateId);
+            onStepUpdate(updatedStep);
+        } catch (err) {
+            console.error('Error updating step with template:', err);
         }
-
-        // Clear output mappings for outputs that no longer exist
-        if (step.output_mappings) {
-            Object.keys(step.output_mappings).forEach(output => {
-                if (!signature.outputs.find(o => o.name === output)) {
-                    delete outputMappings[output];
-                }
-            });
-        }
-
-        onStepUpdate({
-            ...step,
-            prompt_template: templateId,
-            parameter_mappings: parameterMappings,
-            output_mappings: outputMappings,
-            tool: {
-                ...step.tool,
-                signature
-            }
-        });
     };
 
     const handleParameterMappingChange = (mappings: Record<string, string>) => {
@@ -294,7 +267,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
             )}
 
             {/* Step 5: Parameter and Output Mapping */}
-            {step.tool && (
+            {(step.tool && (step.tool.tool_type != 'llm' || step.prompt_template)) && (
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
                         Data Flow Configuration
