@@ -7,6 +7,8 @@ import { useWorkflows } from '../context/WorkflowContext';
 import { fileApi } from '../lib/api/fileApi';
 import Dialog from './common/Dialog';
 import FileLibrary from './FileLibrary';
+import { usePromptTemplates } from '../context/PromptTemplateContext';
+import PromptTemplateEditor from './PromptTemplateEditor';
 
 interface ActionStepRunnerProps {
     actionStep: RuntimeWorkflowStep;
@@ -28,11 +30,13 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     });
 
     const { workflow, updateWorkflow } = useWorkflows();
+    const { templates } = usePromptTemplates();
     const [editingInput, setEditingInput] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<any>(null);
     const [showFileSelector, setShowFileSelector] = useState(false);
     const [selectedParam, setSelectedParam] = useState<{ paramName: string, varName: string } | null>(null);
     const [fileNames, setFileNames] = useState<Record<string, string>>({});
+    const [showTemplateEditor, setShowTemplateEditor] = useState(false);
 
     // Load file names for file values
     React.useEffect(() => {
@@ -85,6 +89,14 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             };
         });
     }
+
+    // Get the current prompt template if this is an LLM tool
+    const currentTemplate = React.useMemo(() => {
+        if (actionStep.tool?.tool_type === 'llm' && actionStep.prompt_template) {
+            return templates.find(t => t.template_id === actionStep.prompt_template);
+        }
+        return null;
+    }, [actionStep.tool, actionStep.prompt_template, templates]);
 
     const handleStartEdit = (paramName: string, value: any) => {
         setEditingInput(paramName);
@@ -373,6 +385,39 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                         </p>
                     </div>
 
+                    {/* Prompt Template Section for LLM Tools */}
+                    {actionStep.tool.tool_type === 'llm' && currentTemplate && (
+                        <div className="mt-6 border-b border-gray-200 dark:border-gray-700 pb-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                                    Prompt Template
+                                </h4>
+                                <button
+                                    onClick={() => setShowTemplateEditor(true)}
+                                    className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 
+                                             dark:text-blue-400 dark:hover:text-blue-300 border border-blue-600 
+                                             dark:border-blue-400 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 
+                                             transition-colors duration-200"
+                                >
+                                    View Template
+                                </button>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
+                                <div className="mb-2">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        {currentTemplate.name}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                    {currentTemplate.description}
+                                </p>
+                                <div className="font-mono text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-700">
+                                    {currentTemplate.template}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Parameters Section */}
                     <div className="mt-6 space-y-4">
                         <div className="flex items-center">
@@ -489,6 +534,14 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                     )}
                 </div>
             </div>
+
+            {/* Template Editor Dialog */}
+            {showTemplateEditor && currentTemplate && (
+                <PromptTemplateEditor
+                    template={currentTemplate}
+                    onClose={() => setShowTemplateEditor(false)}
+                />
+            )}
 
             {/* File Selector Dialog */}
             {showFileSelector && selectedParam && (
