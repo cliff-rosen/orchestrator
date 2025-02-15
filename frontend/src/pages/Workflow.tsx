@@ -118,11 +118,13 @@ const Workflow: React.FC = () => {
     };
 
     const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {
+        console.log('handleStepUpdate', step);
         if (!workflow) return;
 
-        // Ensure tool_id is set if tool exists
+        // Preserve the tool object and ensure tool_id is set
         const updatedStep = {
             ...step,
+            tool: step.tool,  // Explicitly preserve the tool object
             tool_id: step.tool?.tool_id
         };
 

@@ -8,7 +8,6 @@ import { toolApi, TOOL_TYPES } from '../lib/api/toolApi';
 import PromptTemplateSelector from './PromptTemplateSelector';
 import DataFlowMapper from './DataFlowMapper';
 import { useWorkflows } from '../context/WorkflowContext';
-import { usePromptTemplates } from '../context/PromptTemplateContext';
 
 interface ActionStepEditorProps {
     step: WorkflowStep;
@@ -72,6 +71,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     };
 
     const handleParameterMappingChange = (mappings: Record<string, string>) => {
+        console.log('handleParameterMappingChange', mappings);
         onStepUpdate({
             ...step,
             parameter_mappings: mappings

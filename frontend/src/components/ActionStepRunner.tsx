@@ -463,11 +463,15 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                 </div>
 
                 {/* Execution State Description */}
-                <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-center">
                     {!isExecuted ? (
-                        <p>Configure the input parameters above and click Execute to run this step</p>
+                        <p className="text-base text-blue-600 dark:text-blue-400 font-medium">
+                            Configure the input parameters above and click Execute Tool to run this step
+                        </p>
                     ) : (
-                        <p>This step has been executed. You can view the results above or proceed to the next step</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            This step has been executed. You can view the results above or proceed to the next step
+                        </p>
                     )}
                 </div>
             </div>
