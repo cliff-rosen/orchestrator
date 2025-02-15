@@ -69,10 +69,15 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
 
     if (schema.type === 'file') {
         return (
-            <FileLibrary
-                selectedFileId={value?.file_id}
-                onFileSelect={(fileId) => onChange({ file_id: fileId })}
-            />
+            <div className="space-y-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Please select a file from the library below or upload a new one.
+                </p>
+                <FileLibrary
+                    selectedFileId={value?.file_id}
+                    onFileSelect={(fileId) => onChange({ file_id: fileId })}
+                />
+            </div>
         );
     }
 
