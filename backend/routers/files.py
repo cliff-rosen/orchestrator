@@ -20,6 +20,26 @@ router = APIRouter(
     tags=["files"]
 )
 
+async def get_file_content_as_text(file_id: str, db: Session) -> str:
+    """Get a file's content as text, used for template processing"""
+    file = db.query(File).filter(File.file_id == file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail=f"File not found: {file_id}")
+    
+    # If we have extracted text, use that
+    if file.extracted_text:
+        return file.extracted_text
+    
+    # For text files, try to decode as UTF-8
+    if file.mime_type.startswith('text/') or file.mime_type in ['application/json', 'application/javascript']:
+        try:
+            return file.content.decode('utf-8')
+        except UnicodeDecodeError:
+            pass
+    
+    # For binary files or failed text decoding, return base64 encoded
+    return base64.b64encode(file.content).decode('utf-8')
+
 @router.post("", response_model=FileResponse)
 async def create_file(
     file: UploadFile = FastAPIFile(...),

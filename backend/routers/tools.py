@@ -17,7 +17,8 @@ from schemas import (
 from services.ai_service import AIService
 from services.auth_service import validate_token
 from models import User
-from services import ai_service, file_service
+from services import ai_service
+from routers.files import get_file_content_as_text
 
 router = APIRouter(
     prefix="/api",
@@ -248,7 +249,7 @@ async def test_prompt_template(
                     detail=f"Missing required file token: {token_name}"
                 )
             file_id = test_data.parameters[file_param]
-            file_content = await file_service.get_file_content(file_id)
+            file_content = await get_file_content_as_text(file_id, db)
             if system_message:
                 system_message = system_message.replace(f"<<file:{token_name}>>", file_content)
             user_message = user_message.replace(f"<<file:{token_name}>>", file_content)

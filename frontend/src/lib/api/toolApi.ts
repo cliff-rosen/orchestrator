@@ -1,6 +1,6 @@
 import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolParameterName, ToolOutputName } from '../../types';
-import { PromptTemplate, PromptTemplateToken, PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest } from '../../types/prompts';
-import { PrimitiveValue, ValueType } from '../../types/schema';
+import { PromptTemplate, PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest } from '../../types/prompts';
+
 import { WorkflowStep } from '../../types/workflows';
 import { api, handleApiError } from './index';
 import { executeLLM, executeSearch } from './toolExecutors';
@@ -91,6 +91,9 @@ const registerUtilityTools = () => {
     });
 
 };
+
+// Initialize tool executors
+registerUtilityTools();
 
 // Function to register a tool's execution method
 export const registerToolExecutor = (toolId: string, executor: (parameters: ResolvedParameters) => Promise<ToolOutputs>) => {
