@@ -361,7 +361,7 @@ class PromptTemplateTest(BaseModel):
     """Schema for testing a prompt template"""
     user_message_template: str = Field(description="The user message template to test")
     system_message_template: Optional[str] = Field(None, description="Optional system message template to test")
-    tokens: List[PromptTemplateToken] = Field(description="List of tokens in the template")
+    tokens: List[Dict[str, str]] = Field(description="List of tokens in the template")
     parameters: Dict[str, Any] = Field(description="Values for the template tokens")
     output_schema: Dict[str, Any] = Field(description="Expected output schema")
 
@@ -375,7 +375,7 @@ class LLMExecuteRequest(BaseModel):
 
 class LLMExecuteResponse(BaseModel):
     """Schema for LLM execution response"""
-    template_id: str
+    template_id: Optional[str] = Field(None, description="ID of the template used, if any")
     messages: List[Dict[str, Any]]
     response: Any
 

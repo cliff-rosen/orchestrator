@@ -242,7 +242,7 @@ async def test_prompt_template(
         # Handle file tokens
         file_tokens = [t['name'] for t in test_data.tokens if t['type'] == 'file']
         for token_name in file_tokens:
-            file_param = f"file:{token_name}"
+            file_param = token_name
             if file_param not in test_data.parameters:
                 raise HTTPException(
                     status_code=400, 
@@ -267,7 +267,7 @@ async def test_prompt_template(
         })
 
         # Execute the LLM request
-        response = await ai_service.create_chat_completion(
+        response = await ai_service.send_messages(
             messages=messages,
             max_tokens=1000
         )

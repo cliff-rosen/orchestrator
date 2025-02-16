@@ -313,7 +313,7 @@ const PromptTemplate: React.FC = () => {
                                 className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                          shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
                                          focus:border-blue-500 sm:text-sm dark:bg-gray-800
-                                         text-gray-900 dark:text-gray-100"
+                                         text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                                 placeholder="Enter system message template. Use {{token}} for string tokens and <<file:token>> for file tokens."
                             />
                         </div>
@@ -330,7 +330,7 @@ const PromptTemplate: React.FC = () => {
                                 className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                          shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
                                          focus:border-blue-500 sm:text-sm dark:bg-gray-800
-                                         text-gray-900 dark:text-gray-100 font-mono"
+                                         text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 font-mono"
                                 placeholder="Enter user message template. Use {{token}} for string tokens and <<file:token>> for file tokens."
                             />
                         </div>
@@ -382,12 +382,12 @@ const PromptTemplate: React.FC = () => {
                                                 <div className="mt-1">
                                                     {testParameters[token.name] ? (
                                                         <div className="flex items-center gap-2">
-                                                            <div className="flex-1 p-2 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                                                            <div className="flex-1 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
                                                                 <div className="flex items-center gap-2">
                                                                     <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                                                     </svg>
-                                                                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                                                                    <span className="text-sm text-gray-900 dark:text-gray-100">
                                                                         {fileNames[testParameters[token.name]] || 'Loading...'}
                                                                     </span>
                                                                 </div>
@@ -411,7 +411,7 @@ const PromptTemplate: React.FC = () => {
                                                             }}
                                                             className="mt-1 inline-flex items-center px-3 py-2 border border-gray-300 
                                                                      dark:border-gray-600 shadow-sm text-sm font-medium rounded-md 
-                                                                     text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 
+                                                                     text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 
                                                                      hover:bg-gray-50 dark:hover:bg-gray-700"
                                                         >
                                                             Select File
@@ -428,7 +428,7 @@ const PromptTemplate: React.FC = () => {
                                                     })}
                                                     className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                                              shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                                             focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                                             focus:border-blue-500 sm:text-sm bg-white dark:bg-gray-800
                                                              text-gray-900 dark:text-gray-100"
                                                     placeholder={`Enter value for ${token.name}`}
                                                 />
@@ -452,7 +452,8 @@ const PromptTemplate: React.FC = () => {
                                         <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
                                             Test Result
                                         </h4>
-                                        <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md overflow-auto max-h-96">
+                                        <pre className="bg-white dark:bg-gray-800 p-4 rounded-md overflow-auto max-h-96 
+                                                      text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700">
                                             {JSON.stringify(testResult, null, 2)}
                                         </pre>
                                     </div>
