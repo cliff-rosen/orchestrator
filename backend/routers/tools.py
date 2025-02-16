@@ -189,22 +189,17 @@ async def execute_llm(request: LLMExecuteRequest, db: Session = Depends(get_db))
         )
 
         # Build messages array
-        messages = []
-        if system_message:
-            messages.append({
-                'role': 'system',
-                'content': system_message
-            })
-        messages.append({
+        messages = [{
             'role': 'user',
             'content': content_parts if content_parts else user_message
-        })
+        }]
 
         # Call LLM using AI service
         llm_response = await ai_service.send_messages(
             messages=messages,
             model=request.model,
-            max_tokens=request.max_tokens
+            max_tokens=request.max_tokens,
+            system=system_message if system_message else None
         )
 
         # Process response based on schema type

@@ -179,6 +179,17 @@ const Workflow: React.FC = () => {
                 const toolId = currentStep.tool.tool_id;
                 let outputs;
 
+                // Clear output values for this step before execution
+                if (workflow?.outputs && currentStep.output_mappings) {
+                    const clearedOutputs = workflow.outputs.map(output => {
+                        if (Object.values(currentStep.output_mappings || {}).includes(output.name)) {
+                            return { ...output, value: undefined };
+                        }
+                        return output;
+                    });
+                    updateWorkflow({ outputs: clearedOutputs });
+                }
+
                 // Special handling for LLM tools
                 if (currentStep.tool.tool_type === 'llm') {
                     if (!currentStep.prompt_template) {

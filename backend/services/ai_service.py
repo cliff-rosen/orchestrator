@@ -1119,7 +1119,8 @@ Answer to Evaluate: {answer}
     async def send_messages(self, 
                           messages: List[Message],
                           model: Optional[str] = None,
-                          max_tokens: Optional[int] = None
+                          max_tokens: Optional[int] = None,
+                          system: Optional[str] = None
                           ) -> str:
         """
         Send a collection of messages that can contain text and/or images to the AI provider.
@@ -1128,6 +1129,7 @@ Answer to Evaluate: {answer}
             messages: List of messages with role and content. Content can be text or image data.
             model: Optional model to use (defaults to provider's default)
             max_tokens: Optional maximum tokens for response
+            system: Optional system message to include in the prompt
 
         Returns:
             The AI provider's response text
@@ -1175,7 +1177,8 @@ Answer to Evaluate: {answer}
             response = await self.provider.create_chat_completion(
                 messages=formatted_messages,
                 model=model,
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                system=system
             )
 
             return response
