@@ -67,7 +67,7 @@ class WorkflowService:
                     name=input_data.name,
                     description=input_data.description,
                     type=input_data.schema.type,
-                    schema=input_data.schema,
+                    schema=input_data.schema.model_dump(),
                     io_type='input',
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
@@ -83,7 +83,7 @@ class WorkflowService:
                     name=output_data.name,
                     description=output_data.description,
                     type=output_data.schema.type,
-                    schema=output_data.schema,
+                    schema=output_data.schema.model_dump(),
                     io_type='output',
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
@@ -308,7 +308,9 @@ class WorkflowService:
                             name=var_dict['name'],
                             description=var_dict.get('description'),
                             type=var_dict['schema']['type'],
-                            schema=var_dict['schema']
+                            schema=var_dict['schema'] if isinstance(var_dict['schema'], dict) else var_dict['schema'].model_dump(),
+                            created_at=datetime.utcnow(),
+                            updated_at=datetime.utcnow()
                         )
                         self.db.add(var)
                 
@@ -324,7 +326,9 @@ class WorkflowService:
                             name=var_dict['name'],
                             description=var_dict.get('description'),
                             type=var_dict['schema']['type'],
-                            schema=var_dict['schema']
+                            schema=var_dict['schema'] if isinstance(var_dict['schema'], dict) else var_dict['schema'].model_dump(),
+                            created_at=datetime.utcnow(),
+                            updated_at=datetime.utcnow()
                         )
                         self.db.add(var)
             
