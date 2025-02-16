@@ -229,6 +229,7 @@ const PromptTemplate: React.FC = () => {
 
     const handleTest = async () => {
         setTesting(true);
+        setTestResult(null);
         try {
             setError(null);
             const testData: PromptTemplateTest = {

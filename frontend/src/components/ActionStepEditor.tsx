@@ -30,7 +30,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         const loadTools = async () => {
             try {
                 setLoading(true);
-                const availableTools = await toolApi.getAvailableTools();
+                const availableTools = await toolApi.getTools();
                 setTools(availableTools);
             } catch (err) {
                 console.error('Error loading tools:', err);

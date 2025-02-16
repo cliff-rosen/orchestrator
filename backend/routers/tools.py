@@ -12,13 +12,14 @@ from database import get_db
 from models import Tool, PromptTemplate, WorkflowStep, File, FileImage
 from schemas import (
     ToolResponse, PromptTemplateResponse, LLMExecuteRequest, LLMExecuteResponse,
-    PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest
+    PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest, ToolSignature
 )
 from services.ai_service import AIService
 from services.auth_service import validate_token
 from models import User
 from services import ai_service
 from routers.files import get_file_content_as_text
+from services.workflow_service import WorkflowService
 
 router = APIRouter(
     prefix="/api",
@@ -54,6 +55,13 @@ async def get_prompt_template(template_id: str, db: Session = Depends(get_db)):
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
     return template
+
+@router.get("/prompt-templates/{template_id}/signature", response_model=ToolSignature)
+async def get_prompt_template_signature(template_id: str, db: Session = Depends(get_db)):
+    """Get a prompt template's tool signature"""
+    workflow_service = WorkflowService(db)
+    signature = workflow_service._get_llm_signature(template_id)
+    return signature
 
 @router.post("/execute_llm", response_model=LLMExecuteResponse)
 async def execute_llm(request: LLMExecuteRequest, db: Session = Depends(get_db)):

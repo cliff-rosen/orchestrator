@@ -4,6 +4,8 @@ import { SchemaValue, PrimitiveValue, ObjectValue } from '../types/schema';
 import Dialog from './common/Dialog';
 import SchemaEditor from './common/SchemaEditor';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
+import FileLibrary from '../components/FileLibrary';
+import { fileApi } from '../lib/api/fileApi';
 
 interface PromptTemplateEditorProps {
     template: PromptTemplate | null;
@@ -22,7 +24,7 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     onTemplateChange,
     onClose
 }) => {
-    const { updateTemplate, createTemplate, setIsEditing, testTemplate } = usePromptTemplates();
+    const { updateTemplate, createTemplate, testTemplate } = usePromptTemplates();
     const [name, setName] = useState(template?.name || '');
     const [description, setDescription] = useState(template?.description || '');
     const [userMessageTemplate, setUserMessageTemplate] = useState(template?.user_message_template || '');
@@ -33,6 +35,9 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     const [testResult, setTestResult] = useState<string>('');
     const [error, setError] = useState<string>('');
     const [isOpen, setIsOpen] = useState(true);
+    const [showFileSelector, setShowFileSelector] = useState(false);
+    const [selectedTokenName, setSelectedTokenName] = useState<string | null>(null);
+    const [fileNames, setFileNames] = useState<Record<string, string>>({});
 
     useEffect(() => {
         if (template) {
@@ -148,6 +153,36 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
         setOutputSchema(newSchema);
     };
 
+    // Load file names for file values
+    useEffect(() => {
+        const loadFileNames = async () => {
+            const newFileNames: Record<string, string> = {};
+            for (const [tokenName, value] of Object.entries(testParameters)) {
+                if (tokens.find(t => t.name === tokenName)?.type === 'file' && value) {
+                    try {
+                        const fileInfo = await fileApi.getFile(value);
+                        newFileNames[value] = fileInfo.name;
+                    } catch (err) {
+                        console.error('Error loading file name:', err);
+                    }
+                }
+            }
+            setFileNames(newFileNames);
+        };
+        loadFileNames();
+    }, [testParameters, tokens]);
+
+    const handleFileSelect = (fileId: string) => {
+        if (selectedTokenName) {
+            setTestParameters(prev => ({
+                ...prev,
+                [selectedTokenName]: fileId
+            }));
+            setShowFileSelector(false);
+            setSelectedTokenName(null);
+        }
+    };
+
     return (
         <Dialog
             isOpen={isOpen}
@@ -158,10 +193,12 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
             <div className="space-y-4 p-4">
                 {/* Template Name */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Template Name</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Template Name</label>
                     <input
                         type="text"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm 
+                                 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm
+                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Enter template name"
@@ -170,9 +207,11 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
 
                 {/* Template Description */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Description (Optional)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Description (Optional)</label>
                     <textarea
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm 
+                                 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm
+                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                         rows={2}
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
@@ -182,9 +221,11 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
 
                 {/* System Message Template */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">System Message Template (Optional)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">System Message Template (Optional)</label>
                     <textarea
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm 
+                                 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm
+                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                         rows={3}
                         value={systemMessageTemplate}
                         onChange={handleSystemMessageChange}
@@ -194,9 +235,11 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
 
                 {/* User Message Template */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">User Message Template</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">User Message Template</label>
                     <textarea
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm 
+                                 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm
+                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                         rows={10}
                         value={userMessageTemplate}
                         onChange={handleUserMessageChange}
@@ -206,14 +249,14 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
 
                 {/* Tokens list */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Tokens</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tokens</label>
                     <div className="mt-1 flex flex-wrap gap-2">
                         {tokens.map(token => (
                             <span
                                 key={token.name}
                                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${token.type === 'string'
-                                        ? 'bg-blue-100 text-blue-800'
-                                        : 'bg-green-100 text-green-800'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300'
+                                    : 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
                                     }`}
                             >
                                 {token.name} ({token.type})
@@ -224,7 +267,7 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
 
                 {/* Output schema editor */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Output Schema</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Output Schema</label>
                     <SchemaEditor
                         schema={outputSchema}
                         onChange={handleSchemaChange}
@@ -232,42 +275,93 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                 </div>
 
                 {/* Test section */}
-                <div className="border-t pt-4">
-                    <h3 className="text-lg font-medium">Test Template</h3>
+                <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Test Template</h3>
                     <div className="mt-2 space-y-4">
                         {tokens.map(token => (
                             <div key={token.name}>
-                                <label className="block text-sm font-medium text-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     {token.name} ({token.type})
                                 </label>
-                                <input
-                                    type="text"
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                                    value={testParameters[token.name] || ''}
-                                    onChange={(e) => setTestParameters({
-                                        ...testParameters,
-                                        [token.name]: e.target.value
-                                    })}
-                                />
+                                {token.type === 'file' ? (
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm 
+                                                     focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm
+                                                     bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                            value={fileNames[testParameters[token.name]] || 'No file selected'}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedTokenName(token.name);
+                                                setShowFileSelector(true);
+                                            }}
+                                            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 
+                                                     shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 
+                                                     bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 
+                                                     focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        >
+                                            Select File
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm 
+                                                 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm
+                                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                        value={testParameters[token.name] || ''}
+                                        onChange={(e) => setTestParameters({
+                                            ...testParameters,
+                                            [token.name]: e.target.value
+                                        })}
+                                    />
+                                )}
                             </div>
                         ))}
                         <button
                             type="button"
                             onClick={handleTest}
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium 
+                                     rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 
+                                     focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                                     dark:bg-indigo-500 dark:hover:bg-indigo-600"
                         >
                             Test
                         </button>
                         {testResult && (
-                            <pre className="mt-2 p-4 bg-gray-100 rounded-md overflow-auto">
+                            <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded-md overflow-auto 
+                                          text-gray-900 dark:text-gray-100 text-sm">
                                 {testResult}
                             </pre>
                         )}
                     </div>
                 </div>
 
+                {/* File Selector Dialog */}
+                {showFileSelector && (
+                    <Dialog
+                        isOpen={showFileSelector}
+                        onClose={() => {
+                            setShowFileSelector(false);
+                            setSelectedTokenName(null);
+                        }}
+                        title="Select a File"
+                        maxWidth="2xl"
+                    >
+                        <div className="p-4">
+                            <FileLibrary
+                                onFileSelect={handleFileSelect}
+                            />
+                        </div>
+                    </Dialog>
+                )}
+
                 {error && (
-                    <div className="text-red-600 text-sm mt-2">
+                    <div className="text-red-600 dark:text-red-400 text-sm mt-2">
                         {error}
                     </div>
                 )}
@@ -276,14 +370,20 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 
+                                 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-300 
+                                 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 
+                                 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
                         Cancel
                     </button>
                     <button
                         type="button"
                         onClick={handleSave}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium 
+                                 rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 
+                                 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                                 dark:bg-indigo-500 dark:hover:bg-indigo-600"
                     >
                         Save
                     </button>
