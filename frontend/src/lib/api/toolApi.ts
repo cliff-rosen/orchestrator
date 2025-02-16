@@ -12,6 +12,56 @@ let promptTemplatesCache: PromptTemplate[] | null = null;
 // Tool registry to store tool execution methods
 const toolRegistry = new Map<string, (parameters: ResolvedParameters) => Promise<ToolOutputs>>();
 
+// Function to register a tool's execution method
+export const registerToolExecutor = (toolId: string, executor: (parameters: ResolvedParameters) => Promise<ToolOutputs>) => {
+    toolRegistry.set(toolId, executor);
+};
+
+// Function to get a tool's execution method
+export const getToolExecutor = (toolId: string) => {
+    return toolRegistry.get(toolId);
+};
+
+////// Tool executor functions //////
+
+// Register utility tool implementations
+const registerUtilityTools = () => {
+    // LLM tool
+    registerToolExecutor('llm', executeLLM);
+
+    // Search tool
+    registerToolExecutor('search', executeSearch);
+
+    // Echo tool
+    registerToolExecutor('echo', async (parameters: ResolvedParameters) => {
+        const input = parameters['input' as ToolParameterName] as string;
+        return {
+            ['output' as ToolOutputName]: `Echo: ${input}`
+        };
+    });
+
+    // Concatenate tool
+    registerToolExecutor('concatenate', async (parameters: ResolvedParameters) => {
+        const first = parameters['first' as ToolParameterName] as string;
+        const second = parameters['second' as ToolParameterName] as string;
+        return {
+            ['result' as ToolOutputName]: `${first}${second}`
+        };
+    });
+
+    // Retrieve tool
+    registerToolExecutor('retrieve', async (parameters: ResolvedParameters) => {
+        const urls = parameters['urls' as ToolParameterName] as string[];
+        // TODO: Implement actual URL content retrieval
+        return {
+            ['contents' as ToolOutputName]: urls.map(url => `Mock content from: ${url}`)
+        };
+    });
+};
+
+// Initialize tool executors
+registerUtilityTools();
+
 // Tool type definitions
 export const TOOL_TYPES = [
     {
@@ -52,58 +102,6 @@ export const TOOL_TYPES = [
         ]
     }
 ];
-
-////// Tool executor functions //////
-
-// Register utility tool implementations
-const registerUtilityTools = () => {
-
-    // LLM tool
-    registerToolExecutor('llm', executeLLM);
-
-    // Search tool
-    registerToolExecutor('search', executeSearch);
-
-    // Echo tool
-    registerToolExecutor('echo', async (parameters: ResolvedParameters) => {
-        const input = parameters['input' as ToolParameterName] as string;
-        return {
-            ['output' as ToolOutputName]: `Echo: ${input}`
-        };
-    });
-
-    // Concatenate tool
-    registerToolExecutor('concatenate', async (parameters: ResolvedParameters) => {
-        const first = parameters['first' as ToolParameterName] as string;
-        const second = parameters['second' as ToolParameterName] as string;
-        return {
-            ['result' as ToolOutputName]: `${first}${second}`
-        };
-    });
-
-    // Retrieve tool
-    registerToolExecutor('retrieve', async (parameters: ResolvedParameters) => {
-        const urls = parameters['urls' as ToolParameterName] as string[];
-        // TODO: Implement actual URL content retrieval
-        return {
-            ['contents' as ToolOutputName]: urls.map(url => `Mock content from: ${url}`)
-        };
-    });
-
-};
-
-// Initialize tool executors
-registerUtilityTools();
-
-// Function to register a tool's execution method
-export const registerToolExecutor = (toolId: string, executor: (parameters: ResolvedParameters) => Promise<ToolOutputs>) => {
-    toolRegistry.set(toolId, executor);
-};
-
-// Function to get a tool's execution method
-export const getToolExecutor = (toolId: string) => {
-    return toolRegistry.get(toolId);
-};
 
 ////// Tool API functions //////
 
