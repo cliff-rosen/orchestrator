@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List, Dict, TypedDict, AsyncGenerator
+from typing import Optional, List, Dict, TypedDict, AsyncGenerator, Union, Literal
 from config.settings import settings
 from .llm.base import LLMProvider
 from .llm.anthropic_provider import AnthropicProvider
@@ -327,6 +327,17 @@ IMPORTANT:
 2. Every relationship MUST include a properties field, even if it's an empty object {}.
 3. Ensure all IDs are unique and referenced correctly in relationships.'''
 
+class MessageContent(TypedDict, total=False):
+    """TypedDict for message content that can include text and/or image data"""
+    text: str
+    image_url: str
+    image_data: bytes
+    image_mime_type: str
+
+class Message(TypedDict):
+    """TypedDict for a complete message including role and content"""
+    role: Literal["user", "assistant", "system"]
+    content: Union[str, List[MessageContent]]
 
 class AIService:
     def __init__(self):
@@ -1104,6 +1115,74 @@ Answer to Evaluate: {answer}
             logger.error(f"Error in extract_knowledge_graph_elements: {str(e)}")
             logger.exception("Full traceback:")
             return KnowledgeGraphElements(nodes=[], relationships=[])
+
+    async def send_messages(self, 
+                          messages: List[Message],
+                          model: Optional[str] = None,
+                          max_tokens: Optional[int] = None
+                          ) -> str:
+        """
+        Send a collection of messages that can contain text and/or images to the AI provider.
+
+        Args:
+            messages: List of messages with role and content. Content can be text or image data.
+            model: Optional model to use (defaults to provider's default)
+            max_tokens: Optional maximum tokens for response
+
+        Returns:
+            The AI provider's response text
+        """
+        try:
+            # Format messages for the provider
+            formatted_messages = []
+            
+            for msg in messages:
+                if isinstance(msg["content"], str):
+                    # Simple text message
+                    formatted_messages.append({
+                        "role": msg["role"],
+                        "content": msg["content"]
+                    })
+                else:
+                    # Message with potential multiple content parts
+                    content_parts = []
+                    for part in msg["content"]:
+                        if "text" in part:
+                            content_parts.append({
+                                "type": "text",
+                                "text": part["text"]
+                            })
+                        if "image_url" in part:
+                            content_parts.append({
+                                "type": "image_url",
+                                "image_url": part["image_url"]
+                            })
+                        elif "image_data" in part and "image_mime_type" in part:
+                            # Convert binary image data to base64
+                            import base64
+                            image_base64 = base64.b64encode(part["image_data"]).decode('utf-8')
+                            content_parts.append({
+                                "type": "image_url",
+                                "image_url": f"data:{part['image_mime_type']};base64,{image_base64}"
+                            })
+                    
+                    formatted_messages.append({
+                        "role": msg["role"],
+                        "content": content_parts
+                    })
+
+            # Send to provider
+            response = await self.provider.create_chat_completion(
+                messages=formatted_messages,
+                model=model,
+                max_tokens=max_tokens
+            )
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Error in send_messages: {str(e)}")
+            raise
 
 
 # Create a singleton instance

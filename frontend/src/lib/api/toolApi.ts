@@ -1,5 +1,5 @@
 import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolParameterName, ToolOutputName } from '../../types';
-import { PromptTemplate } from '../../types/prompts';
+import { PromptTemplate, PromptTemplateToken, PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest } from '../../types/prompts';
 import { PrimitiveValue, ValueType } from '../../types/schema';
 import { WorkflowStep } from '../../types/workflows';
 import { api, handleApiError } from './index';
@@ -105,29 +105,48 @@ export const getToolExecutor = (toolId: string) => {
 ////// Tool API functions //////
 
 export const toolApi = {
-    // Get all available tools with their signatures
-    getAvailableTools: async (): Promise<Tool[]> => {
-        // Use cache if available
-        if (toolsCache) {
-            return toolsCache;
-        }
+    getTools: async (): Promise<Tool[]> => {
+        const response = await api.get('/api/tools');
+        return response.data;
+    },
 
-        try {
-            const response = await api.get('/api/tools');
-            const tools = response.data;
+    getTool: async (toolId: string): Promise<Tool> => {
+        const response = await api.get(`/api/tools/${toolId}`);
+        return response.data;
+    },
 
-            // Register tool executors if not already registered
-            if (toolRegistry.size === 0) {
-                registerUtilityTools();
-            }
+    getPromptTemplates: async (): Promise<PromptTemplate[]> => {
+        const response = await api.get('/api/prompt-templates');
+        return response.data;
+    },
 
-            // Cache the tools
-            toolsCache = tools;
-            return tools;
-        } catch (error) {
-            console.error('Error fetching tools:', handleApiError(error));
-            throw error;
-        }
+    getPromptTemplate: async (templateId: string): Promise<PromptTemplate> => {
+        const response = await api.get(`/api/prompt-templates/${templateId}`);
+        return response.data;
+    },
+
+    createPromptTemplate: async (template: PromptTemplateCreate): Promise<PromptTemplate> => {
+        const response = await api.post('/api/prompt-templates', template);
+        return response.data;
+    },
+
+    updatePromptTemplate: async (templateId: string, template: PromptTemplateUpdate): Promise<PromptTemplate> => {
+        const response = await api.put(`/api/prompt-templates/${templateId}`, template);
+        return response.data;
+    },
+
+    deletePromptTemplate: async (templateId: string): Promise<void> => {
+        await api.delete(`/api/prompt-templates/${templateId}`);
+    },
+
+    testPromptTemplate: async (templateId: string, testData: PromptTemplateTest): Promise<any> => {
+        const response = await api.post(`/api/prompt-templates/test`, testData);
+        return response.data;
+    },
+
+    createToolSignatureFromTemplate: async (templateId: string): Promise<ToolSignature> => {
+        const response = await api.get(`/api/prompt-templates/${templateId}/signature`);
+        return response.data;
     },
 
     // Execute a tool
@@ -139,137 +158,10 @@ export const toolApi = {
         return executor(parameters);
     },
 
-    // Get available prompt templates
-    getPromptTemplates: async (): Promise<PromptTemplate[]> => {
-        // Use cache if available
-        if (promptTemplatesCache) {
-            return promptTemplatesCache;
-        }
-
-        try {
-            const response = await api.get('/api/prompt-templates');
-            const templates = response.data;
-
-            // Cache the templates
-            promptTemplatesCache = templates;
-            return templates;
-        } catch (error) {
-            console.error('Error fetching prompt templates:', handleApiError(error));
-            throw error;
-        }
-    },
-
-    // Create a new prompt template
-    createPromptTemplate: async (templateData: Partial<PromptTemplate>): Promise<PromptTemplate> => {
-        try {
-            const response = await api.post('/api/prompt-templates', templateData);
-
-            // Clear cache to ensure fresh data
-            promptTemplatesCache = null;
-
-            return response.data;
-        } catch (error) {
-            throw handleApiError(error);
-        }
-    },
-
-    // Update an existing prompt template
-    updatePromptTemplate: async (templateId: string, templateData: Partial<PromptTemplate>): Promise<PromptTemplate> => {
-        try {
-            const response = await api.put(`/api/prompt-templates/${templateId}`, templateData);
-
-            // Clear cache to ensure fresh data
-            promptTemplatesCache = null;
-
-            return response.data;
-        } catch (error) {
-            throw handleApiError(error);
-        }
-    },
-
-    // Delete a prompt template
-    deletePromptTemplate: async (templateId: string): Promise<void> => {
-        try {
-            await api.delete(`/api/prompt-templates/${templateId}`);
-
-            // Clear cache to ensure fresh data
-            promptTemplatesCache = null;
-        } catch (error) {
-            throw handleApiError(error);
-        }
-    },
-
-    // Test a prompt template
-    testPromptTemplate: async (templateData: Partial<PromptTemplate>, parameters: Record<string, string>): Promise<any> => {
-        try {
-            const response = await api.post('/api/prompt-templates/test', {
-                template: templateData.template,
-                tokens: templateData.tokens,
-                output_schema: templateData.output_schema,
-                parameters
-            });
-            return response.data;
-        } catch (error) {
-            throw handleApiError(error);
-        }
-    },
-
-    // Get a specific prompt template
-    getPromptTemplate: async (templateId: string): Promise<PromptTemplate> => {
-        try {
-            const response = await api.get(`/api/prompt-templates/${templateId}`);
-            return response.data;
-        } catch (error) {
-            throw handleApiError(error);
-        }
-    },
-
     // Clear the cache (useful when we need to force a refresh)
     clearCache: () => {
         toolsCache = null;
         promptTemplatesCache = null;
-    },
-
-    // Create tool signature based on prompt template
-    createToolSignatureFromTemplate: async (templateId: string): Promise<ToolSignature> => {
-        console.log('Creating tool signature from template:', templateId);
-        const template = await toolApi.getPromptTemplate(templateId);
-        if (!template) {
-            throw new Error(`Template not found: ${templateId}`);
-        }
-
-        // Convert prompt tokens to tool parameters (handle case where there are no tokens)
-        const parameters = template.tokens?.length > 0
-            ? template.tokens.map((token: string) => ({
-                name: token,
-                description: `Value for {{${token}}} in the prompt`,
-                schema: {
-                    name: token,
-                    type: 'string' as const
-                } as PrimitiveValue
-            }))
-            : [];
-
-        // Convert prompt output schema to tool output parameters
-        const outputs = template.output_schema.type === 'object' && template.output_schema.fields
-            ? Object.entries(template.output_schema.fields as Record<string, { description?: string; type: string }>).map(([key, field]) => ({
-                name: key,
-                description: field.description || '',
-                schema: {
-                    name: key,
-                    type: field.type as ValueType
-                } as PrimitiveValue
-            }))
-            : [{
-                name: 'response',
-                description: template.output_schema.description,
-                schema: {
-                    name: 'response',
-                    type: template.output_schema.type as ValueType
-                } as PrimitiveValue
-            }];
-
-        return { parameters, outputs };
     },
 
     // Update workflow step with new prompt template

@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { PromptTemplateToken } from '../types/prompts';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -9,11 +10,31 @@ export function cn(...inputs: ClassValue[]) {
  * Extracts variable names from template text by looking for text between double curly braces.
  * For example, "Hello {{name}}, how are you {{time}}?" returns ["name", "time"]
  */
-export const extractTokens = (template: string): string[] => {
-  const tokenRegex = /\{\{([^}]+)\}\}/g;
-  const matches = template.match(tokenRegex);
-  if (!matches) return [];
+export function extractTokens(text: string): PromptTemplateToken[] {
+  const regularTokenRegex = /{{([^}]+)}}/g;
+  const fileTokenRegex = /<<file:([^>]+)>>/g;
+  const tokens: PromptTemplateToken[] = [];
 
-  // Remove the curly braces and return unique tokens
-  return [...new Set(matches.map(match => match.slice(2, -2).trim()))];
-}; 
+  // Extract regular string tokens
+  const regularMatches = text.matchAll(regularTokenRegex);
+  for (const match of regularMatches) {
+    tokens.push({
+      name: match[1],
+      type: 'string'
+    });
+  }
+
+  // Extract file tokens
+  const fileMatches = text.matchAll(fileTokenRegex);
+  for (const match of fileMatches) {
+    tokens.push({
+      name: match[1],
+      type: 'file'
+    });
+  }
+
+  // Remove duplicates by name
+  return Array.from(new Set(tokens.map(t => t.name))).map(name =>
+    tokens.find(t => t.name === name)!
+  );
+} 

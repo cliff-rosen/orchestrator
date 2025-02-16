@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { PromptTemplateOutputSchema } from '../../types/prompts';
+import { SchemaValue, PrimitiveValue, ObjectValue } from '../../types/schema';
 
 interface SchemaField {
     type: string;
+    name: string;
     description?: string;
 }
 
 interface SchemaEditorProps {
-    schema: PromptTemplateOutputSchema;
-    onChange: (schema: PromptTemplateOutputSchema) => void;
+    schema: SchemaValue;
+    onChange: (schema: SchemaValue) => void;
 }
 
 interface EditingField {
@@ -20,7 +21,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
     const [editMode, setEditMode] = useState<'gui' | 'json'>('gui');
     const [jsonError, setJsonError] = useState<string | null>(null);
     const [jsonText, setJsonText] = useState(() => {
-        if (schema.type === 'object') {
+        if (schema.type === 'object' && 'fields' in schema) {
             return JSON.stringify(schema.fields || {}, null, 2);
         }
         return '{}';
@@ -29,7 +30,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
 
     // Update JSON text when schema changes externally or mode switches
     useEffect(() => {
-        if (schema.type === 'object') {
+        if (schema.type === 'object' && 'fields' in schema) {
             setJsonText(JSON.stringify(schema.fields || {}, null, 2));
         } else {
             setJsonText('{}');
@@ -41,11 +42,20 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
         try {
             const parsed = JSON.parse(text);
             setJsonError(null);
-            onChange({
-                ...schema,
-                type: 'object',
-                fields: parsed
+            const fields: Record<string, SchemaValue> = {};
+            Object.entries(parsed).forEach(([key, value]: [string, any]) => {
+                fields[key] = {
+                    type: value.type || 'string',
+                    name: key,
+                    description: value.description
+                } as PrimitiveValue;
             });
+            onChange({
+                type: 'object',
+                name: schema.name,
+                description: schema.description,
+                fields
+            } as ObjectValue);
         } catch (err) {
             setJsonError('Invalid JSON format');
         }
@@ -55,46 +65,47 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
         if (type === 'string') {
             onChange({
                 type: 'string',
+                name: schema.name,
                 description: schema.description
-            });
+            } as PrimitiveValue);
         } else {
             onChange({
                 type: 'object',
+                name: schema.name,
                 description: schema.description,
                 fields: {}
-            });
+            } as ObjectValue);
         }
     };
 
     const handleAddField = () => {
-        if (schema.type !== 'object') return;
+        if (schema.type !== 'object' || !('fields' in schema)) return;
 
         const currentFields = schema.fields || {};
         const newFields = {
             ...currentFields,
             [`field${Object.keys(currentFields).length + 1}`]: {
                 type: 'string',
+                name: `field${Object.keys(currentFields).length + 1}`,
                 description: ''
-            }
+            } as PrimitiveValue
         };
         onChange({
             ...schema,
-            type: 'object',
             fields: newFields
-        });
+        } as ObjectValue);
     };
 
     const handleRemoveField = (fieldName: string) => {
-        if (schema.type !== 'object') return;
+        if (schema.type !== 'object' || !('fields' in schema)) return;
 
         const currentFields = schema.fields || {};
         const newFields = { ...currentFields };
         delete newFields[fieldName];
         onChange({
             ...schema,
-            type: 'object',
             fields: newFields
-        });
+        } as ObjectValue);
     };
 
     const handleFieldNameChange = (fieldName: string, value: string) => {
@@ -102,7 +113,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
     };
 
     const handleFieldNameBlur = () => {
-        if (!editingFieldName || schema.type !== 'object') return;
+        if (!editingFieldName || schema.type !== 'object' || !('fields' in schema)) return;
 
         const { fieldName, value } = editingFieldName;
         if (fieldName === value || !value.trim()) {
@@ -112,11 +123,14 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
 
         const currentFields = schema.fields || {};
         const entries = Object.entries(currentFields);
-        const newFields: Record<string, SchemaField> = {};
+        const newFields: Record<string, SchemaValue> = {};
 
         entries.forEach(([key, fieldValue]) => {
             if (key === fieldName) {
-                newFields[value] = fieldValue;
+                newFields[value] = {
+                    ...fieldValue,
+                    name: value
+                };
             } else {
                 newFields[key] = fieldValue;
             }
@@ -124,9 +138,8 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
 
         onChange({
             ...schema,
-            type: 'object',
             fields: newFields
-        });
+        } as ObjectValue);
         setEditingFieldName(null);
     };
 
@@ -135,12 +148,11 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
         property: 'type' | 'description',
         value: string
     ) => {
-        if (schema.type !== 'object') return;
+        if (schema.type !== 'object' || !('fields' in schema)) return;
         const currentFields = schema.fields || {};
 
         onChange({
             ...schema,
-            type: 'object',
             fields: {
                 ...currentFields,
                 [fieldName]: {
@@ -148,7 +160,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
                     [property]: value
                 }
             }
-        });
+        } as ObjectValue);
     };
 
     return (
@@ -239,7 +251,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
             ) : (
                 <div className="space-y-4">
                     <div className="space-y-4">
-                        {Object.entries(schema.type === 'object' ? (schema.fields || {}) : {}).map(([fieldName, field]) => (
+                        {schema.type === 'object' && 'fields' in schema && Object.entries(schema.fields || {}).map(([fieldName, field]) => (
                             <div key={fieldName} className="flex items-start space-x-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                 <div className="flex-1 grid grid-cols-3 gap-4">
                                     <div>
@@ -253,8 +265,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
                                             onBlur={handleFieldNameBlur}
                                             className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                                      shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
-                                                     focus:border-blue-500 dark:bg-gray-800
-                                                     text-gray-900 dark:text-gray-100"
+                                                     focus:border-blue-500 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                         />
                                     </div>
                                     <div>
@@ -266,8 +277,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
                                             onChange={(e) => handleFieldChange(fieldName, 'type', e.target.value)}
                                             className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                                      shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
-                                                     focus:border-blue-500 dark:bg-gray-800
-                                                     text-gray-900 dark:text-gray-100"
+                                                     focus:border-blue-500 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                         >
                                             <option value="string">String</option>
                                             <option value="number">Number</option>
@@ -284,8 +294,8 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
                                             onChange={(e) => handleFieldChange(fieldName, 'description', e.target.value)}
                                             className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
                                                      shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
-                                                     focus:border-blue-500 dark:bg-gray-800
-                                                     text-gray-900 dark:text-gray-100"
+                                                     focus:border-blue-500 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                            placeholder="Field description"
                                         />
                                     </div>
                                 </div>
@@ -294,7 +304,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
                                     onClick={() => handleRemoveField(fieldName)}
                                     className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                                 >
-                                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                 </button>

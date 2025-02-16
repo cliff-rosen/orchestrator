@@ -51,16 +51,18 @@ class Tool(Base):
     workflow_steps = relationship("WorkflowStep", back_populates="tool")
 
 class PromptTemplate(Base):
+    """Model for storing prompt templates"""
     __tablename__ = "prompt_templates"
-    
-    template_id = Column(String(36), primary_key=True)
+
+    template_id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name = Column(String(255), nullable=False)
-    description = Column(Text)
-    template = Column(Text, nullable=False)  # The prompt template text with {{variable}} placeholders
-    tokens = Column(JSON, nullable=False)  # List of tokens
-    output_schema = Column(JSON, nullable=False)  # Output type and schema definition
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    description = Column(Text, nullable=True)
+    user_message_template = Column(Text, nullable=False)
+    system_message_template = Column(Text, nullable=True)
+    tokens = Column(JSON, nullable=False, default=list)  # List of {name: string, type: 'string' | 'file'}
+    output_schema = Column(JSON, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class WorkflowStep(Base):
     __tablename__ = "workflow_steps"
@@ -92,7 +94,8 @@ class WorkflowVariable(Base):
     workflow_id = Column(String(36), ForeignKey("workflows.workflow_id"), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    schema = Column(JSON, nullable=False)  # JSON Schema of the variable
+    type = Column(String(50), nullable=False)  # 'string', 'number', 'boolean', 'file'
+    schema = Column(JSON, nullable=False)  # JSON Schema of the variable including format and contentTypes
     variable_type = Column(String(50), nullable=False)  # 'input' or 'output'
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -12,7 +12,7 @@ from schemas import (
     WorkflowVariableCreate, WorkflowExecuteRequest,
     WorkflowResponse, WorkflowStepResponse, WorkflowVariableResponse,
     ToolResponse, ToolSignature, ParameterSchema, OutputSchema, SchemaValue,
-    WorkflowExecuteResponse
+    WorkflowExecuteResponse, Variable, VariableType
 )
 from exceptions import (
     WorkflowNotFoundError, InvalidWorkflowError, WorkflowExecutionError,
@@ -544,14 +544,15 @@ class WorkflowService:
             
         print(f"Found prompt template: {prompt_template.template_id}")
         
-        # Convert prompt tokens to parameters
+        # Convert tokens to parameters based on their type
         parameters = [
             {
-                'name': token,
-                'description': f'Value for {{{{{token}}}}} in the prompt',
+                'name': token['name'],
+                'description': f"Value for {{{{{token['name']}}}}} in the prompt" if token['type'] == 'string' 
+                             else f"File content for <<file:{token['name']}>> in the prompt",
                 'schema': {
-                    'name': token,
-                    'type': 'string'
+                    'name': token['name'],
+                    'type': 'string' if token['type'] == 'string' else 'file'
                 }
             }
             for token in prompt_template.tokens
@@ -583,4 +584,110 @@ class WorkflowService:
         return {
             'parameters': parameters,
             'outputs': outputs
-        } 
+        }
+
+    def validate_variable_mapping(self, template_variable: Variable, workflow_variable: WorkflowVariable) -> bool:
+        """
+        Validate that a workflow variable can be mapped to a template variable
+        """
+        # Types must match exactly
+        if template_variable.type != workflow_variable.type:
+            return False
+        
+        # For file variables, check format and content type compatibility
+        if template_variable.type == VariableType.FILE:
+            template_schema = template_variable.schema
+            workflow_schema = workflow_variable.schema
+            
+            # If template specifies a format, workflow must match
+            if template_schema.format and template_schema.format != workflow_schema.format:
+                return False
+            
+            # If template specifies content types, workflow must have compatible ones
+            if template_schema.content_types:
+                if not workflow_schema.content_types:
+                    return False
+                if not any(ct in template_schema.content_types for ct in workflow_schema.content_types):
+                    return False
+                
+        return True
+
+    def validate_step_configuration(self, step: WorkflowStep, template: PromptTemplate) -> List[str]:
+        """
+        Validate a workflow step configuration against a prompt template
+        Returns a list of validation errors, empty if valid
+        """
+        errors = []
+        
+        # Check all required tokens are mapped
+        for token in template.tokens:
+            token_name = token['name']
+            if token_name not in step.parameter_mappings:
+                errors.append(f"Required token '{token_name}' not mapped")
+                continue
+                
+            # Get the workflow variable this token is mapped to
+            var_name = step.parameter_mappings[token_name]
+            workflow_var = self.db.query(WorkflowVariable).filter(
+                WorkflowVariable.workflow_id == step.workflow_id,
+                WorkflowVariable.name == var_name
+            ).first()
+            
+            if not workflow_var:
+                errors.append(f"Token '{token_name}' mapped to non-existent variable '{var_name}'")
+                continue
+            
+            # Validate type compatibility
+            if token['type'] == 'file' and workflow_var.schema['type'] != 'file':
+                errors.append(f"File token '{token_name}' mapped to non-file variable '{var_name}'")
+            elif token['type'] == 'string' and workflow_var.schema['type'] not in ['string', 'number', 'boolean']:
+                errors.append(f"String token '{token_name}' mapped to incompatible variable type '{workflow_var.schema['type']}'")
+                
+        return errors
+
+    async def execute_workflow_step(self, step: WorkflowStep, variables: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute a single workflow step
+        """
+        if not step.prompt_template:
+            raise InvalidStepConfigurationError("No prompt template specified for LLM step")
+            
+        template = self.db.query(PromptTemplate).filter(
+            PromptTemplate.template_id == step.prompt_template
+        ).first()
+        
+        if not template:
+            raise InvalidStepConfigurationError(f"Prompt template {step.prompt_template} not found")
+        
+        # Validate step configuration
+        errors = self.validate_step_configuration(step, template)
+        if errors:
+            raise InvalidStepConfigurationError(f"Invalid step configuration: {', '.join(errors)}")
+        
+        # Build parameters for template execution
+        regular_variables = {}
+        file_variables = {}
+        
+        for token in template.tokens:
+            token_name = token['name']
+            if token_name not in step.parameter_mappings:
+                continue  # Should not happen due to validation
+                
+            var_name = step.parameter_mappings[token_name]
+            if var_name not in variables:
+                raise WorkflowExecutionError(f"Missing variable value for '{var_name}'")
+                
+            if token['type'] == 'file':
+                file_variables[token_name] = variables[var_name]
+            else:
+                regular_variables[token_name] = variables[var_name]
+            
+        # Execute template
+        from services import ai_service
+        result = await ai_service.execute_llm(
+            prompt_template_id=template.template_id,
+            regular_variables=regular_variables,
+            file_variables=file_variables
+        )
+        
+        return result 

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import datetime
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, Literal
 from enum import Enum
 import base64
 
@@ -308,68 +308,94 @@ class ToolResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class VariableType(str, Enum):
+    STRING = "string"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+    FILE = "file"
+
+class VariableSchema(BaseModel):
+    """Schema for variable type and format"""
+    type: VariableType
+    format: Optional[str] = Field(None, description="Format specification (e.g., 'pdf' for files)")
+    content_types: Optional[List[str]] = Field(None, description="Allowed content types")
+
+class Variable(BaseModel):
+    """Schema for template variables"""
+    name: str = Field(description="Name of the variable")
+    type: VariableType = Field(description="Type of the variable")
+    description: Optional[str] = Field(None, description="Description of the variable")
+    required: bool = Field(default=True, description="Whether the variable is required")
+
+class PromptTemplateToken(BaseModel):
+    """Schema for a prompt template token"""
+    name: str = Field(description="Name of the token")
+    type: Literal["string", "file"] = Field(description="Type of the token")
+
 class PromptTemplateBase(BaseModel):
     """Base schema for prompt templates"""
     name: str = Field(description="Name of the template")
-    description: str = Field(description="Description of the template")
-    template: str = Field(description="The prompt template text with {{variable}} placeholders")
-    tokens: List[str] = Field(description="List of variable tokens used in the template")
-    output_schema: Dict[str, Any] = Field(description="Schema definition for the expected output")
+    description: Optional[str] = Field(None, description="Description of the template")
+    user_message_template: str = Field(description="The user message template text")
+    system_message_template: Optional[str] = Field(None, description="Optional system message template")
+    tokens: List[PromptTemplateToken] = Field(description="List of tokens in the template", default_factory=list)
+    output_schema: Dict[str, Any] = Field(description="Schema for the expected output")
 
 class PromptTemplateCreate(PromptTemplateBase):
-    """Schema for creating prompt templates"""
+    """Schema for creating a new prompt template"""
     pass
 
-class PromptTemplateUpdate(BaseModel):
-    """Schema for updating prompt templates"""
-    name: Optional[str] = Field(None, description="New name for the template")
-    description: Optional[str] = Field(None, description="New description for the template")
-    template: Optional[str] = Field(None, description="New template text")
-    tokens: Optional[List[str]] = Field(None, description="New list of tokens")
-    output_schema: Optional[Dict[str, Any]] = Field(None, description="New output schema")
+class PromptTemplateUpdate(PromptTemplateBase):
+    """Schema for updating an existing prompt template"""
+    pass
 
 class PromptTemplateResponse(PromptTemplateBase):
     """Schema for prompt template responses"""
     template_id: str = Field(description="Unique identifier for the template")
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime = Field(description="When the template was created")
+    updated_at: datetime = Field(description="When the template was last updated")
 
     model_config = ConfigDict(from_attributes=True)
 
 class PromptTemplateTest(BaseModel):
-    """Schema for testing prompt templates"""
-    template: str = Field(description="The prompt template to test")
-    tokens: List[str] = Field(description="List of tokens used in the template")
-    parameters: Dict[str, Union[str, List[str]]] = Field(description="Values for template tokens (can be string or array of strings)")
+    """Schema for testing a prompt template"""
+    user_message_template: str = Field(description="The user message template to test")
+    system_message_template: Optional[str] = Field(None, description="Optional system message template to test")
+    tokens: List[PromptTemplateToken] = Field(description="List of tokens in the template")
+    parameters: Dict[str, Any] = Field(description="Values for the template tokens")
     output_schema: Dict[str, Any] = Field(description="Expected output schema")
 
 class LLMExecuteRequest(BaseModel):
-    """Request schema for LLM execution"""
+    """Schema for executing an LLM with a prompt template"""
     prompt_template_id: str = Field(description="ID of the prompt template to use")
-    parameters: Dict[str, Union[str, List[str]]] = Field(description="Values for template tokens (can be string or array of strings)")
-    model: Optional[str] = Field(None, description="Optional model to use (defaults to provider's default)")
-    max_tokens: Optional[int] = Field(None, description="Optional maximum tokens for response")
-    provider: Optional[str] = Field(None, description="Optional LLM provider to use (defaults to system default)")
+    regular_variables: Dict[str, Any] = Field(description="Values for regular variables")
+    file_variables: Dict[str, str] = Field(description="File IDs for file variables")
+    model: Optional[str] = Field(None, description="Optional model override")
+    max_tokens: Optional[int] = Field(None, description="Optional max tokens override")
 
 class LLMExecuteResponse(BaseModel):
-    """Response schema for LLM execution"""
-    response: Union[str, Dict[str, Any]] = Field(description="The LLM's response - either a string or JSON object")
-    usage: Dict[str, int] = Field(description="Token usage statistics")
+    """Schema for LLM execution response"""
+    template_id: str
+    messages: List[Dict[str, Any]]
+    response: Any
 
 ##### WORKFLOW SCHEMAS #####
 
 class WorkflowVariableBase(BaseModel):
     """Base schema for workflow variables"""
     name: str = Field(description="Name of the variable")
-    description: str = Field(description="Description of the variable")
-    schema: Dict[str, Any] = Field(description="JSON Schema of the variable")
+    description: Optional[str] = Field(None, description="Description of the variable")
+    type: VariableType = Field(description="Type of the variable")
+    schema: VariableSchema = Field(description="Schema of the variable")
+    variable_type: Literal["input", "output"] = Field(description="Whether this is an input or output variable")
 
 class WorkflowVariableCreate(BaseModel):
     """Schema for creating workflow variables"""
     variable_id: str
     name: str
     description: Optional[str] = None
-    schema: Optional[dict] = None
+    type: VariableType
+    schema: VariableSchema
 
 class WorkflowVariableResponse(WorkflowVariableBase):
     """Schema for workflow variable responses"""

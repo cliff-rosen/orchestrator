@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { PromptTemplate } from '../types/prompts';
+import { PromptTemplate, PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest } from '../types/prompts';
 import { toolApi } from '../lib/api/toolApi';
 import { ToolSignature } from '../types/tools';
 
@@ -8,10 +8,10 @@ interface PromptTemplateContextType {
     selectedTemplate: PromptTemplate | null;
     isEditing: boolean;
     // Actions
-    createTemplate: (template: Partial<PromptTemplate>) => Promise<PromptTemplate>;
-    updateTemplate: (templateId: string, template: Partial<PromptTemplate>) => Promise<PromptTemplate>;
+    createTemplate: (template: PromptTemplateCreate) => Promise<PromptTemplate>;
+    updateTemplate: (templateId: string, template: PromptTemplateUpdate) => Promise<PromptTemplate>;
     deleteTemplate: (templateId: string) => Promise<void>;
-    testTemplate: (template: Partial<PromptTemplate>, parameters: Record<string, string>) => Promise<any>;
+    testTemplate: (templateId: string, testData: PromptTemplateTest) => Promise<any>;
     setSelectedTemplate: (template: PromptTemplate | null) => void;
     setIsEditing: (isEditing: boolean) => void;
     refreshTemplates: () => Promise<void>;
@@ -34,13 +34,13 @@ export const PromptTemplateProvider: React.FC<{ children: React.ReactNode }> = (
         refreshTemplates();
     }, [refreshTemplates]);
 
-    const createTemplate = async (template: Partial<PromptTemplate>) => {
+    const createTemplate = async (template: PromptTemplateCreate) => {
         const newTemplate = await toolApi.createPromptTemplate(template);
         await refreshTemplates();
         return newTemplate;
     };
 
-    const updateTemplate = async (templateId: string, template: Partial<PromptTemplate>) => {
+    const updateTemplate = async (templateId: string, template: PromptTemplateUpdate) => {
         const updatedTemplate = await toolApi.updatePromptTemplate(templateId, template);
         await refreshTemplates();
         return updatedTemplate;
@@ -52,8 +52,8 @@ export const PromptTemplateProvider: React.FC<{ children: React.ReactNode }> = (
         setSelectedTemplate(null);
     };
 
-    const testTemplate = async (template: Partial<PromptTemplate>, parameters: Record<string, string>) => {
-        return await toolApi.testPromptTemplate(template, parameters);
+    const testTemplate = async (templateId: string, testData: PromptTemplateTest) => {
+        return await toolApi.testPromptTemplate(templateId, testData);
     };
 
     const createToolSignatureFromTemplate = async (templateId: string) => {

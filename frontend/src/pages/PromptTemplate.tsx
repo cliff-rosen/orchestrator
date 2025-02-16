@@ -4,7 +4,16 @@ import { usePromptTemplates } from '../context/PromptTemplateContext';
 import SchemaEditor from '../components/common/SchemaEditor';
 import { extractTokens } from '../lib/utils';
 import PromptMenuBar from '../components/PromptMenuBar';
-import { PromptTemplateOutputSchema } from '../types/prompts';
+import { PromptTemplateToken, PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest, SchemaValue } from '../types/prompts';
+import FileLibrary from '../components/FileLibrary';
+import Dialog from '../components/common/Dialog';
+import { fileApi } from '../lib/api/fileApi';
+
+const defaultOutputSchema: SchemaValue = {
+    type: 'string',
+    name: 'output',
+    description: 'Default output'
+};
 
 const PromptTemplate: React.FC = () => {
     const { templateId } = useParams();
@@ -22,22 +31,22 @@ const PromptTemplate: React.FC = () => {
     // State
     const [name, setName] = useState(template?.name || '');
     const [description, setDescription] = useState(template?.description || '');
-    const [templateText, setTemplateText] = useState(template?.template || '');
-    const [outputSchema, setOutputSchema] = useState<PromptTemplateOutputSchema>({
-        type: 'string',
-        description: ''
-    });
-    const [saving, setSaving] = useState(false);
-    const [testing, setTesting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [userMessageTemplate, setUserMessageTemplate] = useState(template?.user_message_template || '');
+    const [systemMessageTemplate, setSystemMessageTemplate] = useState(template?.system_message_template || '');
+    const [tokens, setTokens] = useState<PromptTemplateToken[]>(template?.tokens || []);
+    const [outputSchema, setOutputSchema] = useState<SchemaValue>(template?.output_schema || defaultOutputSchema);
     const [testParameters, setTestParameters] = useState<Record<string, string>>({});
     const [testResult, setTestResult] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [testing, setTesting] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [showFileSelector, setShowFileSelector] = useState(false);
+    const [selectedTokenName, setSelectedTokenName] = useState<string | null>(null);
+    const [fileNames, setFileNames] = useState<Record<string, string>>({});
 
     // Initialize template based on URL parameter
-    // Effect ensures that the selectedTemplate and template state are synced to the URL parameter
     useEffect(() => {
-        console.log('PromptTemplate.useEffect', templateId);
         if (!templateId) {
             navigate('/prompts');
             return;
@@ -52,24 +61,26 @@ const PromptTemplate: React.FC = () => {
                         setSelectedTemplate(null);
                         setName('');
                         setDescription('');
-                        setTemplateText('');
-                        setOutputSchema({ type: 'string', description: '' });
+                        setUserMessageTemplate('');
+                        setSystemMessageTemplate('');
+                        setTokens([]);
+                        setOutputSchema(defaultOutputSchema);
                         setTestParameters({});
                     } else {
                         const foundTemplate = templates.find(t => t.template_id === templateId);
                         if (foundTemplate) {
                             setSelectedTemplate(foundTemplate);
                             setName(foundTemplate.name);
-                            setDescription(foundTemplate.description);
-                            setTemplateText(foundTemplate.template);
+                            setDescription(foundTemplate.description || '');
+                            setUserMessageTemplate(foundTemplate.user_message_template);
+                            setSystemMessageTemplate(foundTemplate.system_message_template || '');
+                            setTokens(foundTemplate.tokens);
                             setOutputSchema(foundTemplate.output_schema);
-                            if (foundTemplate.tokens) {
-                                const newParams: Record<string, string> = {};
-                                foundTemplate.tokens.forEach(token => {
-                                    newParams[token] = '';
-                                });
-                                setTestParameters(newParams);
-                            }
+                            const newParams: Record<string, string> = {};
+                            foundTemplate.tokens.forEach(token => {
+                                newParams[token.name] = '';
+                            });
+                            setTestParameters(newParams);
                         } else {
                             setError('Template not found');
                             navigate('/prompts');
@@ -87,29 +98,46 @@ const PromptTemplate: React.FC = () => {
 
     // Update test parameters when template text changes
     useEffect(() => {
-        const tokens = extractTokens(templateText);
+        const userTokens = extractTokens(userMessageTemplate);
+        const systemTokens = extractTokens(systemMessageTemplate || '');
+
+        // Merge tokens, keeping only unique ones by name
+        const allTokens = [...userTokens, ...systemTokens].reduce((acc, token) => {
+            if (!acc.find(t => t.name === token.name)) {
+                acc.push(token);
+            }
+            return acc;
+        }, [] as PromptTemplateToken[]);
+
         const newParams: Record<string, string> = {};
-        tokens.forEach(token => {
+        allTokens.forEach(token => {
             // Preserve existing values if they exist
-            newParams[token] = testParameters[token] || '';
+            newParams[token.name] = testParameters[token.name] || '';
         });
         setTestParameters(newParams);
-    }, [templateText]);
+        setTokens(allTokens);
+    }, [userMessageTemplate, systemMessageTemplate]);
 
     // Update hasUnsavedChanges when form values change
     useEffect(() => {
         if (!template) {
-            setHasUnsavedChanges(name !== '' || description !== '' || templateText !== '');
+            setHasUnsavedChanges(
+                name !== '' ||
+                description !== '' ||
+                userMessageTemplate !== '' ||
+                systemMessageTemplate !== ''
+            );
             return;
         }
 
         setHasUnsavedChanges(
             name !== template.name ||
             description !== template.description ||
-            templateText !== template.template ||
+            userMessageTemplate !== template.user_message_template ||
+            systemMessageTemplate !== (template.system_message_template || '') ||
             JSON.stringify(outputSchema) !== JSON.stringify(template.output_schema)
         );
-    }, [template, name, description, templateText, outputSchema]);
+    }, [template, name, description, userMessageTemplate, systemMessageTemplate, outputSchema]);
 
     // Prompt user before leaving if there are unsaved changes
     useEffect(() => {
@@ -123,6 +151,25 @@ const PromptTemplate: React.FC = () => {
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasUnsavedChanges]);
+
+    // Load file names for file values
+    useEffect(() => {
+        const loadFileNames = async () => {
+            const newFileNames: Record<string, string> = {};
+            for (const [tokenName, value] of Object.entries(testParameters)) {
+                if (tokens.find(t => t.name === tokenName)?.type === 'file' && value) {
+                    try {
+                        const fileInfo = await fileApi.getFile(value);
+                        newFileNames[value] = fileInfo.name;
+                    } catch (err) {
+                        console.error('Error loading file name:', err);
+                    }
+                }
+            }
+            setFileNames(newFileNames);
+        };
+        loadFileNames();
+    }, [testParameters, tokens]);
 
     const handleBack = async () => {
         if (hasUnsavedChanges) {
@@ -154,19 +201,21 @@ const PromptTemplate: React.FC = () => {
             setSaving(true);
             setError(null);
 
-            const templateData = {
+            const templateData: PromptTemplateCreate | PromptTemplateUpdate = {
                 name,
                 description,
-                template: templateText,
-                tokens: extractTokens(templateText),
-                output_schema: outputSchema
+                user_message_template: userMessageTemplate,
+                system_message_template: systemMessageTemplate,
+                tokens,
+                output_schema: outputSchema,
+                ...(template?.template_id ? { template_id: template.template_id } : {})
             };
 
             if (template?.template_id && template.template_id !== 'new') {
-                const updatedTemplate = await updateTemplate(template.template_id, templateData);
+                const updatedTemplate = await updateTemplate(template.template_id, templateData as PromptTemplateUpdate);
                 setSelectedTemplate(updatedTemplate);
             } else {
-                const newTemplate = await createTemplate(templateData);
+                const newTemplate = await createTemplate(templateData as PromptTemplateCreate);
                 setSelectedTemplate(newTemplate);
                 navigate(`/prompt/${newTemplate.template_id}`);
             }
@@ -182,12 +231,14 @@ const PromptTemplate: React.FC = () => {
         setTesting(true);
         try {
             setError(null);
-
-            const result = await testTemplate({
-                template: templateText,
-                tokens: extractTokens(templateText),
+            const testData: PromptTemplateTest = {
+                user_message_template: userMessageTemplate,
+                system_message_template: systemMessageTemplate,
+                tokens,
+                parameters: testParameters,
                 output_schema: outputSchema
-            }, testParameters);
+            };
+            const result = await testTemplate(template?.template_id || '', testData);
             setTestResult(result);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to test template');
@@ -248,91 +299,211 @@ const PromptTemplate: React.FC = () => {
                                     />
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Template */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    Template
-                                </label>
-                                <textarea
-                                    value={templateText}
-                                    onChange={(e) => setTemplateText(e.target.value)}
-                                    rows={5}
-                                    className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
-                                             shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
-                                             focus:border-blue-500 sm:text-sm dark:bg-gray-800
-                                             text-gray-900 dark:text-gray-100 font-mono"
-                                    placeholder="Enter your template with {{variable}} placeholders"
-                                />
+                        {/* System Message Template */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                System Message Template (Optional)
+                            </label>
+                            <textarea
+                                value={systemMessageTemplate}
+                                onChange={(e) => setSystemMessageTemplate(e.target.value)}
+                                rows={3}
+                                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
+                                         shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
+                                         focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                         text-gray-900 dark:text-gray-100"
+                                placeholder="Enter system message template. Use {{token}} for string tokens and <<file:token>> for file tokens."
+                            />
+                        </div>
+
+                        {/* User Message Template */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                User Message Template
+                            </label>
+                            <textarea
+                                value={userMessageTemplate}
+                                onChange={(e) => setUserMessageTemplate(e.target.value)}
+                                rows={10}
+                                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
+                                         shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
+                                         focus:border-blue-500 sm:text-sm dark:bg-gray-800
+                                         text-gray-900 dark:text-gray-100 font-mono"
+                                placeholder="Enter user message template. Use {{token}} for string tokens and <<file:token>> for file tokens."
+                            />
+                        </div>
+
+                        {/* Tokens */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                                Template Tokens
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                                {tokens.map(token => (
+                                    <span
+                                        key={token.name}
+                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                  ${token.type === 'string'
+                                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'
+                                                : 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'}`}
+                                    >
+                                        {token.name} ({token.type})
+                                    </span>
+                                ))}
                             </div>
+                        </div>
 
-                            {/* Output Schema */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    Output Schema
-                                </label>
-                                <SchemaEditor
-                                    schema={outputSchema}
-                                    onChange={setOutputSchema}
-                                />
-                            </div>
+                        {/* Output Schema */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                                Output Schema
+                            </label>
+                            <SchemaEditor
+                                schema={outputSchema}
+                                onChange={setOutputSchema}
+                            />
+                        </div>
 
-                            {/* Test Section */}
-                            <div>
+                        {/* Test Section */}
+                        {tokens.length > 0 && (
+                            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
                                     Test Template
                                 </h3>
-
-                                {/* Test Parameters */}
-                                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                    <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                                        Template Variables
-                                    </h4>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {Object.keys(testParameters).map((token) => (
-                                            <div key={token} className="flex items-center space-x-2">
-                                                <span className="text-sm font-mono text-gray-600 dark:text-gray-400 min-w-[150px]">
-                                                    {"{{"}{token}{"}}"}
-                                                </span>
+                                <div className="space-y-4">
+                                    {tokens.map(token => (
+                                        <div key={token.name}>
+                                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                {token.name} ({token.type})
+                                            </label>
+                                            {token.type === 'file' ? (
+                                                <div className="mt-1">
+                                                    {testParameters[token.name] ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex-1 p-2 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                                                                <div className="flex items-center gap-2">
+                                                                    <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                                    </svg>
+                                                                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                                                                        {fileNames[testParameters[token.name]] || 'Loading...'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedTokenName(token.name);
+                                                                    setShowFileSelector(true);
+                                                                }}
+                                                                className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 
+                                                                         dark:text-blue-400 dark:hover:text-blue-300"
+                                                            >
+                                                                Change
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedTokenName(token.name);
+                                                                setShowFileSelector(true);
+                                                            }}
+                                                            className="mt-1 inline-flex items-center px-3 py-2 border border-gray-300 
+                                                                     dark:border-gray-600 shadow-sm text-sm font-medium rounded-md 
+                                                                     text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 
+                                                                     hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                        >
+                                                            Select File
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ) : (
                                                 <input
                                                     type="text"
-                                                    value={testParameters[token]}
-                                                    onChange={(e) => setTestParameters(prev => ({
-                                                        ...prev,
-                                                        [token]: e.target.value
-                                                    }))}
-                                                    placeholder={`Value for ${token}`}
-                                                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 
-                                                             shadow-sm py-1 px-2 text-sm focus:outline-none focus:ring-blue-500 
-                                                             focus:border-blue-500 dark:bg-gray-800
+                                                    value={testParameters[token.name] || ''}
+                                                    onChange={(e) => setTestParameters({
+                                                        ...testParameters,
+                                                        [token.name]: e.target.value
+                                                    })}
+                                                    className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 
+                                                             shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 
+                                                             focus:border-blue-500 sm:text-sm dark:bg-gray-800
                                                              text-gray-900 dark:text-gray-100"
+                                                    placeholder={`Enter value for ${token.name}`}
                                                 />
-                                            </div>
-                                        ))}
-                                    </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={handleTest}
+                                        disabled={testing}
+                                        className="mt-4 inline-flex items-center px-4 py-2 border border-transparent 
+                                                 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 
+                                                 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 
+                                                 focus:ring-blue-500 disabled:opacity-50"
+                                    >
+                                        {testing ? 'Testing...' : 'Test Template'}
+                                    </button>
                                 </div>
 
-                                {/* Test Results */}
                                 {testResult && (
-                                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                                            Test Results
+                                    <div className="mt-4">
+                                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                                            Test Result
                                         </h4>
-                                        <pre className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                                        <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md overflow-auto max-h-96">
                                             {JSON.stringify(testResult, null, 2)}
                                         </pre>
                                     </div>
                                 )}
-
-                                {error && (
-                                    <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                                        <p className="text-sm text-red-600 dark:text-red-400">
-                                            {error}
-                                        </p>
-                                    </div>
-                                )}
                             </div>
-                        </div>
+                        )}
+
+                        {/* File Selector Dialog */}
+                        {showFileSelector && selectedTokenName && (
+                            <Dialog
+                                isOpen={showFileSelector}
+                                onClose={() => {
+                                    setShowFileSelector(false);
+                                    setSelectedTokenName(null);
+                                }}
+                                title="Select a File"
+                                maxWidth="2xl"
+                            >
+                                <div className="space-y-4">
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                        Please select a file from the library below or upload a new one.
+                                    </p>
+                                    <FileLibrary
+                                        selectedFileId={testParameters[selectedTokenName]}
+                                        onFileSelect={async (fileId) => {
+                                            try {
+                                                const file = await fileApi.getFile(fileId);
+                                                setTestParameters(prev => ({
+                                                    ...prev,
+                                                    [selectedTokenName]: fileId
+                                                }));
+                                                setFileNames(prev => ({
+                                                    ...prev,
+                                                    [fileId]: file.name
+                                                }));
+                                                setShowFileSelector(false);
+                                                setSelectedTokenName(null);
+                                            } catch (err) {
+                                                console.error('Error selecting file:', err);
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            </Dialog>
+                        )}
+
+                        {error && (
+                            <div className="text-red-600 dark:text-red-400 text-sm mt-2">
+                                {error}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
