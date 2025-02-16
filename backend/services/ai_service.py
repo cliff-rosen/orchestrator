@@ -1154,7 +1154,7 @@ Answer to Evaluate: {answer}
                             })
                         if "image_url" in part:
                             content_parts.append({
-                                "type": "image_url",
+                                "type": "image",
                                 "image_url": part["image_url"]
                             })
                         elif "image_data" in part and "image_mime_type" in part:
@@ -1162,7 +1162,7 @@ Answer to Evaluate: {answer}
                             import base64
                             image_base64 = base64.b64encode(part["image_data"]).decode('utf-8')
                             content_parts.append({
-                                "type": "image_url",
+                                "type": "image",
                                 "image_url": f"data:{part['image_mime_type']};base64,{image_base64}"
                             })
                     

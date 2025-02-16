@@ -169,43 +169,73 @@ const Workflow: React.FC = () => {
     };
 
     const handleExecuteTool = async (): Promise<void> => {
+        console.log('handleExecuteTool called');
         try {
             setIsExecuting(true);
             const currentStep = allSteps[activeStep];
             console.log('Executing step:', currentStep);
 
             if (currentStep.tool?.tool_id) {
-                // Get resolved parameters from workflow variables
-                const parameters: Record<string, any> = {};
-                if (currentStep.parameter_mappings) {
-                    for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
-                        // Find the variable in either inputs or outputs
-                        const variable = workflow?.inputs?.find(v => v.name === varName) ||
-                            workflow?.outputs?.find(v => v.name === varName);
+                const toolId = currentStep.tool.tool_id;
+                let outputs;
 
-                        if (variable?.schema.type === 'file') {
-                            const fileValue = variable.value;
-                            if (fileValue?.file_id) {
-                                parameters[paramName] = fileValue.file_id;
-                            } else {
-                                console.warn(`File variable ${varName} has no file_id`);
-                            }
-                        } else {
-                            parameters[paramName] = variable?.value;
-                        }
-                    }
-                }
-
-                // Add templateId for LLM tools
+                // Special handling for LLM tools
                 if (currentStep.tool.tool_type === 'llm') {
                     if (!currentStep.prompt_template) {
                         throw new Error('No prompt template selected for LLM tool');
                     }
-                    parameters.prompt_template_id = currentStep.prompt_template;
+
+                    const regular_variables: Record<string, any> = {};
+                    const file_variables: Record<string, string> = {};
+
+                    if (currentStep.parameter_mappings) {
+                        for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
+                            const variable = workflow?.inputs?.find(v => v.name === varName) ||
+                                workflow?.outputs?.find(v => v.name === varName);
+
+                            if (variable?.schema.type === 'file') {
+                                const fileValue = variable.value;
+                                if (fileValue?.file_id) {
+                                    file_variables[paramName] = fileValue.file_id;
+                                } else {
+                                    console.warn(`File variable ${varName} has no file_id`);
+                                }
+                            } else {
+                                regular_variables[paramName] = { value: variable?.value };
+                            }
+                        }
+                    }
+
+                    outputs = await toolApi.executeTool(toolId, {
+                        prompt_template_id: currentStep.prompt_template,
+                        regular_variables,
+                        file_variables
+                    });
+                } else {
+                    // For non-LLM tools, collect all parameters in a flat object
+                    const parameters: Record<string, any> = {};
+
+                    if (currentStep.parameter_mappings) {
+                        for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
+                            const variable = workflow?.inputs?.find(v => v.name === varName) ||
+                                workflow?.outputs?.find(v => v.name === varName);
+
+                            if (variable?.schema.type === 'file') {
+                                const fileValue = variable.value;
+                                if (fileValue?.file_id) {
+                                    parameters[paramName] = fileValue.file_id;
+                                } else {
+                                    console.warn(`File variable ${varName} has no file_id`);
+                                }
+                            } else {
+                                parameters[paramName] = variable?.value;
+                            }
+                        }
+                    }
+
+                    outputs = await toolApi.executeTool(toolId, parameters);
                 }
 
-                const toolId = currentStep.tool.tool_id;
-                const outputs = await toolApi.executeTool(toolId, parameters);
                 console.log('Tool execution outputs:', outputs);
 
                 // Store outputs in workflow variables

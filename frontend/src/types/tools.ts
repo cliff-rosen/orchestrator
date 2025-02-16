@@ -22,8 +22,15 @@ export type WorkflowVariableName = string & { readonly __brand: unique symbol };
 export type ParameterMappingType = Record<ToolParameterName, WorkflowVariableName>;    // from tool parameter -> to workflow variable
 export type OutputMappingType = Record<ToolOutputName, WorkflowVariableName>;          // from tool output -> to workflow variable
 
+// Type for LLM parameters
+export interface LLMParameters {
+    prompt_template_id: string;
+    regular_variables: Record<string, any>;
+    file_variables: Record<string, string>;
+}
+
 // Type for resolved parameter values
-export type ResolvedParameters = Record<string, any>;
+export type ResolvedParameters = LLMParameters | Record<string, any>;
 
 // Type for tool outputs
 export type ToolOutputs = Record<ToolOutputName, string | number | boolean | string[]>;

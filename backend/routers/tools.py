@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from datetime import datetime
 from uuid import uuid4
 import random
@@ -28,6 +28,88 @@ router = APIRouter(
 
 # Initialize AI service
 ai_service = AIService()
+
+async def process_template_with_files(
+    user_message: str,
+    system_message: str | None,
+    file_tokens: List[Dict[str, str]],
+    file_variables: Dict[str, str],
+    db: Session
+) -> Tuple[List[Dict[str, Any]], str | None]:
+    """
+    Process a template with file tokens and return content parts and updated system message.
+    
+    Args:
+        user_message: The user message template with file tokens
+        system_message: Optional system message template
+        file_tokens: List of file token definitions
+        file_variables: Dictionary mapping token names to file IDs
+        db: Database session
+        
+    Returns:
+        Tuple of (content parts list, updated system message)
+    """
+    content_parts = []
+    current_text = user_message
+
+    # Handle file tokens
+    for token in file_tokens:
+        token_name = token['name']
+        if token_name not in file_variables:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing required file token: {token_name}"
+            )
+
+        # Split on the current file token
+        parts = current_text.split(f"<<file:{token_name}>>")
+        
+        # Add any text before the token
+        if parts[0].strip():
+            content_parts.append({
+                'type': 'text',
+                'text': parts[0].strip()
+            })
+
+        # Get and process the file
+        file_id = file_variables[token_name]
+        file = db.query(File).filter(File.file_id == file_id).first()
+        if not file:
+            raise HTTPException(
+                status_code=404,
+                detail=f"File not found: {file_id}"
+            )
+
+        # Add extracted text if available
+        if file.extracted_text:
+            content_parts.append({
+                'type': 'text',
+                'text': file.extracted_text
+            })
+
+        # Get and add associated images
+        images = db.query(FileImage).filter(FileImage.file_id == file_id).all()
+        for image in images:
+            content_parts.append({
+                'type': 'image',
+                'source': {
+                    'type': 'base64',
+                    'media_type': image.mime_type or 'image/jpeg',
+                    'data': base64.b64encode(image.image_data).decode('utf-8')
+                }
+            })
+
+        # Update current_text to the remainder
+        current_text = parts[1] if len(parts) > 1 else ""
+
+    # Add any remaining text
+    if current_text.strip():
+        content_parts.append({
+            'type': 'text',
+            'text': current_text.strip()
+        })
+
+    return content_parts, system_message
 
 @router.get("/tools", response_model=List[ToolResponse])
 def get_tools(db: Session = Depends(get_db)):
@@ -96,56 +178,15 @@ async def execute_llm(request: LLMExecuteRequest, db: Session = Depends(get_db))
                 system_message = system_message.replace(f"{{{{{token_name}}}}}", value)
             user_message = user_message.replace(f"{{{{{token_name}}}}}", value)
 
-        # Handle file tokens and build content parts
-        content_parts = []
-        current_text = user_message
-
-        # Handle file tokens
-        file_tokens = [t['name'] for t in template.tokens if t['type'] == 'file']
-        for token_name in file_tokens:
-            # Split on the current file token
-            parts = current_text.split(f"<<file:{token_name}>>")
-            
-            # Add any text before the token
-            if parts[0].strip():
-                content_parts.append({
-                    'type': 'text',
-                    'text': parts[0].strip()
-                })
-
-            # Get and process the file
-            file_id = request.file_variables[token_name]
-            file = db.query(File).filter(File.file_id == file_id).first()
-            if not file:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"File not found: {file_id}"
-                )
-
-            # Add extracted text if available
-            if file.extracted_text:
-                content_parts.append({
-                    'type': 'text',
-                    'text': file.extracted_text
-                })
-
-            # Get and add associated images
-            images = db.query(FileImage).filter(FileImage.file_id == file_id).all()
-            for image in images:
-                content_parts.append({
-                    'type': 'image_url',
-                    'image_url': f"/api/files/{file_id}/images/{image.image_id}"
-                })
-
-            # Update current_text to the remainder
-            current_text = parts[1] if len(parts) > 1 else ""
-
-        # Add any remaining text
-        if current_text.strip():
-            content_parts.append({
-                'type': 'text',
-                'text': current_text.strip()
-            })
+        # Process file tokens
+        file_tokens = [t for t in template.tokens if t['type'] == 'file']
+        content_parts, system_message = await process_template_with_files(
+            user_message=user_message,
+            system_message=system_message,
+            file_tokens=file_tokens,
+            file_variables=request.file_variables,
+            db=db
+        )
 
         # Build messages array
         messages = []
@@ -154,7 +195,6 @@ async def execute_llm(request: LLMExecuteRequest, db: Session = Depends(get_db))
                 'role': 'system',
                 'content': system_message
             })
-
         messages.append({
             'role': 'user',
             'content': content_parts if content_parts else user_message
@@ -250,21 +290,16 @@ async def test_prompt_template(
             if system_message:
                 system_message = system_message.replace(f"{{{{{token_name}}}}}", value)
             user_message = user_message.replace(f"{{{{{token_name}}}}}", value)
-            
-        # Handle file tokens
-        file_tokens = [t['name'] for t in test_data.tokens if t['type'] == 'file']
-        for token_name in file_tokens:
-            file_param = token_name
-            if file_param not in test_data.parameters:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Missing required file token: {token_name}"
-                )
-            file_id = test_data.parameters[file_param]
-            file_content = await get_file_content_as_text(file_id, db)
-            if system_message:
-                system_message = system_message.replace(f"<<file:{token_name}>>", file_content)
-            user_message = user_message.replace(f"<<file:{token_name}>>", file_content)
+
+        # Process file tokens
+        file_tokens = [t for t in test_data.tokens if t['type'] == 'file']
+        content_parts, system_message = await process_template_with_files(
+            user_message=user_message,
+            system_message=system_message,
+            file_tokens=file_tokens,
+            file_variables=test_data.parameters,
+            db=db
+        )
 
         # Build messages array
         messages = []
@@ -275,7 +310,7 @@ async def test_prompt_template(
             })
         messages.append({
             'role': 'user',
-            'content': user_message
+            'content': content_parts if content_parts else user_message
         })
 
         # Execute the LLM request
