@@ -96,7 +96,7 @@ class WorkflowVariable(Base):
     description = Column(Text)
     type = Column(String(50), nullable=False)  # 'string', 'number', 'boolean', 'file'
     schema = Column(JSON, nullable=False)  # JSON Schema of the variable including format and contentTypes
-    variable_type = Column(String(50), nullable=False)  # 'input' or 'output'
+    io_type = Column(String(50), nullable=False)  # 'input' or 'output'
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

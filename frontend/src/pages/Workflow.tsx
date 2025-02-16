@@ -184,33 +184,22 @@ const Workflow: React.FC = () => {
                             workflow?.outputs?.find(v => v.name === varName);
                         // console.log(`Resolving parameter ${paramName} from ${varName}:`, variable?.value);
 
-                        // If the variable is a file type and the parameter expects a string,
-                        // fetch the file content
+                        // For file variables, send the file_id
                         if (variable?.schema.type === 'file') {
                             // For file variables, value should be { file_id: string, content?: string }
                             const fileValue = variable.value;
                             if (fileValue?.file_id) {
-                                try {
-                                    // If we don't have the content cached, fetch it
-                                    if (!fileValue.content) {
-                                        const fileContent = await fileApi.getFileContent(fileValue.file_id);
-                                        // Cache the content in the variable's value
-                                        variable.value = {
-                                            ...fileValue,
-                                            content: fileContent.content
-                                        };
-                                    }
-                                    resolvedParameters[paramName as ToolParameterName] = variable.value.content;
-                                } catch (err) {
-                                    console.error('Error fetching file content:', err);
-                                    throw new Error(`Failed to fetch content for file parameter ${paramName}`);
-                                }
+                                resolvedParameters[paramName as ToolParameterName] = {
+                                    value: fileValue  // Send the entire file value object
+                                };
                             } else {
                                 console.warn(`File variable ${varName} has no file_id`);
-                                resolvedParameters[paramName as ToolParameterName] = '';
+                                resolvedParameters[paramName as ToolParameterName] = { value: '' };
                             }
                         } else {
-                            resolvedParameters[paramName as ToolParameterName] = variable?.value;
+                            resolvedParameters[paramName as ToolParameterName] = {
+                                value: variable?.value
+                            };
                         }
                     }
                 }
@@ -220,7 +209,7 @@ const Workflow: React.FC = () => {
                     if (!currentStep.prompt_template) {
                         throw new Error('No prompt template selected for LLM tool');
                     }
-                    resolvedParameters['templateId' as ToolParameterName] = currentStep.prompt_template;
+                    resolvedParameters['templateId' as ToolParameterName] = { value: currentStep.prompt_template };
                 }
 
                 // console.log('Executing tool with parameters:', resolvedParameters);

@@ -387,7 +387,7 @@ class WorkflowVariableBase(BaseModel):
     description: Optional[str] = Field(None, description="Description of the variable")
     type: VariableType = Field(description="Type of the variable")
     schema: VariableSchema = Field(description="Schema of the variable")
-    variable_type: Literal["input", "output"] = Field(description="Whether this is an input or output variable")
+    io_type: Literal["input", "output"] = Field(description="Whether this is an input or output variable")
 
 class WorkflowVariableCreate(BaseModel):
     """Schema for creating workflow variables"""

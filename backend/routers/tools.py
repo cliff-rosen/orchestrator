@@ -83,38 +83,52 @@ async def execute_llm(request: LLMExecuteRequest, db: Session = Depends(get_db))
                 detail=f"Missing required file token: {token['name']}"
             )
 
-    # Split template on file tokens to get text parts
-    parts = re.split(r'(<<file:\w+>>)', template.user_message_template)
-    
-    # Build message content parts
-    content_parts = []
-    
-    for part in parts:
-        if part.startswith('<<file:') and part.endswith('>>'):
-            # Extract token name
-            token_name = part[7:-2]
+    try:
+        # Format both templates
+        user_message = template.user_message_template
+        system_message = template.system_message_template
+
+        # Replace string tokens in both templates
+        string_tokens = [t['name'] for t in template.tokens if t['type'] == 'string']
+        for token_name in string_tokens:
+            value = str(request.regular_variables[token_name])
+            if system_message:
+                system_message = system_message.replace(f"{{{{{token_name}}}}}", value)
+            user_message = user_message.replace(f"{{{{{token_name}}}}}", value)
+
+        # Handle file tokens and build content parts
+        content_parts = []
+        current_text = user_message
+
+        # Handle file tokens
+        file_tokens = [t['name'] for t in template.tokens if t['type'] == 'file']
+        for token_name in file_tokens:
+            # Split on the current file token
+            parts = current_text.split(f"<<file:{token_name}>>")
             
-            # Get file ID
-            if token_name not in request.file_variables:
-                continue
-                
+            # Add any text before the token
+            if parts[0].strip():
+                content_parts.append({
+                    'type': 'text',
+                    'text': parts[0].strip()
+                })
+
+            # Get and process the file
             file_id = request.file_variables[token_name]
-            
-            # Get file content from database
             file = db.query(File).filter(File.file_id == file_id).first()
             if not file:
                 raise HTTPException(
                     status_code=404,
                     detail=f"File not found: {file_id}"
                 )
-            
+
             # Add extracted text if available
             if file.extracted_text:
                 content_parts.append({
                     'type': 'text',
                     'text': file.extracted_text
                 })
-            
+
             # Get and add associated images
             images = db.query(FileImage).filter(FileImage.file_id == file_id).all()
             for image in images:
@@ -122,40 +136,30 @@ async def execute_llm(request: LLMExecuteRequest, db: Session = Depends(get_db))
                     'type': 'image_url',
                     'image_url': f"/api/files/{file_id}/images/{image.image_id}"
                 })
-        else:
-            # Regular text part - replace tokens
-            text = part
-            for token_name, value in request.regular_variables.items():
-                text = text.replace(f"{{{{{token_name}}}}}", str(value))
-            
-            if text.strip():
-                content_parts.append({
-                    'type': 'text',
-                    'text': text
-                })
 
-    # Build messages array
-    messages = []
-    
-    # Add system message if present
-    if template.system_message_template:
-        # Replace tokens in system message
-        system_message = template.system_message_template
-        for token_name, value in request.regular_variables.items():
-            system_message = system_message.replace(f"{{{{{token_name}}}}}", str(value))
-        
+            # Update current_text to the remainder
+            current_text = parts[1] if len(parts) > 1 else ""
+
+        # Add any remaining text
+        if current_text.strip():
+            content_parts.append({
+                'type': 'text',
+                'text': current_text.strip()
+            })
+
+        # Build messages array
+        messages = []
+        if system_message:
+            messages.append({
+                'role': 'system',
+                'content': system_message
+            })
+
         messages.append({
-            'role': 'system',
-            'content': system_message
+            'role': 'user',
+            'content': content_parts if content_parts else user_message
         })
-        
-    # Add user message with content parts
-    messages.append({
-        'role': 'user',
-        'content': content_parts
-    })
 
-    try:
         # Call LLM using AI service
         llm_response = await ai_service.send_messages(
             messages=messages,
@@ -181,7 +185,7 @@ async def execute_llm(request: LLMExecuteRequest, db: Session = Depends(get_db))
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error calling LLM: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/prompt-templates", response_model=PromptTemplateResponse)
 async def create_prompt_template(

@@ -23,8 +23,9 @@ export interface WorkflowVariable {
     variable_id: string;
     name: string;
     description?: string;
+    type: string;  // Add type field at root level
     schema: SchemaValue;
-    variable_type: 'input' | 'output';
+    io_type: 'input' | 'output';
     value?: any;  // The current runtime value of this variable
 }
 
@@ -72,17 +73,19 @@ export const exampleWorkflow: Workflow = {
         variable_id: "query",
         name: "Search Query",
         description: "What to search for",
+        type: "string",
         schema: {
             name: "query",
             type: "string",
             description: "Search query text"
         },
-        variable_type: 'input'
+        io_type: 'input'
     }],
     outputs: [{
         variable_id: "results",
         name: "Search Results",
         description: "Found documents",
+        type: "array",
         schema: {
             name: "results",
             type: "array",
@@ -92,7 +95,7 @@ export const exampleWorkflow: Workflow = {
                 description: "Document content"
             }
         },
-        variable_type: 'output'
+        io_type: 'output'
     }],
     steps: [{
         step_id: "search_step",
@@ -176,12 +179,13 @@ export const exampleWorkflow2: Workflow = {
         variable_id: "var-1738689200900-rrjspuoia",
         name: "question",
         description: "",
+        type: "string",
         schema: {
             name: "question",
             type: "string",
             description: "The question to improve"
         },
-        variable_type: "input"
+        io_type: "input"
     }],
     outputs: []
 }

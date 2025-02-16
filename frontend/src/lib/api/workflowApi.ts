@@ -30,7 +30,36 @@ export const workflowApi = {
 
     createWorkflow: async (workflow: Omit<Workflow, 'workflow_id'>): Promise<Workflow> => {
         try {
-            const response = await api.post('/api/workflows', workflow);
+            // Transform the workflow data to match backend schema
+            const transformedWorkflow = {
+                name: workflow.name,
+                description: workflow.description,
+                status: workflow.status,
+                steps: workflow.steps?.map(step => ({
+                    ...step,
+                    step_type: step.step_type,
+                    tool_id: step.tool?.tool_id,
+                    prompt_template: step.prompt_template,
+                })),
+                inputs: workflow.inputs?.map(input => ({
+                    variable_id: input.variable_id,
+                    name: input.name,
+                    description: input.description,
+                    type: input.schema.type,
+                    schema: input.schema,
+                    io_type: 'input'
+                })),
+                outputs: workflow.outputs?.map(output => ({
+                    variable_id: output.variable_id,
+                    name: output.name,
+                    description: output.description,
+                    type: output.schema.type,
+                    schema: output.schema,
+                    io_type: 'output'
+                })),
+            };
+
+            const response = await api.post('/api/workflows', transformedWorkflow);
             return response.data;
         } catch (error) {
             throw handleApiError(error);
@@ -54,13 +83,17 @@ export const workflowApi = {
                     variable_id: input.variable_id,
                     name: input.name,
                     description: input.description,
+                    type: input.schema.type,
                     schema: input.schema,
+                    io_type: 'input'
                 })),
                 outputs: workflow.outputs?.map(output => ({
                     variable_id: output.variable_id,
                     name: output.name,
                     description: output.description,
+                    type: output.schema.type,
                     schema: output.schema,
+                    io_type: 'output'
                 })),
             };
 

@@ -203,10 +203,12 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                 variable_id: `var-${Date.now()}`,
                 name: newVarName,
                 description: '',
+                type: 'string',
                 schema: {
                     name: newVarName,
                     type: 'string'
-                }
+                },
+                io_type: title.toLowerCase().includes('input') ? 'input' : 'output'
             };
             onChange([...(variables || []), newVar]);
             setSelectedVar(newVar.variable_id);
@@ -224,6 +226,9 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
     const handleVariableChange = (variable_id: string, updates: Partial<WorkflowVariable>) => {
         onChange((variables || []).map(v => {
             if (v.variable_id !== variable_id) return v;
+            if (updates.schema) {
+                return { ...v, ...updates, type: updates.schema.type };
+            }
             return { ...v, ...updates };
         }));
     };

@@ -66,8 +66,9 @@ class WorkflowService:
                     workflow_id=workflow.workflow_id,
                     name=input_data.name,
                     description=input_data.description,
+                    type=input_data.schema.type,
                     schema=input_data.schema,
-                    variable_type='input',
+                    io_type='input',
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
                 )
@@ -81,8 +82,9 @@ class WorkflowService:
                     workflow_id=workflow.workflow_id,
                     name=output_data.name,
                     description=output_data.description,
+                    type=output_data.schema.type,
                     schema=output_data.schema,
-                    variable_type='output',
+                    io_type='output',
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
                 )
@@ -120,11 +122,13 @@ class WorkflowService:
                     workflow_id=workflow_id,
                     name=var.name,
                     description=var.description,
+                    type=var.type,
                     schema=var.schema,
+                    io_type=var.io_type,
                     created_at=var.created_at,
                     updated_at=var.updated_at
                 )
-                for var in workflow_variables if var.variable_type == "input"
+                for var in workflow_variables if var.io_type == "input"
             ]
             
             outputs = [
@@ -133,11 +137,13 @@ class WorkflowService:
                     workflow_id=workflow_id,
                     name=var.name,
                     description=var.description,
+                    type=var.type,
                     schema=var.schema,
+                    io_type=var.io_type,
                     created_at=var.created_at,
                     updated_at=var.updated_at
                 )
-                for var in workflow_variables if var.variable_type == "output"
+                for var in workflow_variables if var.io_type == "output"
             ]
 
             # Process steps and their tools
@@ -298,9 +304,10 @@ class WorkflowService:
                         var = WorkflowVariable(
                             variable_id=str(uuid4()),
                             workflow_id=workflow_id,
-                            variable_type='input',
+                            io_type='input',
                             name=var_dict['name'],
                             description=var_dict.get('description'),
+                            type=var_dict['schema']['type'],
                             schema=var_dict['schema']
                         )
                         self.db.add(var)
@@ -313,9 +320,10 @@ class WorkflowService:
                         var = WorkflowVariable(
                             variable_id=str(uuid4()),
                             workflow_id=workflow_id,
-                            variable_type='output',
+                            io_type='output',
                             name=var_dict['name'],
                             description=var_dict.get('description'),
+                            type=var_dict['schema']['type'],
                             schema=var_dict['schema']
                         )
                         self.db.add(var)
@@ -397,7 +405,7 @@ class WorkflowService:
 
     def validate_input_data(self, workflow: Workflow, input_data: Dict[str, Any]) -> None:
         """Validate input data against workflow input variables."""
-        input_vars = {var.name: var for var in workflow.variables if var.variable_type == 'input'}
+        input_vars = {var.name: var for var in workflow.variables if var.io_type == 'input'}
         
         # Check required inputs are provided
         for var_name, var in input_vars.items():
