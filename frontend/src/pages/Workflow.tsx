@@ -169,7 +169,7 @@ const Workflow: React.FC = () => {
     };
 
     const handleExecuteTool = async (): Promise<void> => {
-        console.log('handleExecuteTool called');
+        console.log('handleExecuteTool called with tool_id:', currentStep.tool?.tool_id);
         try {
             setIsExecuting(true);
             const currentStep = allSteps[activeStep];

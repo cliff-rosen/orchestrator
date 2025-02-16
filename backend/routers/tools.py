@@ -20,6 +20,7 @@ from models import User
 from services import ai_service
 from routers.files import get_file_content_as_text
 from services.workflow_service import WorkflowService
+from services.pubmed_service import pubmed_service
 
 router = APIRouter(
     prefix="/api",
@@ -330,5 +331,14 @@ async def test_prompt_template(
             response=response
         )
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/pubmed/search")
+async def search_pubmed(query: str, db: Session = Depends(get_db)):
+    """Search PubMed for articles"""
+    try:
+        results = await pubmed_service.search(query)
+        return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 

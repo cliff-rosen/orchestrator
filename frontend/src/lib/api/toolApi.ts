@@ -1,9 +1,9 @@
-import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolParameterName, ToolOutputName } from '../../types';
+import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolOutputName } from '../../types';
 import { PromptTemplate, PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest } from '../../types/prompts';
 
 import { WorkflowStep } from '../../types/workflows';
 import { api, handleApiError } from './index';
-import { executeLLM, executeSearch } from './toolExecutors';
+import { executeLLM, executeSearch, executePubMedSearch } from './toolExecutors';
 
 // Caches for tools and prompt templates    
 let toolsCache: Tool[] | null = null;
@@ -22,46 +22,6 @@ export const getToolExecutor = (toolId: string) => {
     return toolRegistry.get(toolId);
 };
 
-////// Tool executor functions //////
-
-// Register utility tool implementations
-const registerUtilityTools = () => {
-    // LLM tool
-    registerToolExecutor('llm', executeLLM);
-
-    // Search tool
-    registerToolExecutor('search', executeSearch);
-
-    // Echo tool
-    registerToolExecutor('echo', async (parameters: ResolvedParameters) => {
-        const input = parameters['input' as ToolParameterName] as string;
-        return {
-            ['output' as ToolOutputName]: `Echo: ${input}`
-        };
-    });
-
-    // Concatenate tool
-    registerToolExecutor('concatenate', async (parameters: ResolvedParameters) => {
-        const first = parameters['first' as ToolParameterName] as string;
-        const second = parameters['second' as ToolParameterName] as string;
-        return {
-            ['result' as ToolOutputName]: `${first}${second}`
-        };
-    });
-
-    // Retrieve tool
-    registerToolExecutor('retrieve', async (parameters: ResolvedParameters) => {
-        const urls = parameters['urls' as ToolParameterName] as string[];
-        // TODO: Implement actual URL content retrieval
-        return {
-            ['contents' as ToolOutputName]: urls.map(url => `Mock content from: ${url}`)
-        };
-    });
-};
-
-// Initialize tool executors
-registerUtilityTools();
-
 // Tool type definitions
 export const TOOL_TYPES = [
     {
@@ -78,8 +38,7 @@ export const TOOL_TYPES = [
         icon: '🔍',
         tools: [
             { tool_id: 'search', name: 'Web Search', description: 'Search the web for information' },
-            { tool_id: 'doc-search', name: 'Document Search', description: 'Search through document repositories' }
-        ]
+            { tool_id: 'pubmed', name: 'PubMed Search', description: 'Search PubMed for medical research papers' }]
     },
     {
         tool_type_id: 'api',
@@ -102,6 +61,40 @@ export const TOOL_TYPES = [
         ]
     }
 ];
+
+// Register all tool executors
+const registerAllTools = () => {
+    // Core tools
+    registerToolExecutor('llm', executeLLM);
+    registerToolExecutor('search', executeSearch);
+    registerToolExecutor('pubmed', executePubMedSearch);
+
+    // Utility tools
+    registerToolExecutor('echo', async (parameters: ResolvedParameters) => {
+        const input = (parameters as Record<string, string>)['input'];
+        return {
+            ['output' as ToolOutputName]: `Echo: ${input}`
+        };
+    });
+
+    registerToolExecutor('concatenate', async (parameters: ResolvedParameters) => {
+        const first = (parameters as Record<string, string>)['first'];
+        const second = (parameters as Record<string, string>)['second'];
+        return {
+            ['result' as ToolOutputName]: `${first}${second}`
+        };
+    });
+
+    registerToolExecutor('retrieve', async (parameters: ResolvedParameters) => {
+        const urls = (parameters as Record<string, string[]>)['urls'];
+        return {
+            ['contents' as ToolOutputName]: urls.map(url => `Mock content from: ${url}`)
+        };
+    });
+};
+
+// Initialize tool executors
+registerAllTools();
 
 ////// Tool API functions //////
 

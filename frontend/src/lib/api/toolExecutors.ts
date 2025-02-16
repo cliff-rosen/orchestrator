@@ -1,10 +1,10 @@
-import { ResolvedParameters, ToolOutputName, ToolParameterName, ToolOutputs } from '../../types';
+import { ResolvedParameters, ToolOutputName, ToolOutputs } from '../../types';
 import { api } from './index';
 import { searchApi } from './searchApi';
 
 // Execute search tool function
 export const executeSearch = async (parameters: ResolvedParameters): Promise<ToolOutputs> => {
-    const query = parameters['query' as ToolParameterName] as string;
+    const query = (parameters as Record<string, string>)['query'];
     try {
         const searchResults = await searchApi.search(query);
         return {
@@ -12,6 +12,33 @@ export const executeSearch = async (parameters: ResolvedParameters): Promise<Too
         };
     } catch (error) {
         console.error('Error executing search:', error);
+        throw error;
+    }
+};
+
+// Execute PubMed search tool function
+export const executePubMedSearch = async (parameters: ResolvedParameters): Promise<ToolOutputs> => {
+    const query = (parameters as Record<string, string>)['query'];
+    try {
+        const response = await api.get('/api/pubmed/search', { params: { query } });
+        const articles = response.data;
+
+        // Format all articles into a single string with clear separators
+        const formattedResults = articles.map((article: any) =>
+            `=== Article ===\n` +
+            `Title: ${article.title}\n` +
+            `Journal: ${article.journal}\n` +
+            `Date: ${article.publication_date}\n` +
+            `Abstract: ${article.abstract}\n` +
+            `URL: ${article.url}\n` +
+            `============\n`
+        ).join('\n');
+
+        return {
+            ['results' as ToolOutputName]: formattedResults
+        };
+    } catch (error) {
+        console.error('Error executing PubMed search:', error);
         throw error;
     }
 };
