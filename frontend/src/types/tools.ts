@@ -23,11 +23,7 @@ export type ParameterMappingType = Record<ToolParameterName, WorkflowVariableNam
 export type OutputMappingType = Record<ToolOutputName, WorkflowVariableName>;          // from tool output -> to workflow variable
 
 // Type for resolved parameter values
-export type ResolvedParameterValue = {
-    value: string | number | boolean | string[] | { file_id: string; content?: string };
-};
-
-export type ResolvedParameters = Record<ToolParameterName, ResolvedParameterValue>;
+export type ResolvedParameters = Record<string, any>;
 
 // Type for tool outputs
 export type ToolOutputs = Record<ToolOutputName, string | number | boolean | string[]>;

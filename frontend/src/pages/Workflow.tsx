@@ -176,30 +176,22 @@ const Workflow: React.FC = () => {
 
             if (currentStep.tool?.tool_id) {
                 // Get resolved parameters from workflow variables
-                const resolvedParameters: ResolvedParameters = {};
+                const parameters: Record<string, any> = {};
                 if (currentStep.parameter_mappings) {
                     for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
                         // Find the variable in either inputs or outputs
                         const variable = workflow?.inputs?.find(v => v.name === varName) ||
                             workflow?.outputs?.find(v => v.name === varName);
-                        // console.log(`Resolving parameter ${paramName} from ${varName}:`, variable?.value);
 
-                        // For file variables, send the file_id
                         if (variable?.schema.type === 'file') {
-                            // For file variables, value should be { file_id: string, content?: string }
                             const fileValue = variable.value;
                             if (fileValue?.file_id) {
-                                resolvedParameters[paramName as ToolParameterName] = {
-                                    value: fileValue  // Send the entire file value object
-                                };
+                                parameters[paramName] = fileValue.file_id;
                             } else {
                                 console.warn(`File variable ${varName} has no file_id`);
-                                resolvedParameters[paramName as ToolParameterName] = { value: '' };
                             }
                         } else {
-                            resolvedParameters[paramName as ToolParameterName] = {
-                                value: variable?.value
-                            };
+                            parameters[paramName] = variable?.value;
                         }
                     }
                 }
@@ -209,12 +201,11 @@ const Workflow: React.FC = () => {
                     if (!currentStep.prompt_template) {
                         throw new Error('No prompt template selected for LLM tool');
                     }
-                    resolvedParameters['templateId' as ToolParameterName] = { value: currentStep.prompt_template };
+                    parameters.prompt_template_id = currentStep.prompt_template;
                 }
 
-                // console.log('Executing tool with parameters:', resolvedParameters);
                 const toolId = currentStep.tool.tool_id;
-                const outputs = await toolApi.executeTool(toolId, resolvedParameters);
+                const outputs = await toolApi.executeTool(toolId, parameters);
                 console.log('Tool execution outputs:', outputs);
 
                 // Store outputs in workflow variables
