@@ -1,7 +1,7 @@
 """update prompt templates structure
 
 Revision ID: update_prompt_templates
-Revises: previous_revision
+Revises: add_template_file_variables
 Create Date: 2024-03-21
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = 'update_prompt_templates'
-down_revision = 'previous_revision'  # Update this to your previous migration
+down_revision = 'add_template_file_variables'  # Fixed to point to correct previous migration
 branch_labels = None
 depends_on = None
 

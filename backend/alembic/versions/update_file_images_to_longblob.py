@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'update_file_images_to_longblob'
-down_revision = ('add_extracted_text_and_images', 'add_prompt_tmpl')
+down_revision = 'update_file_content_to_binary'
 branch_labels = None
 depends_on = None
 

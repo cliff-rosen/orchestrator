@@ -12,7 +12,7 @@ from sqlalchemy.dialects.mysql import LONGBLOB
 
 # revision identifiers, used by Alembic.
 revision = 'create_file_images_table'
-down_revision = ('add_extracted_text_and_images', 'add_prompt_tmpl')
+down_revision = 'add_extracted_text_and_images'
 branch_labels = None
 depends_on = None
 

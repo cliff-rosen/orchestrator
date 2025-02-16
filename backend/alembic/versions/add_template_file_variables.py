@@ -1,7 +1,7 @@
 """rename variables to tokens
 
 Revision ID: add_template_file_variables
-Revises: create_file_images_table
+Revises: update_file_images_to_longblob
 Create Date: 2024-03-20 10:00:00.000000
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'add_template_file_variables'
-down_revision = 'create_file_images_table'
+down_revision = 'update_file_images_to_longblob'
 branch_labels = None
 depends_on = None
 
