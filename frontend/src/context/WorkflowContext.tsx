@@ -31,6 +31,8 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [activeStep, setActiveStep] = useState(0);
+    // Add state to track original workflow
+    const [originalWorkflow, setOriginalWorkflow] = useState<Workflow | null>(null);
 
     // Persist workflow state in sessionStorage
     useEffect(() => {
@@ -38,14 +40,16 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             sessionStorage.setItem('currentWorkflow', JSON.stringify(workflow));
             sessionStorage.setItem('hasUnsavedChanges', JSON.stringify(hasUnsavedChanges));
             sessionStorage.setItem('activeStep', JSON.stringify(activeStep));
+            sessionStorage.setItem('originalWorkflow', JSON.stringify(originalWorkflow));
         }
-    }, [workflow, hasUnsavedChanges, activeStep]);
+    }, [workflow, hasUnsavedChanges, activeStep, originalWorkflow]);
 
     // Restore workflow state from sessionStorage
     useEffect(() => {
         const savedWorkflow = sessionStorage.getItem('currentWorkflow');
         const savedHasUnsavedChanges = sessionStorage.getItem('hasUnsavedChanges');
         const savedActiveStep = sessionStorage.getItem('activeStep');
+        const savedOriginalWorkflow = sessionStorage.getItem('originalWorkflow');
 
         if (savedWorkflow) {
             setWorkflow(JSON.parse(savedWorkflow));
@@ -55,6 +59,9 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
         if (savedActiveStep) {
             setActiveStep(JSON.parse(savedActiveStep));
+        }
+        if (savedOriginalWorkflow) {
+            setOriginalWorkflow(JSON.parse(savedOriginalWorkflow));
         }
     }, []);
 
@@ -126,6 +133,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             // Only update state if the ID still matches (prevent race conditions)
             if (id === fetchedWorkflow.workflow_id) {
                 setWorkflow(fetchedWorkflow);
+                setOriginalWorkflow(fetchedWorkflow); // Store the original state
                 setHasUnsavedChanges(false);
                 // Don't reset active step here to preserve navigation state
             }
@@ -154,8 +162,15 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
 
         setWorkflow(updatedWorkflow);
-        setHasUnsavedChanges(true);
-    }, [workflow]);
+
+        // Compare with original workflow to determine if there are unsaved changes
+        if (originalWorkflow) {
+            const hasChanges = JSON.stringify(updatedWorkflow) !== JSON.stringify(originalWorkflow);
+            setHasUnsavedChanges(hasChanges);
+        } else {
+            setHasUnsavedChanges(true);
+        }
+    }, [workflow, originalWorkflow]);
 
     const saveWorkflow = useCallback(async () => {
         if (!workflow) return;
@@ -176,6 +191,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 );
             }
             setWorkflow(savedWorkflow);
+            setOriginalWorkflow(savedWorkflow); // Update the original state after saving
             setHasUnsavedChanges(false);
         } catch (error) {
             setError('Failed to save workflow');
@@ -188,12 +204,14 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const exitWorkflow = useCallback(() => {
         setWorkflow(null);
+        setOriginalWorkflow(null); // Clear original workflow state
         setActiveStep(0);
         setHasUnsavedChanges(false);
         // Clear persisted state
         sessionStorage.removeItem('currentWorkflow');
         sessionStorage.removeItem('hasUnsavedChanges');
         sessionStorage.removeItem('activeStep');
+        sessionStorage.removeItem('originalWorkflow');
     }, []);
 
     // Initial load
