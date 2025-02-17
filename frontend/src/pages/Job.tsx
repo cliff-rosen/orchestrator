@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useJobs } from '../context/JobsContext';
 import { useWorkflows } from '../context/WorkflowContext';
 import { Button } from '../components/ui/button';
@@ -9,18 +9,25 @@ import { ValueType } from '../types/schema';
 
 const Job: React.FC = () => {
     const { jobId } = useParams<{ jobId: string }>();
-    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { currentJob, loadJob, startJob, cancelJob, resetCurrentJob } = useJobs();
+    const { currentJob, loadJob, startJob, cancelJob, resetCurrentJob, createJob } = useJobs();
     const { workflows } = useWorkflows();
     const [inputValues, setInputValues] = useState<Record<string, any>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    const isInputMode = searchParams.get('mode') === 'inputs';
     const workflow = workflows?.find(w => w.workflow_id === currentJob?.workflow_id);
     const workflowInputs = workflow?.inputs || [];
 
-    console.log('Job.tsx', jobId, currentJob);
+    // Determine if we need inputs based on job status and workflow inputs
+    const needsInput = currentJob?.status === JobStatus.PENDING && workflowInputs.length > 0;
+
+    console.log('Job.tsx', {
+        jobId,
+        currentJob,
+        status: currentJob?.status,
+        needsInput,
+        workflowInputs
+    });
 
     // Load job data
     useEffect(() => {
@@ -36,7 +43,7 @@ const Job: React.FC = () => {
     useEffect(() => {
         console.log('Initializing input values:', { workflow, workflowInputs });
 
-        if (workflow && workflow.inputs) {
+        if (workflow && workflow.inputs && needsInput) {
             const initialValues: Record<string, any> = {};
             workflow.inputs.forEach(input => {
                 // Initialize with empty string for text/number, false for boolean
@@ -49,7 +56,7 @@ const Job: React.FC = () => {
             // Clear any existing errors when inputs change
             setErrors({});
         }
-    }, [workflow]); // Changed dependency to workflow since that's the source of inputs
+    }, [workflow, needsInput]); // Added needsInput to dependencies
 
     // Early return for loading state
     if (!currentJob || !workflow) {
@@ -65,11 +72,18 @@ const Job: React.FC = () => {
 
     // Debug logging
     console.log('Job render:', {
-        isInputMode,
+        needsInput,
         workflowInputs,
         inputValues,
         currentJob,
         workflow
+    });
+
+    // Add this near the other debug logging
+    console.log('Job controls:', {
+        status: currentJob?.status,
+        isRunning: currentJob?.status === JobStatus.RUNNING,
+        JobStatus: JobStatus
     });
 
     const validateInputs = () => {
@@ -143,7 +157,7 @@ const Job: React.FC = () => {
     };
 
     const handleStart = async () => {
-        if (isInputMode) {
+        if (needsInput) {
             if (!validateInputs()) return;
 
             // Convert input values to JobVariables
@@ -202,7 +216,23 @@ const Job: React.FC = () => {
         }
     };
 
-    if (isInputMode) {
+    const handleRestart = async () => {
+        try {
+            // Create a new job with the same workflow
+            const newJob = await createJob({
+                workflow_id: currentJob.workflow_id,
+                name: `${workflow.name || 'Untitled Workflow'} (Restarted)`,
+                description: currentJob.description,
+                input_variables: []  // Will be populated in the input form
+            });
+            // Navigate to the new job
+            navigate(`/jobs/${newJob.job_id}`);
+        } catch (error) {
+            console.error('Failed to restart job:', error);
+        }
+    };
+
+    if (needsInput) {
         return (
             <div className="container mx-auto px-4 py-8">
                 {/* Navigation */}
@@ -222,7 +252,13 @@ const Job: React.FC = () => {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
                         Configure Job: {currentJob.name}
                     </h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Workflow:</span>
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">
+                            {workflow.name || 'Untitled Workflow'}
+                        </span>
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                         Please provide the required inputs to start this job.
                     </p>
                 </div>
@@ -322,12 +358,14 @@ const Job: React.FC = () => {
                         <Button
                             onClick={handleStart}
                             disabled={!areInputsValid()}
-                            className={`flex items-center gap-2 ${areInputsValid()
-                                ? 'bg-blue-600 hover:bg-blue-700'
-                                : 'bg-blue-400 cursor-not-allowed'
-                                } text-white`}
+                            className={`inline-flex items-center justify-center rounded-md
+                                     px-3 py-1.5 text-sm font-medium
+                                     ${areInputsValid()
+                                    ? 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700'
+                                    : 'bg-blue-400 text-white cursor-not-allowed'
+                                }`}
                         >
-                            <PlayCircle className="h-4 w-4" />
+                            <PlayCircle className="h-4 w-4 mr-1.5" />
                             Start Job
                         </Button>
                     </div>
@@ -355,30 +393,34 @@ const Job: React.FC = () => {
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
                     {currentJob.name}
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {currentJob.description || 'No description'}
-                </p>
+                <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Workflow:</span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">
+                        {workflow.name || 'Untitled Workflow'}
+                    </span>
+                </div>
+                {currentJob.description && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                        {currentJob.description}
+                    </p>
+                )}
             </div>
 
             {/* Job Controls */}
             <div className="mb-6 flex gap-3">
-                {currentJob.status !== JobStatus.RUNNING && (
+                {/* Show Start button for PENDING jobs that don't need input */}
+                {currentJob.status === JobStatus.PENDING && !needsInput && (
                     <Button
                         onClick={handleStart}
-                        className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
+                        className="inline-flex items-center justify-center rounded-md
+                                 px-3 py-1.5 text-sm font-medium
+                                 text-gray-500 hover:text-gray-700 hover:bg-gray-100
+                                 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800
+                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                                 transition-colors"
                     >
-                        <PlayCircle className="h-4 w-4" />
+                        <PlayCircle className="h-4 w-4 mr-1.5 opacity-75" />
                         Start
-                    </Button>
-                )}
-                {currentJob.status === JobStatus.RUNNING && (
-                    <Button
-                        onClick={handleCancel}
-                        variant="destructive"
-                        className="flex items-center gap-2"
-                    >
-                        <StopCircle className="h-4 w-4" />
-                        Stop
                     </Button>
                 )}
             </div>
@@ -387,21 +429,58 @@ const Job: React.FC = () => {
             <div className="grid gap-6">
                 {/* Status */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                        Status
-                    </h3>
-                    <div className="flex items-center gap-2">
-                        <span className={`inline-block h-2 w-2 rounded-full ${currentJob.status === JobStatus.RUNNING
-                            ? 'bg-blue-500'
-                            : currentJob.status === JobStatus.COMPLETED
-                                ? 'bg-green-500'
-                                : currentJob.status === JobStatus.FAILED
-                                    ? 'bg-red-500'
-                                    : 'bg-gray-500'
-                            }`} />
-                        <span className="text-gray-900 dark:text-gray-100">
-                            {currentJob.status}
-                        </span>
+                    <div className="flex justify-between items-start">
+                        <div className="space-y-2">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                                Status
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                <span className={`inline-block h-2 w-2 rounded-full ${currentJob.status === JobStatus.RUNNING
+                                    ? 'bg-blue-500'
+                                    : currentJob.status === JobStatus.COMPLETED
+                                        ? 'bg-green-500'
+                                        : currentJob.status === JobStatus.FAILED
+                                            ? 'bg-red-500'
+                                            : 'bg-gray-500'
+                                    }`} />
+                                <span className="text-gray-900 dark:text-gray-100">
+                                    {currentJob.status}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            {/* Show Cancel button for RUNNING jobs */}
+                            {currentJob.status === JobStatus.RUNNING && (
+                                <Button
+                                    onClick={handleCancel}
+                                    className="inline-flex items-center justify-center rounded-md
+                                             px-3 py-1.5 text-sm font-medium
+                                             text-red-600 hover:text-red-700 hover:bg-red-50
+                                             dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20
+                                             focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500
+                                             transition-colors"
+                                >
+                                    <StopCircle className="h-4 w-4 mr-1.5 opacity-75" />
+                                    Cancel
+                                </Button>
+                            )}
+
+                            {/* Show Restart button for COMPLETED or FAILED jobs */}
+                            {(currentJob.status === JobStatus.COMPLETED || currentJob.status === JobStatus.FAILED) && (
+                                <Button
+                                    onClick={handleRestart}
+                                    className="inline-flex items-center justify-center rounded-md
+                                             px-3 py-1.5 text-sm font-medium
+                                             text-gray-500 hover:text-gray-700 hover:bg-gray-100
+                                             dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800
+                                             focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                                             transition-colors"
+                                >
+                                    <PlayCircle className="h-4 w-4 mr-1.5 opacity-75" />
+                                    Restart
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
 

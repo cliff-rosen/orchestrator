@@ -9,31 +9,12 @@ const generateUniqueId = () => {
 };
 
 // Mock data store
-const mockData = {
-    jobs: [
-        {
-            job_id: 'sample-job-1',
-            workflow_id: 'workflow-1',
-            user_id: 'user-1',
-            name: 'Sample Job',
-            description: 'A sample job for development',
-            status: JobStatus.PENDING,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            input_variables: [
-                {
-                    name: 'query',
-                    label: 'Search Query',
-                    description: 'The search query to execute',
-                    value: 'test query',
-                    type: 'string',
-                    required: true
-                }
-            ],
-            steps: []
-        } as Job
-    ],
-    usedIds: new Set(['sample-job-1'])
+const mockData: {
+    jobs: Job[];
+    usedIds: Set<string>;
+} = {
+    jobs: [],
+    usedIds: new Set()
 };
 
 // Mock data management (will be replaced by real API calls)
