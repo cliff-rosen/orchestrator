@@ -66,7 +66,7 @@ const WorkflowMenuBar: React.FC<WorkflowMenuBarProps> = ({
                         <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
-                        Back
+                        Back to Workflows
                     </button>
                     <div className="h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
                     <div className="flex items-center space-x-2">

@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
 import { WorkflowProvider, useWorkflows } from './context/WorkflowContext';
 import { PromptTemplateProvider } from './context/PromptTemplateContext';
+import { JobsProvider } from './context/JobsContext';
 // utils
 import { setStreamSessionExpiredHandler } from './lib/api/streamUtils';
 // components
@@ -15,7 +16,8 @@ import Workflow from './pages/Workflow';
 import PromptTemplateManager from './pages/PromptTemplateManager';
 import FilesManager from './pages/FilesManager';
 import PromptTemplate from './pages/PromptTemplate';
-import Jobs from './pages/Jobs';
+import JobsManager from './pages/JobsManager';
+import Job from './pages/Job';
 
 // Main app content when authenticated
 const AuthenticatedApp = () => {
@@ -97,7 +99,8 @@ const AuthenticatedApp = () => {
               <Route path="/prompts" element={<PromptTemplateManager />} />
               <Route path="/prompt/:templateId" element={<PromptTemplate />} />
               <Route path="/files" element={<FilesManager />} />
-              <Route path="/jobs" element={<Jobs />} />
+              <Route path="/jobs" element={<JobsManager />} />
+              <Route path="/jobs/:jobId" element={<Job />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
@@ -140,7 +143,9 @@ function App() {
       <ThemeProvider>
         <WorkflowProvider>
           <PromptTemplateProvider>
-            <AuthenticatedApp />
+            <JobsProvider>
+              <AuthenticatedApp />
+            </JobsProvider>
           </PromptTemplateProvider>
         </WorkflowProvider>
       </ThemeProvider>
