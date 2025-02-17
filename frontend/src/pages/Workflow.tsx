@@ -181,7 +181,7 @@ const Workflow: React.FC = () => {
                 // Clear output values for this step before execution
                 if (workflow?.outputs && currentStep.output_mappings) {
                     const clearedOutputs = workflow.outputs.map(output => {
-                        if (Object.values(currentStep.output_mappings || {}).includes(output.name)) {
+                        if (Object.values(currentStep.output_mappings || {}).includes(output.schema.name)) {
                             return { ...output, value: undefined };
                         }
                         return output;
@@ -200,8 +200,8 @@ const Workflow: React.FC = () => {
 
                     if (currentStep.parameter_mappings) {
                         for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
-                            const variable = workflow?.inputs?.find(v => v.name === varName) ||
-                                workflow?.outputs?.find(v => v.name === varName);
+                            const variable = workflow?.inputs?.find(v => v.schema.name === varName) ||
+                                workflow?.outputs?.find(v => v.schema.name === varName);
 
                             if (variable?.schema.type === 'file') {
                                 const fileValue = variable.value;
@@ -211,7 +211,14 @@ const Workflow: React.FC = () => {
                                     console.warn(`File variable ${varName} has no file_id`);
                                 }
                             } else {
-                                regular_variables[paramName] = { value: variable?.value };
+                                // Handle string array to string conversion
+                                const parameterDef = currentStep.tool?.signature.parameters.find(p => p.schema.name === paramName);
+                                if (Array.isArray(variable?.value) && !parameterDef?.schema.array_type) {
+                                    // Join array elements with newlines for better readability
+                                    regular_variables[paramName] = variable.value.join('\n');
+                                } else {
+                                    regular_variables[paramName] = variable?.value;
+                                }
                             }
                         }
                     }

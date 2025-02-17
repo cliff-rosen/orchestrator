@@ -26,6 +26,12 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
 
     // Helper function to check if a variable is compatible with a parameter
     const isCompatibleType = (paramSchema: SchemaValue, varSchema: SchemaValue): boolean => {
+        // Special case: allow string array to string conversion
+        if (paramSchema.type === 'string' && !paramSchema.array_type &&
+            varSchema.type === 'string' && varSchema.array_type) {
+            return true;
+        }
+
         // Check if either is an array type
         if (paramSchema.array_type !== varSchema.array_type) {
             return false;
