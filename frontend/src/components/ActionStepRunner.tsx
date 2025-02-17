@@ -2,6 +2,7 @@
 // This is for executing action steps in run mode 
 
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useWorkflows } from '../context/WorkflowContext';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
 import { fileApi } from '../lib/api/fileApi';
@@ -15,6 +16,16 @@ interface ActionStepRunnerProps {
     isExecuted: boolean;
     isExecuting: boolean;
 }
+
+interface ValueObject {
+    value: any;
+    schema: any;
+}
+
+// Constants for text truncation
+const MAX_TEXT_LENGTH = 200;  // Characters for text
+const MAX_ARRAY_LENGTH = 3;   // Items for arrays
+const MAX_ARRAY_ITEM_LENGTH = 100;  // Characters per array item
 
 const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     actionStep,
@@ -39,6 +50,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     const [showTemplateEditor, setShowTemplateEditor] = useState(false);
     const [inputValues, setInputValues] = useState<Record<string, any>>({});
     const [outputValues, setOutputValues] = useState<Record<string, any>>({});
+    const [expandedValues, setExpandedValues] = useState<Record<string, boolean>>({});
 
     // Load file names for file values
     React.useEffect(() => {
@@ -155,7 +167,6 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         setEditValue(value === null || value === undefined ? '' : String(value));
     };
 
-    // Set the workflow variable named varName (param) to the value of editValue (stat)
     const handleSaveEdit = (paramName: string, varName: string) => {
         if (!workflow) return;
 
@@ -183,12 +194,19 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         setEditValue(null);
     };
 
+    const toggleExpand = (id: string) => {
+        setExpandedValues(prev => ({
+            ...prev,
+            [id]: !prev[id]
+        }));
+    };
+
     if (!actionStep.tool) {
         return <div className="text-gray-500 dark:text-gray-400">No tool selected</div>;
     }
 
     // Helper function to format values for display
-    const formatValue = (valueObj: { value: any, schema: any }) => {
+    const formatValue = (valueObj: ValueObject | undefined, isOutput: boolean = false) => {
         // Add defensive check for undefined/null valueObj
         if (!valueObj) {
             return <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>;
@@ -256,151 +274,190 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             );
         }
 
-        // For other types, just show the value
-        const value = valueObj.value;
-        if (Array.isArray(value)) {
+        // Handle array values
+        if (Array.isArray(valueObj.value)) {
+            // Create a stable ID based on the array content and position
+            const id = `array-${valueObj.schema.name}-${JSON.stringify(valueObj.value).slice(0, 50)}`;
+            const isExpanded = expandedValues[id];
+            const items = valueObj.value;
+            const displayItems = isExpanded ? items : items.slice(0, MAX_ARRAY_LENGTH);
+            const hasMore = items.length > MAX_ARRAY_LENGTH;
+
             return (
-                <div className="bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">
-                    <div className="p-3">
-                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 mb-1">
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                            <span className="text-xs">Array ({value.length} items)</span>
+                <div className="space-y-2 p-2 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+                    {displayItems.map((item: any, index: number) => {
+                        const itemStr = String(item);
+                        const truncatedItem = isExpanded ? itemStr :
+                            itemStr.length > MAX_ARRAY_ITEM_LENGTH ?
+                                `${itemStr.substring(0, MAX_ARRAY_ITEM_LENGTH)}...` : itemStr;
+
+                        return (
+                            <div key={index} className="text-sm font-medium text-gray-900 dark:text-white p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                                <span className="font-normal text-gray-500 dark:text-gray-400 mr-2">{index + 1}.</span>
+                                {truncatedItem}
+                            </div>
+                        );
+                    })}
+                    {hasMore && (
+                        <button
+                            onClick={() => toggleExpand(id)}
+                            className="mt-2 px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
+                                     dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                                     dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                        >
+                            {isExpanded ? 'Show Less' : `Show ${items.length - MAX_ARRAY_LENGTH} More...`}
+                        </button>
+                    )}
+                </div>
+            );
+        }
+
+        // Handle text values
+        const text = String(valueObj.value);
+        // Create a stable ID based on the text content and position
+        const id = `text-${valueObj.schema.name}-${text.slice(0, 50)}`;
+        const isExpanded = expandedValues[id];
+
+        // For output values or text containing markdown, use ReactMarkdown
+        if (isOutput || text.includes('|') || text.includes('#') || text.includes('*')) {
+            const displayText = text.length > MAX_TEXT_LENGTH && !isExpanded
+                ? `${text.substring(0, MAX_TEXT_LENGTH)}...`
+                : text;
+
+            return (
+                <div className="space-y-2">
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                        <div className="prose dark:prose-invert">
+                            <ReactMarkdown
+                                components={{
+                                    table: props => (
+                                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700">
+                                            {props.children}
+                                        </table>
+                                    ),
+                                    th: props => (
+                                        <th className="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 text-left text-sm font-medium text-gray-900 dark:text-white">
+                                            {props.children}
+                                        </th>
+                                    ),
+                                    td: props => (
+                                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700">
+                                            {props.children}
+                                        </td>
+                                    ),
+                                    code: props => (
+                                        <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono">
+                                            {props.children}
+                                        </code>
+                                    ),
+                                    pre: props => (
+                                        <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto">
+                                            {props.children}
+                                        </pre>
+                                    ),
+                                    blockquote: props => (
+                                        <blockquote className="border-l-4 border-gray-200 dark:border-gray-700 pl-4 italic text-gray-600 dark:text-gray-400">
+                                            {props.children}
+                                        </blockquote>
+                                    )
+                                }}
+                            >
+                                {displayText}
+                            </ReactMarkdown>
                         </div>
-                        <div className="space-y-1">
-                            {value.map((item, index) => (
-                                <div key={index} className="flex items-start gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 p-1 rounded">
-                                    <span className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5 select-none">{index}</span>
-                                    <div className="flex-1 text-gray-700 dark:text-gray-300 text-sm">
-                                        {typeof item === 'object' ? (
-                                            <pre className="whitespace-pre-wrap">{JSON.stringify(item, null, 2)}</pre>
-                                        ) : (
-                                            <span className="break-all">{String(item)}</span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                    </div>
+                    {text.length > MAX_TEXT_LENGTH && (
+                        <button
+                            onClick={() => toggleExpand(id)}
+                            className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
+                                     dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                                     dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                        >
+                            {isExpanded ? 'Show Less' : 'Show More...'}
+                        </button>
+                    )}
+                </div>
+            );
+        }
+
+        // For regular text without markdown
+        if (text.length <= MAX_TEXT_LENGTH) {
+            return (
+                <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                    <div className="text-base text-gray-900 dark:text-white whitespace-pre-wrap font-normal">
+                        {text}
                     </div>
                 </div>
             );
         }
 
-        if (typeof value === 'object') {
-            return (
-                <div className="bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">
-                    <pre className="p-3 text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap">
-                        {JSON.stringify(value, null, 2)}
-                    </pre>
-                </div>
-            );
-        }
+        const truncatedText = isExpanded ? text : `${text.substring(0, MAX_TEXT_LENGTH)}...`;
 
         return (
-            <div className="bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">
-                <div className="p-3 text-gray-700 dark:text-gray-300 text-sm break-all">
-                    {String(value)}
+            <div className="space-y-2">
+                <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                    <div className="text-base text-gray-900 dark:text-white whitespace-pre-wrap font-normal">
+                        {truncatedText}
+                    </div>
                 </div>
+                <button
+                    onClick={() => toggleExpand(id)}
+                    className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
+                             dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                             dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                >
+                    {isExpanded ? 'Show Less' : 'Show More...'}
+                </button>
             </div>
         );
     };
 
     // Helper function to render editable value
-    const renderEditableValue = (paramName: string, varName: string, valueObj: { value: any, schema: any } | undefined) => {
-        // Add defensive check for undefined valueObj
-        if (!valueObj) {
-            return <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>;
-        }
-
-        if (valueObj.schema?.type === 'file') {
-            return (
-                <div className="group relative">
-                    {formatValue(valueObj)}
-                    {!isExecuting && (
-                        <button
-                            onClick={() => {
-                                setSelectedParam({ paramName, varName });
-                                setShowFileSelector(true);
-                            }}
-                            className="absolute top-2 right-2 p-1 rounded-md bg-gray-100 dark:bg-gray-800 
-                                     text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 
-                                     hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
-                            title="Select a file"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                        </button>
-                    )}
-                </div>
-            );
-        }
-
+    const renderEditableValue = (paramName: string, varName: string, valueObj: ValueObject | undefined) => {
         if (editingInput === paramName) {
             return (
-                <div className="flex flex-col gap-2">
-                    {typeof valueObj.value === 'object' ? (
-                        <textarea
-                            value={typeof editValue === 'object' ? JSON.stringify(editValue, null, 2) : editValue}
-                            onChange={(e) => {
-                                try {
-                                    const parsed = JSON.parse(e.target.value);
-                                    setEditValue(parsed);
-                                } catch {
-                                    setEditValue(e.target.value);
-                                }
-                            }}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
-                                     bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                            rows={4}
-                        />
-                    ) : (
-                        <input
-                            type={typeof valueObj.value === 'number' ? 'number' : 'text'}
-                            value={editValue ?? ''}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
-                                     bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                        />
-                    )}
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => handleSaveEdit(paramName, varName)}
-                            className="px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 
-                                     dark:bg-blue-500 dark:hover:bg-blue-600 rounded-md transition-colors"
-                        >
-                            Save
-                        </button>
-                        <button
-                            onClick={handleCancelEdit}
-                            className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-700 
-                                     dark:text-gray-400 dark:hover:text-gray-300 bg-gray-100 hover:bg-gray-200 
-                                     dark:bg-gray-800 dark:hover:bg-gray-700 rounded-md transition-colors"
-                        >
-                            Cancel
-                        </button>
-                    </div>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 
+                                 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        autoFocus
+                    />
+                    <button
+                        onClick={() => handleSaveEdit(paramName, varName)}
+                        className="px-2 py-1 text-xs font-medium text-green-600 hover:text-green-700 
+                                 dark:text-green-400 dark:hover:text-green-300 bg-green-50 hover:bg-green-100 
+                                 dark:bg-green-900/20 dark:hover:bg-green-900/30 rounded-md transition-colors"
+                    >
+                        Save
+                    </button>
+                    <button
+                        onClick={handleCancelEdit}
+                        className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-700 
+                                 dark:text-gray-400 dark:hover:text-gray-300 bg-gray-50 hover:bg-gray-100 
+                                 dark:bg-gray-900/20 dark:hover:bg-gray-900/30 rounded-md transition-colors"
+                    >
+                        Cancel
+                    </button>
                 </div>
             );
         }
 
         return (
-            <div className="group relative">
-                {formatValue(valueObj)}
-                {!isExecuting && (
+            <div className="flex items-center justify-between">
+                <div className="flex-1">
+                    {formatValue(valueObj)}
+                </div>
+                {!isExecuted && (
                     <button
-                        onClick={() => handleStartEdit(paramName, valueObj.value)}
-                        className="absolute top-2 right-2 p-1 rounded-md bg-gray-100 dark:bg-gray-800 
-                                 text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 
-                                 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
-                        title="Edit value"
+                        onClick={() => handleStartEdit(paramName, valueObj?.value)}
+                        className="ml-2 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 
+                                 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                                 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
+                        Edit
                     </button>
                 )}
             </div>
@@ -408,258 +465,314 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     };
 
     return (
-        <>
-            <div className="space-y-6">
-                {/* Stage Indicator */}
-                <div className="flex items-center justify-center space-x-4">
-                    <div className={`flex items-center ${isExecuted ? 'text-gray-500 dark:text-gray-400' : 'text-blue-600 dark:text-blue-400'}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 
-                            ${isExecuted ? 'border-gray-300 dark:border-gray-600' : 'border-blue-600 dark:border-blue-400'}`}>
-                            A
-                        </div>
-                        <span className="ml-2">Preparation</span>
-                    </div>
-                    <div className={`flex-grow h-0.5 ${isExecuted ? 'bg-gray-300 dark:bg-gray-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
-                    <div className={`flex items-center ${isExecuting ? 'text-blue-600 dark:text-blue-400' : (isExecuted ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500')}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 
-                            ${isExecuting ? 'border-blue-600 dark:border-blue-400 animate-pulse' : (isExecuted ? 'border-gray-300 dark:border-gray-600' : 'border-gray-300 dark:border-gray-600')}`}>
-                            <div className={`${isExecuting ? 'animate-pulse' : ''}`}>B</div>
-                        </div>
-                        <span className={`ml-2 ${isExecuting ? 'animate-pulse' : ''}`}>Execution</span>
-                    </div>
-                    <div className={`flex-grow h-0.5 ${isExecuted ? 'bg-gray-300 dark:bg-gray-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
-                    <div className={`flex items-center ${isExecuted ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 
-                            ${isExecuted ? 'border-blue-600 dark:border-blue-400' : 'border-gray-300 dark:border-gray-600'}`}>
-                            C
-                        </div>
-                        <span className="ml-2">Results</span>
-                    </div>
-                </div>
+        <div className="space-y-8">
+            {/* Tool Information */}
+            <div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                    {actionStep.tool.name}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {actionStep.tool.description}
+                </p>
+            </div>
 
-                {/* Tool Info */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                    <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                            {actionStep.tool.name}
-                        </h3>
-                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                            {actionStep.tool.description}
-                        </p>
+            {/* Prompt Template Section (for LLM tools) */}
+            {actionStep.tool.tool_type === 'llm' && (
+                <div>
+                    <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Prompt Template
+                        </h4>
+                        {!isExecuted && (
+                            <button
+                                onClick={() => setShowTemplateEditor(true)}
+                                className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
+                                         dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                                         dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                            >
+                                Edit Template
+                            </button>
+                        )}
                     </div>
-
-                    {/* Prompt Template Section for LLM Tools */}
-                    {actionStep.tool.tool_type === 'llm' && currentTemplate && (
-                        <div className="mt-6 border-b border-gray-200 dark:border-gray-700 pb-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                                    Prompt Template
-                                </h4>
-                                <button
-                                    onClick={() => setShowTemplateEditor(true)}
-                                    className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 
-                                             dark:text-blue-400 dark:hover:text-blue-300 border border-blue-600 
-                                             dark:border-blue-400 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 
-                                             transition-colors duration-200"
-                                >
-                                    View Template
-                                </button>
-                            </div>
-                            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
-                                <div className="mb-2">
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        {currentTemplate.name}
-                                    </span>
-                                </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                                    {currentTemplate.description}
-                                </p>
-                                <div className="font-mono text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-700">
-                                    {currentTemplate.system_message_template}
-                                    {currentTemplate.user_message_template}
-                                </div>
-                            </div>
+                    {currentTemplate ? (
+                        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                            <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                {currentTemplate.system_message_template}
+                                {currentTemplate.user_message_template}
+                            </pre>
                         </div>
-                    )}
-
-                    {/* Parameters Section */}
-                    <div className="mt-6 space-y-4">
-                        <div className="flex items-center">
-                            <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">Input Parameters</h4>
-                            {isExecuting ? (
-                                <div className="ml-2 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded flex items-center gap-2">
-                                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 dark:border-blue-400 border-t-transparent"></div>
-                                    <span>Executing...</span>
-                                </div>
-                            ) : !isExecuted ? (
-                                <div className="ml-2 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded">
-                                    Ready to Execute
-                                </div>
-                            ) : (
-                                <div className="ml-2 px-2 py-1 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded">
-                                    Executed
-                                </div>
-                            )}
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg overflow-hidden">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead className="bg-gray-100 dark:bg-gray-800">
-                                    <tr>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Workflow Variable
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Tool Parameter
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Value
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                    {actionStep.parameter_mappings && Object.entries(actionStep.parameter_mappings).map(([paramName, varName]) => (
-                                        <tr key={paramName} className="hover:bg-gray-100 dark:hover:bg-gray-800/50">
-                                            <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 font-mono">
-                                                {varName}
-                                            </td>
-                                            <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
-                                                {paramName}
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                {renderEditableValue(paramName, varName, inputValues[paramName])}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {/* Outputs Section */}
-                    <div className="mt-8 space-y-4">
-                        <div className="flex items-center">
-                            <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">Outputs</h4>
-                            {isExecuting ? (
-                                <div className="ml-2 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded flex items-center gap-2">
-                                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 dark:border-blue-400 border-t-transparent"></div>
-                                    <span>Executing...</span>
-                                </div>
-                            ) : isExecuted && (
-                                <div className="ml-2 px-2 py-1 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded">
-                                    Execution Complete
-                                </div>
-                            )}
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg overflow-hidden">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead className="bg-gray-100 dark:bg-gray-800">
-                                    <tr>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Tool Output
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Workflow Variable
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Value
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                    {actionStep.output_mappings && Object.entries(actionStep.output_mappings).map(([outputName, varName]) => (
-                                        <tr key={outputName} className="hover:bg-gray-100 dark:hover:bg-gray-800/50">
-                                            <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
-                                                {outputName}
-                                            </td>
-                                            <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 font-mono">
-                                                {varName}
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                {formatValue(outputValues[outputName])}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Execution State Description */}
-                <div className="text-center">
-                    {!isExecuted ? (
-                        <p className="text-base text-blue-600 dark:text-blue-400 font-medium">
-                            Configure the input parameters above and click Execute Tool to run this step
-                        </p>
                     ) : (
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                            This step has been executed. You can view the results above or proceed to the next step
-                        </p>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                            No prompt template selected
+                        </div>
                     )}
+                </div>
+            )}
+
+            {/* Input Parameters */}
+            <div>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                    Input Parameters
+                </h4>
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900/50">
+                            <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Parameter
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Value
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {actionStep.tool.signature.parameters.map(param => {
+                                const paramName = param.schema.name;
+                                const varName = actionStep.parameter_mappings?.[paramName] || '';
+                                return (
+                                    <tr key={paramName}>
+                                        <td className="px-4 py-2">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                    {paramName}
+                                                </span>
+                                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {param.schema.description}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            {param.schema.type === 'file' ? (
+                                                <div className="flex items-center gap-2">
+                                                    {formatValue(inputValues[paramName])}
+                                                    {!isExecuted && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedParam({ paramName, varName });
+                                                                setShowFileSelector(true);
+                                                            }}
+                                                            className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 
+                                                                     dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                                                                     dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                                                        >
+                                                            Select File
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                renderEditableValue(paramName, varName, inputValues[paramName])
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            {/* Template Editor Dialog */}
-            {showTemplateEditor && currentTemplate && (
-                <PromptTemplateEditor
-                    template={currentTemplate}
-                    onClose={() => setShowTemplateEditor(false)}
-                />
+            {/* Output Values */}
+            {isExecuted && (
+                <div>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                        Output Values
+                    </h4>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead className="bg-gray-50 dark:bg-gray-900/50">
+                                <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Output
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Value
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                {actionStep.tool.signature.outputs.map(output => {
+                                    const outputName = output.schema.name;
+                                    return (
+                                        <tr key={outputName}>
+                                            <td className="px-4 py-2">
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                        {outputName}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {output.schema.description}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                {formatValue(outputValues[outputName], true)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             )}
 
             {/* File Selector Dialog */}
             {showFileSelector && selectedParam && (
                 <Dialog
-                    isOpen={showFileSelector}
+                    title="Select File"
                     onClose={() => {
                         setShowFileSelector(false);
                         setSelectedParam(null);
                     }}
-                    title="Select a File for Input"
-                    maxWidth="2xl"
+                    isOpen={showFileSelector}
                 >
-                    <div className="space-y-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Please select a file from the library below or upload a new one.
-                        </p>
-                        <FileLibrary
-                            selectedFileId={workflow?.inputs?.find(v => v.variable_id === selectedParam.varName)?.value?.file_id ||
-                                workflow?.outputs?.find(v => v.variable_id === selectedParam.varName)?.value?.file_id}
-                            onFileSelect={async (fileId) => {
-                                try {
-                                    const file = await fileApi.getFile(fileId);
-                                    if (!workflow) return;
+                    <FileLibrary
+                        onFileSelect={(fileId: string) => {
+                            if (!workflow || !selectedParam) return;
 
-                                    const updatedInputs = [...(workflow.inputs || [])];
-                                    const updatedOutputs = [...(workflow.outputs || [])];
+                            // Find and update the variable
+                            const updatedInputs = [...(workflow.inputs || [])];
+                            const updatedOutputs = [...(workflow.outputs || [])];
 
-                                    const inputVar = updatedInputs.find(v => v.variable_id === selectedParam.varName);
-                                    const outputVar = updatedOutputs.find(v => v.variable_id === selectedParam.varName);
+                            const inputVar = updatedInputs.find(v => v.schema.name === selectedParam.varName);
+                            const outputVar = updatedOutputs.find(v => v.schema.name === selectedParam.varName);
 
-                                    if (inputVar) {
-                                        inputVar.value = { file_id: fileId };
-                                        updateWorkflow({ inputs: updatedInputs });
-                                    } else if (outputVar) {
-                                        outputVar.value = { file_id: fileId };
-                                        updateWorkflow({ outputs: updatedOutputs });
-                                    }
+                            if (inputVar) {
+                                inputVar.value = { file_id: fileId };
+                                updateWorkflow({ inputs: updatedInputs });
+                            } else if (outputVar) {
+                                outputVar.value = { file_id: fileId };
+                                updateWorkflow({ outputs: updatedOutputs });
+                            }
 
-                                    setFileNames(prev => ({
-                                        ...prev,
-                                        [fileId]: file.name
-                                    }));
-
-                                    setShowFileSelector(false);
-                                    setSelectedParam(null);
-                                } catch (err) {
-                                    console.error('Error selecting file:', err);
-                                }
-                            }}
-                        />
-                    </div>
+                            setShowFileSelector(false);
+                            setSelectedParam(null);
+                        }}
+                    />
                 </Dialog>
             )}
-        </>
+
+            {/* Template Editor Dialog */}
+            {showTemplateEditor && (
+                <Dialog
+                    title="Edit Prompt Template"
+                    onClose={() => setShowTemplateEditor(false)}
+                    isOpen={showTemplateEditor}
+                >
+                    <PromptTemplateEditor
+                        template={currentTemplate || null}
+                        onTemplateChange={(templateId: string) => {
+                            if (!workflow) return;
+
+                            // Update the step with the new template
+                            const updatedSteps = workflow.steps.map(step =>
+                                step.step_id === actionStep.step_id
+                                    ? { ...step, prompt_template: templateId }
+                                    : step
+                            );
+
+                            updateWorkflow({ steps: updatedSteps });
+                            setShowTemplateEditor(false);
+                        }}
+                        onClose={() => setShowTemplateEditor(false)}
+                    />
+                </Dialog>
+            )}
+
+            {/* Super simple markdown test */}
+            <div className="mt-8 p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="prose prose-slate dark:prose-invert max-w-none">
+                    <ReactMarkdown
+                        components={{
+                            table: props => (
+                                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700">
+                                    {props.children}
+                                </table>
+                            ),
+                            th: props => (
+                                <th className="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 text-left text-sm font-medium text-gray-900 dark:text-white">
+                                    {props.children}
+                                </th>
+                            ),
+                            td: props => (
+                                <td className="px-4 py-2 text-sm text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700">
+                                    {props.children}
+                                </td>
+                            ),
+                            code: props => (
+                                <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono">
+                                    {props.children}
+                                </code>
+                            ),
+                            pre: props => (
+                                <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto">
+                                    {props.children}
+                                </pre>
+                            ),
+                            blockquote: props => (
+                                <blockquote className="border-l-4 border-gray-200 dark:border-gray-700 pl-4 italic text-gray-600 dark:text-gray-400">
+                                    {props.children}
+                                </blockquote>
+                            ),
+                            h1: props => (
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                                    {props.children}
+                                </h1>
+                            ),
+                            h2: props => (
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                                    {props.children}
+                                </h2>
+                            ),
+                            h3: props => (
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                                    {props.children}
+                                </h3>
+                            ),
+                            p: props => (
+                                <p className="text-base text-gray-900 dark:text-white mb-4">
+                                    {props.children}
+                                </p>
+                            ),
+                            ul: props => (
+                                <ul className="list-disc list-inside space-y-1 text-gray-900 dark:text-white mb-4">
+                                    {props.children}
+                                </ul>
+                            ),
+                            li: props => (
+                                <li className="text-base">
+                                    {props.children}
+                                </li>
+                            )
+                        }}
+                    >{`# Test Heading
+
+This is **bold** and *italic* text.
+
+## Table Example
+| Column 1 | Column 2 |
+|----------|----------|
+| Row 1    | Data     |
+| Row 2    | Info     |
+
+### List Example
+- Item 1
+- Item 2
+  - Nested item
+  - Another nested item
+- Item 3
+
+> This is a blockquote example
+> It can span multiple lines
+
+\`\`\`
+This is a code block
+It preserves formatting
+\`\`\``}</ReactMarkdown>
+                </div>
+            </div>
+        </div>
     );
 };
 
