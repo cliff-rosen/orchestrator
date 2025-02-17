@@ -9,16 +9,19 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
+    DialogFooter,
 } from '../components/ui/dialog';
-import { Plus, PlayCircle, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Plus, PlayCircle, CheckCircle2, XCircle, Clock, Trash2 } from 'lucide-react';
 import { JobStatus } from '../types/jobs';
 
 const JobsManager: React.FC = () => {
     const navigate = useNavigate();
-    const { jobs, createJob } = useJobs();
+    const { jobs, createJob, deleteJob } = useJobs();
     const { workflows } = useWorkflows();
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
+    const [jobToDelete, setJobToDelete] = useState<string | null>(null);
 
     const getStatusIcon = (status: JobStatus) => {
         switch (status) {
@@ -49,6 +52,24 @@ const JobsManager: React.FC = () => {
             navigate(`/jobs/${job.job_id}`);
         } catch (error) {
             console.error('Failed to create job:', error);
+        }
+    };
+
+    const handleDeleteClick = (e: React.MouseEvent, jobId: string) => {
+        e.stopPropagation(); // Prevent navigation to job details
+        setJobToDelete(jobId);
+        setIsDeleteDialogOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!jobToDelete) return;
+
+        try {
+            await deleteJob(jobToDelete);
+            setIsDeleteDialogOpen(false);
+            setJobToDelete(null);
+        } catch (error) {
+            console.error('Failed to delete job:', error);
         }
     };
 
@@ -120,6 +141,36 @@ const JobsManager: React.FC = () => {
                 </Dialog>
             </div>
 
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent className="bg-white dark:bg-gray-800">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-gray-100">Delete Job</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <p className="text-gray-700 dark:text-gray-300">
+                            Are you sure you want to delete this job? This action cannot be undone.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsDeleteDialogOpen(false)}
+                            className="bg-white dark:bg-gray-800"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmDelete}
+                            className="bg-red-600 text-white hover:bg-red-700"
+                        >
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Jobs List */}
             {jobs.length === 0 ? (
                 <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -137,12 +188,14 @@ const JobsManager: React.FC = () => {
                     {jobs.map(job => (
                         <div
                             key={job.job_id}
-                            onClick={() => navigate(`/jobs/${job.job_id}`)}
-                            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 
-                                     p-4 cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
+                            className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 
+                                     p-4 hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
                         >
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
+                                <div
+                                    className="flex items-center gap-3 flex-1 cursor-pointer"
+                                    onClick={() => navigate(`/jobs/${job.job_id}`)}
+                                >
                                     {getStatusIcon(job.status)}
                                     <div>
                                         <h3 className="font-medium text-gray-900 dark:text-gray-100">
@@ -153,8 +206,18 @@ const JobsManager: React.FC = () => {
                                         </p>
                                     </div>
                                 </div>
-                                <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    {new Date(job.created_at).toLocaleString()}
+                                <div className="flex items-center gap-4">
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                                        {new Date(job.created_at).toLocaleString()}
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => handleDeleteClick(e, job.job_id)}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
                                 </div>
                             </div>
                         </div>
