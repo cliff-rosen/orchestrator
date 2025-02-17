@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkflows } from '../context/WorkflowContext';
 
@@ -14,6 +14,13 @@ const WorkflowMenuBar: React.FC<WorkflowMenuBarProps> = ({
     const navigate = useNavigate();
     const { workflow, hasUnsavedChanges, saveWorkflow, exitWorkflow, updateWorkflow } = useWorkflows();
     const [editingName, setEditingName] = useState(false);
+
+    // Auto-enter edit mode for new workflows
+    useEffect(() => {
+        if (workflow?.workflow_id === 'new' && !editingName) {
+            setEditingName(true);
+        }
+    }, [workflow?.workflow_id]);
 
     if (!workflow) return null;
 
