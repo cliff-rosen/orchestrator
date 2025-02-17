@@ -36,24 +36,22 @@ export const workflowApi = {
                 description: workflow.description,
                 status: workflow.status,
                 steps: workflow.steps?.map(step => ({
-                    ...step,
+                    label: step.label,
+                    description: step.description,
                     step_type: step.step_type,
-                    tool_id: step.tool?.tool_id,
+                    tool_id: step.tool?.tool_id ?? null,
                     prompt_template: step.prompt_template,
+                    parameter_mappings: step.parameter_mappings,
+                    output_mappings: step.output_mappings,
+                    sequence_number: step.sequence_number
                 })),
                 inputs: workflow.inputs?.map(input => ({
                     variable_id: input.variable_id,
-                    name: input.name,
-                    description: input.description,
-                    type: input.schema.type,
                     schema: input.schema,
                     io_type: 'input'
                 })),
                 outputs: workflow.outputs?.map(output => ({
                     variable_id: output.variable_id,
-                    name: output.name,
-                    description: output.description,
-                    type: output.schema.type,
                     schema: output.schema,
                     io_type: 'output'
                 })),
@@ -74,24 +72,22 @@ export const workflowApi = {
                 description: workflow.description,
                 status: workflow.status,
                 steps: workflow.steps?.map(step => ({
-                    ...step,
+                    label: step.label,
+                    description: step.description,
                     step_type: step.step_type,
-                    tool_id: step.tool?.tool_id,
+                    tool_id: step.tool?.tool_id ?? null,
                     prompt_template: step.prompt_template,
+                    parameter_mappings: step.parameter_mappings,
+                    output_mappings: step.output_mappings,
+                    sequence_number: step.sequence_number
                 })),
                 inputs: workflow.inputs?.map(input => ({
                     variable_id: input.variable_id,
-                    name: input.name,
-                    description: input.description,
-                    type: input.schema.type,
                     schema: input.schema,
                     io_type: 'input'
                 })),
                 outputs: workflow.outputs?.map(output => ({
                     variable_id: output.variable_id,
-                    name: output.name,
-                    description: output.description,
-                    type: output.schema.type,
                     schema: output.schema,
                     io_type: 'output'
                 })),

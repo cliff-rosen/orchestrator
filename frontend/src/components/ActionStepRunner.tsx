@@ -2,12 +2,12 @@
 // This is for executing action steps in run mode 
 
 import React, { useState } from 'react';
-import { RuntimeWorkflowStep } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
+import { usePromptTemplates } from '../context/PromptTemplateContext';
 import { fileApi } from '../lib/api/fileApi';
+import { RuntimeWorkflowStep } from '../types/workflows';
 import Dialog from './common/Dialog';
 import FileLibrary from './FileLibrary';
-import { usePromptTemplates } from '../context/PromptTemplateContext';
 import PromptTemplateEditor from './PromptTemplateEditor';
 
 interface ActionStepRunnerProps {
@@ -37,14 +37,16 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     const [selectedParam, setSelectedParam] = useState<{ paramName: string, varName: string } | null>(null);
     const [fileNames, setFileNames] = useState<Record<string, string>>({});
     const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+    const [inputValues, setInputValues] = useState<Record<string, any>>({});
+    const [outputValues, setOutputValues] = useState<Record<string, any>>({});
 
     // Load file names for file values
     React.useEffect(() => {
         const loadFileNames = async () => {
             const newFileNames: Record<string, string> = {};
             for (const [paramName, varName] of Object.entries(actionStep.parameter_mappings || {})) {
-                const variable = workflow?.inputs?.find(v => v.name === varName) ||
-                    workflow?.outputs?.find(v => v.name === varName);
+                const variable = workflow?.inputs?.find(v => v.variable_id === varName) ||
+                    workflow?.outputs?.find(v => v.variable_id === varName);
                 if (variable?.schema.type === 'file' && variable.value?.file_id) {
                     try {
                         const fileInfo = await fileApi.getFile(variable.value.file_id);
@@ -59,36 +61,86 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         loadFileNames();
     }, [workflow, actionStep]);
 
-    // Get input values from workflow variables
-    const inputValues: Record<string, any> = {};
-    console.log('ActionStepRunner - Current step:', actionStep);
-    console.log('ActionStepRunner - Current workflow:', workflow);
-    if (actionStep.parameter_mappings) {
-        console.log('ActionStepRunner - Parameter mappings:', actionStep.parameter_mappings);
-        Object.entries(actionStep.parameter_mappings).forEach(([paramName, varName]) => {
-            console.log(`Looking up variable for parameter ${paramName} -> ${varName}`);
-            const variable = workflow?.inputs?.find(v => v.name === varName) ||
-                workflow?.outputs?.find(v => v.name === varName);
-            console.log('Found variable:', variable);
-            inputValues[paramName] = {
-                value: variable?.value,
-                schema: variable?.schema
-            };
+    // Compute input and output values
+    React.useEffect(() => {
+        console.log('ActionStepRunner - Current step:', {
+            step_id: actionStep.step_id,
+            parameter_mappings: actionStep.parameter_mappings,
+            tool: actionStep.tool?.name
         });
-    }
-    console.log('ActionStepRunner - Resolved input values:', inputValues);
+        console.log('ActionStepRunner - Current workflow:', {
+            workflow_id: workflow?.workflow_id,
+            inputs: workflow?.inputs?.map(v => ({ id: v.variable_id, name: v.schema.name, value: v.value })),
+            outputs: workflow?.outputs?.map(v => ({ id: v.variable_id, name: v.schema.name, value: v.value }))
+        });
 
-    // Get output values from workflow variables
-    const outputValues: Record<string, any> = {};
-    if (actionStep.output_mappings) {
-        Object.entries(actionStep.output_mappings).forEach(([outputName, varName]) => {
-            const variable = workflow?.outputs?.find(v => v.name === varName);
-            outputValues[outputName] = {
-                value: variable?.value,
-                schema: variable?.schema
-            };
-        });
-    }
+        const newInputValues: Record<string, any> = {};
+        if (actionStep.parameter_mappings) {
+            Object.entries(actionStep.parameter_mappings).forEach(([paramName, varName]) => {
+                console.log(`\nLooking up variable for parameter "${paramName}" -> "${varName}"`);
+
+                // First try to find in inputs
+                const inputVar = workflow?.inputs?.find(v => v.schema.name === varName);
+                if (inputVar) {
+                    console.log('Found in workflow inputs:', {
+                        variable_id: inputVar.variable_id,
+                        schema: inputVar.schema,
+                        value: inputVar.value
+                    });
+                }
+
+                // Then try to find in outputs
+                const outputVar = workflow?.outputs?.find(v => v.schema.name === varName);
+                if (outputVar) {
+                    console.log('Found in workflow outputs:', {
+                        variable_id: outputVar.variable_id,
+                        schema: outputVar.schema,
+                        value: outputVar.value
+                    });
+                }
+
+                // Use the found variable
+                const variable = inputVar || outputVar;
+
+                if (!variable) {
+                    console.warn(`No variable found with ID "${varName}" in workflow inputs or outputs`);
+                    newInputValues[paramName] = {
+                        value: null,
+                        schema: null
+                    };
+                    return;
+                }
+
+                console.log('Using variable:', {
+                    id: variable.variable_id,
+                    schema: variable.schema,
+                    value: variable.value,
+                    io_type: variable.io_type
+                });
+
+                newInputValues[paramName] = {
+                    value: variable.value,
+                    schema: variable.schema
+                };
+                console.log(`Set inputValues[${paramName}] to:`, newInputValues[paramName]);
+            });
+        }
+        console.log('ActionStepRunner - Final resolved input values:', newInputValues);
+        setInputValues(newInputValues);
+
+        // Compute output values
+        const newOutputValues: Record<string, any> = {};
+        if (actionStep.output_mappings) {
+            Object.entries(actionStep.output_mappings).forEach(([outputName, varName]) => {
+                const variable = workflow?.outputs?.find(v => v.variable_id === varName);
+                newOutputValues[outputName] = {
+                    value: variable?.value,
+                    schema: variable?.schema
+                };
+            });
+        }
+        setOutputValues(newOutputValues);
+    }, [workflow, actionStep]);
 
     // Get the current prompt template if this is an LLM tool
     const currentTemplate = React.useMemo(() => {
@@ -111,8 +163,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         const updatedInputs = [...(workflow.inputs || [])];
         const updatedOutputs = [...(workflow.outputs || [])];
 
-        const inputVar = updatedInputs.find(v => v.name === varName);
-        const outputVar = updatedOutputs.find(v => v.name === varName);
+        const inputVar = updatedInputs.find(v => v.variable_id === varName);
+        const outputVar = updatedOutputs.find(v => v.variable_id === varName);
 
         if (inputVar) {
             inputVar.value = editValue;
@@ -137,11 +189,17 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
 
     // Helper function to format values for display
     const formatValue = (valueObj: { value: any, schema: any }) => {
-        if (!valueObj || valueObj.value === undefined || valueObj.value === null) {
+        // Add defensive check for undefined/null valueObj
+        if (!valueObj) {
             return <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>;
         }
 
-        // Handle file values
+        // Add defensive check for undefined/null value or schema
+        if (valueObj.value === undefined || valueObj.value === null || !valueObj.schema) {
+            return <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>;
+        }
+
+        // Handle file values with defensive checks
         if (valueObj.schema?.type === 'file') {
             const fileId = valueObj.value?.file_id;
             const fileName = fileNames[fileId] || 'Loading...';
@@ -249,7 +307,12 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     };
 
     // Helper function to render editable value
-    const renderEditableValue = (paramName: string, varName: string, valueObj: { value: any, schema: any }) => {
+    const renderEditableValue = (paramName: string, varName: string, valueObj: { value: any, schema: any } | undefined) => {
+        // Add defensive check for undefined valueObj
+        if (!valueObj) {
+            return <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>;
+        }
+
         if (valueObj.schema?.type === 'file') {
             return (
                 <div className="group relative">
@@ -559,8 +622,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                             Please select a file from the library below or upload a new one.
                         </p>
                         <FileLibrary
-                            selectedFileId={workflow?.inputs?.find(v => v.name === selectedParam.varName)?.value?.file_id ||
-                                workflow?.outputs?.find(v => v.name === selectedParam.varName)?.value?.file_id}
+                            selectedFileId={workflow?.inputs?.find(v => v.variable_id === selectedParam.varName)?.value?.file_id ||
+                                workflow?.outputs?.find(v => v.variable_id === selectedParam.varName)?.value?.file_id}
                             onFileSelect={async (fileId) => {
                                 try {
                                     const file = await fileApi.getFile(fileId);
@@ -569,8 +632,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                                     const updatedInputs = [...(workflow.inputs || [])];
                                     const updatedOutputs = [...(workflow.outputs || [])];
 
-                                    const inputVar = updatedInputs.find(v => v.name === selectedParam.varName);
-                                    const outputVar = updatedOutputs.find(v => v.name === selectedParam.varName);
+                                    const inputVar = updatedInputs.find(v => v.variable_id === selectedParam.varName);
+                                    const outputVar = updatedOutputs.find(v => v.variable_id === selectedParam.varName);
 
                                     if (inputVar) {
                                         inputVar.value = { file_id: fileId };

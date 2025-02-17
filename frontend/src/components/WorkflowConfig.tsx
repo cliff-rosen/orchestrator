@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SchemaValue, ValueType } from '../types/schema';
-import { WorkflowVariable, createBasicSchema, createArraySchema } from '../types/workflows';
+import { WorkflowVariable, createBasicSchema } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
 import { FileInfo } from '../lib/api/fileApi';
 import Dialog from './common/Dialog';

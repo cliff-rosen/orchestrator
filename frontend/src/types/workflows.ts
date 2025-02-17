@@ -165,12 +165,12 @@ export const exampleWorkflow2: Workflow = {
     ],
     inputs: [{
         variable_id: "var-1738689200900-rrjspuoia",
-        name: "question",
         description: "",
         type: "string",
         schema: {
             name: "question",
             type: "string",
+            array_type: false,
             description: "The question to improve"
         },
         io_type: "input"

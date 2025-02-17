@@ -61,13 +61,14 @@ class WorkflowService:
         # Create input variables if provided
         if workflow_data.inputs:
             for input_data in workflow_data.inputs:
+                schema = input_data.schema.model_dump() if hasattr(input_data.schema, 'model_dump') else input_data.schema
                 input_var = WorkflowVariable(
                     variable_id=input_data.variable_id or str(uuid4()),
                     workflow_id=workflow.workflow_id,
-                    name=input_data.name,
-                    description=input_data.description,
-                    type=input_data.schema.type,
-                    schema=input_data.schema.model_dump(),
+                    name=schema['name'],
+                    description=schema.get('description', schema['name']),
+                    type=schema['type'],
+                    schema=schema,
                     io_type='input',
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
@@ -77,13 +78,14 @@ class WorkflowService:
         # Create output variables if provided
         if workflow_data.outputs:
             for output_data in workflow_data.outputs:
+                schema = output_data.schema.model_dump() if hasattr(output_data.schema, 'model_dump') else output_data.schema
                 output_var = WorkflowVariable(
                     variable_id=output_data.variable_id or str(uuid4()),
                     workflow_id=workflow.workflow_id,
-                    name=output_data.name,
-                    description=output_data.description,
-                    type=output_data.schema.type,
-                    schema=output_data.schema.model_dump(),
+                    name=schema['name'],
+                    description=schema.get('description', schema['name']),
+                    type=schema['type'],
+                    schema=schema,
                     io_type='output',
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
@@ -305,14 +307,15 @@ class WorkflowService:
                     for var_data in update_data['inputs']:
                         # Handle both Pydantic models and dicts
                         var_dict = var_data.model_dump() if hasattr(var_data, 'model_dump') else var_data
+                        schema = var_dict['schema']
                         var = WorkflowVariable(
-                            variable_id=str(uuid4()),
+                            variable_id=var_dict.get('variable_id', str(uuid4())),
                             workflow_id=workflow_id,
                             io_type='input',
-                            name=var_dict['name'],
-                            description=var_dict.get('description'),
-                            type=var_dict['schema']['type'],
-                            schema=var_dict['schema'] if isinstance(var_dict['schema'], dict) else var_dict['schema'].model_dump(),
+                            name=schema['name'],
+                            description=schema.get('description', schema['name']),
+                            type=schema['type'],
+                            schema=schema,
                             created_at=datetime.utcnow(),
                             updated_at=datetime.utcnow()
                         )
@@ -323,14 +326,15 @@ class WorkflowService:
                     for var_data in update_data['outputs']:
                         # Handle both Pydantic models and dicts
                         var_dict = var_data.model_dump() if hasattr(var_data, 'model_dump') else var_data
+                        schema = var_dict['schema']
                         var = WorkflowVariable(
-                            variable_id=str(uuid4()),
+                            variable_id=var_dict.get('variable_id', str(uuid4())),
                             workflow_id=workflow_id,
                             io_type='output',
-                            name=var_dict['name'],
-                            description=var_dict.get('description'),
-                            type=var_dict['schema']['type'],
-                            schema=var_dict['schema'] if isinstance(var_dict['schema'], dict) else var_dict['schema'].model_dump(),
+                            name=schema['name'],
+                            description=schema.get('description', schema['name']),
+                            type=schema['type'],
+                            schema=schema,
                             created_at=datetime.utcnow(),
                             updated_at=datetime.utcnow()
                         )
