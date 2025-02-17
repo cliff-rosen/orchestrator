@@ -241,29 +241,26 @@ class KnowledgeGraphElements(BaseModel):
 
 ##### TOOL SCHEMAS #####
 
-class ToolParameter(BaseModel):
-    """Schema for tool parameter definition"""
-    name: str = Field(description="Name of the parameter")
-    type: str = Field(description="Type of the parameter (string, number, boolean)")
-    description: str = Field(description="Description of the parameter")
-    required: bool = Field(default=True, description="Whether the parameter is required")
-    default: Optional[Any] = Field(None, description="Default value for the parameter")
-    array_type: bool = Field(default=False, description="Whether this parameter accepts an array of values of the specified type")
-
-class ToolOutput(BaseModel):
-    """Schema for tool output definition"""
-    name: str = Field(description="Name of the output")
-    type: str = Field(description="Type of the output (string, number, boolean)")
-    description: str = Field(description="Description of the output")
-    array_type: bool = Field(default=False, description="Whether this output produces an array of values of the specified type")
-
 class SchemaValue(BaseModel):
     name: str
     type: str = Field(description="Base type (string, number, boolean, object)")
     description: Optional[str] = None
     array_type: bool = Field(default=False, description="Whether this is an array of the specified type")
-    items: Optional['SchemaValue'] = Field(None, description="Schema for array items (when type is array)")
     fields: Optional[Dict[str, 'SchemaValue']] = Field(None, description="Fields for object type")
+    # File-specific fields
+    format: Optional[str] = Field(None, description="Format specification")
+    content_types: Optional[List[str]] = Field(None, description="Allowed content types")
+    file_id: Optional[str] = Field(None, description="File ID for file types")
+
+class ToolParameter(BaseModel):
+    """Schema for tool parameter definition"""
+    schema: SchemaValue = Field(description="Schema defining the parameter type and structure")
+    required: bool = Field(default=True, description="Whether the parameter is required")
+    default: Optional[Any] = Field(None, description="Default value for the parameter")
+
+class ToolOutput(BaseModel):
+    """Schema for tool output definition"""
+    schema: SchemaValue = Field(description="Schema defining the output type and structure")
 
 class ParameterSchema(BaseModel):
     name: str
@@ -276,8 +273,8 @@ class OutputSchema(BaseModel):
     schema: SchemaValue
 
 class ToolSignature(BaseModel):
-    parameters: List[ParameterSchema]
-    outputs: List[OutputSchema]
+    parameters: List[ToolParameter]
+    outputs: List[ToolOutput]
 
 class ToolBase(BaseModel):
     """Base schema for tools"""
@@ -313,12 +310,21 @@ class VariableType(str, Enum):
     NUMBER = "number"
     BOOLEAN = "boolean"
     FILE = "file"
+    OBJECT = "object"
 
 class VariableSchema(BaseModel):
     """Schema for variable type and format"""
-    type: VariableType
+    name: str = Field(description="Name of the schema")
+    type: VariableType = Field(description="Type of the schema")
+    description: Optional[str] = Field(None, description="Description of the schema")
+    array_type: bool = Field(default=False, description="Whether this is an array type")
+    fields: Optional[Dict[str, 'VariableSchema']] = Field(None, description="Fields for object type")
+    # File-specific fields
     format: Optional[str] = Field(None, description="Format specification (e.g., 'pdf' for files)")
     content_types: Optional[List[str]] = Field(None, description="Allowed content types")
+    file_id: Optional[str] = Field(None, description="File ID for file types")
+
+VariableSchema.model_rebuild()  # Required for self-referential model
 
 class Variable(BaseModel):
     """Schema for template variables"""
@@ -383,19 +389,14 @@ class LLMExecuteResponse(BaseModel):
 
 class WorkflowVariableBase(BaseModel):
     """Base schema for workflow variables"""
-    name: str = Field(description="Name of the variable")
-    description: Optional[str] = Field(None, description="Description of the variable")
-    type: VariableType = Field(description="Type of the variable")
     schema: VariableSchema = Field(description="Schema of the variable")
     io_type: Literal["input", "output"] = Field(description="Whether this is an input or output variable")
 
 class WorkflowVariableCreate(BaseModel):
     """Schema for creating workflow variables"""
     variable_id: str
-    name: str
-    description: Optional[str] = None
-    type: VariableType
     schema: VariableSchema
+    io_type: Literal["input", "output"]
 
 class WorkflowVariableResponse(WorkflowVariableBase):
     """Schema for workflow variable responses"""

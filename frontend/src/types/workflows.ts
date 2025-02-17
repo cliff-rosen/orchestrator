@@ -1,11 +1,10 @@
 import { Tool } from './tools';
-import { SchemaValue } from './schema';
+import { SchemaValue, ValueType } from './schema';
 
 export enum WorkflowStatus {
     DRAFT = 'draft',
-    RUNNING = 'running',
-    COMPLETED = 'completed',
-    FAILED = 'failed'
+    ACTIVE = 'active',
+    ARCHIVED = 'archived'
 }
 
 export enum WorkflowStepType {
@@ -21,9 +20,6 @@ export interface RuntimeWorkflowStep extends WorkflowStep {
 
 export interface WorkflowVariable {
     variable_id: string;
-    name: string;
-    description?: string;
-    type: string;  // Add type field at root level
     schema: SchemaValue;
     io_type: 'input' | 'output';
     value?: any;  // The current runtime value of this variable
@@ -33,16 +29,16 @@ export interface WorkflowStep {
     step_id: string;
     workflow_id: string;
     label: string;
-    description?: string;
-    step_type: WorkflowStepType;
+    description: string;
+    step_type: 'ACTION' | 'INPUT';
+    tool?: Tool;
     tool_id?: string;
     prompt_template?: string;
-    parameter_mappings: Record<string, string>;  // Maps tool parameter names to workflow variable names
-    output_mappings: Record<string, string>;    // Maps tool output names to workflow variable names
+    parameter_mappings: Record<string, string>;
+    output_mappings: Record<string, string>;
     sequence_number: number;
     created_at: string;
     updated_at: string;
-    tool?: Tool;
 }
 
 export interface Workflow {
@@ -85,15 +81,11 @@ export const exampleWorkflow: Workflow = {
         variable_id: "results",
         name: "Search Results",
         description: "Found documents",
-        type: "array",
         schema: {
             name: "results",
-            type: "array",
-            items: {
-                name: "document",
-                type: "string",
-                description: "Document content"
-            }
+            type: "string",  // base type of array items
+            array_type: true,  // indicates this is an array of strings
+            description: "Found documents"
         },
         io_type: 'output'
     }],
@@ -120,23 +112,19 @@ export const exampleWorkflow: Workflow = {
             tool_type: "search",
             signature: {
                 parameters: [{
-                    name: "searchQuery",
-                    description: "The search query",
                     schema: {
                         name: "searchQuery",
-                        type: "string"
+                        type: "string",
+                        array_type: false,
+                        description: "The search query"
                     }
                 }],
                 outputs: [{
-                    name: "documents",
-                    description: "Found documents",
                     schema: {
                         name: "documents",
-                        type: "array",
-                        items: {
-                            name: "document",
-                            type: "string"
-                        }
+                        type: "string",
+                        array_type: true,
+                        description: "Found documents"
                     }
                 }]
             }
@@ -189,3 +177,30 @@ export const exampleWorkflow2: Workflow = {
     }],
     outputs: []
 }
+
+// Helper function to create a basic schema
+export const createBasicSchema = (name: string, type: ValueType, description?: string): SchemaValue => ({
+    name,
+    type,
+    description,
+    array_type: false
+});
+
+// Helper function to create an array schema
+export const createArraySchema = (name: string, itemType: ValueType, description?: string): SchemaValue => ({
+    name,
+    type: itemType,  // The base type of the items
+    description,
+    array_type: true  // This indicates it's an array of itemType
+});
+
+// Default workflow with empty arrays
+export const DEFAULT_WORKFLOW: Workflow = {
+    workflow_id: '',
+    name: 'Untitled Workflow',
+    description: 'A new custom workflow',
+    status: WorkflowStatus.DRAFT,
+    steps: [],
+    inputs: [],
+    outputs: []
+};

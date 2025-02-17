@@ -12,7 +12,7 @@ from schemas import (
     WorkflowVariableCreate, WorkflowExecuteRequest,
     WorkflowResponse, WorkflowStepResponse, WorkflowVariableResponse,
     ToolResponse, ToolSignature, ParameterSchema, OutputSchema, SchemaValue,
-    WorkflowExecuteResponse, Variable, VariableType
+    WorkflowExecuteResponse, Variable, VariableType, VariableSchema
 )
 from exceptions import (
     WorkflowNotFoundError, InvalidWorkflowError, WorkflowExecutionError,
@@ -120,10 +120,12 @@ class WorkflowService:
                 WorkflowVariableResponse(
                     variable_id=var.variable_id,
                     workflow_id=workflow_id,
-                    name=var.name,
-                    description=var.description,
-                    type=var.type,
-                    schema=var.schema,
+                    schema=VariableSchema(
+                        name=var.name,  # Use the variable's name for the schema
+                        type=var.type,  # Use the variable's type
+                        description=var.description,  # Use the variable's description
+                        **{k: v for k, v in var.schema.items() if k not in ['name', 'type', 'description']}  # Include other schema fields
+                    ),
                     io_type=var.io_type,
                     created_at=var.created_at,
                     updated_at=var.updated_at
@@ -135,10 +137,12 @@ class WorkflowService:
                 WorkflowVariableResponse(
                     variable_id=var.variable_id,
                     workflow_id=workflow_id,
-                    name=var.name,
-                    description=var.description,
-                    type=var.type,
-                    schema=var.schema,
+                    schema=VariableSchema(
+                        name=var.name,  # Use the variable's name for the schema
+                        type=var.type,  # Use the variable's type
+                        description=var.description,  # Use the variable's description
+                        **{k: v for k, v in var.schema.items() if k not in ['name', 'type', 'description']}  # Include other schema fields
+                    ),
                     io_type=var.io_type,
                     created_at=var.created_at,
                     updated_at=var.updated_at

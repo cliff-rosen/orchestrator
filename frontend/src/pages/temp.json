@@ -6,5 +6,105 @@
             "report": "8515b070-5db2-49bb-8803-c02e876b6d77"
         }
     },
-    "file_variables": {}
+    "file_variables": {},
+    "name": "pubmed 01",
+    "description": "A new custom workflow",
+    "status": "draft",
+    "steps": [
+        {
+            "label": "Step 1",
+            "description": "First step",
+            "step_type": "ACTION",
+            "tool_id": "pubmed",
+            "parameter_mappings": {
+                "query": "query"
+            },
+            "output_mappings": {
+                "results": "res"
+            },
+            "step_id": "8ce1c2fd-6ecf-4747-b503-f04d1a50ff69",
+            "workflow_id": "d6959b28-9340-4cdd-bcd4-fdc740eed4f2",
+            "sequence_number": 0,
+            "created_at": "2025-02-16T21:24:43",
+            "updated_at": "2025-02-16T21:24:43",
+            "tool": {
+                "tool_id": "pubmed",
+                "name": "PubMed Search",
+                "description": "Search PubMeb database",
+                "tool_type": "search",
+                "signature": {
+                    "parameters": [
+                        {
+                            "name": "query",
+                            "description": "The search query text",
+                            "schema": {
+                                "name": "query",
+                                "type": "string",
+                                "description": null,
+                                "array_type": false,
+                                "items": null,
+                                "fields": null
+                            }
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "name": "results",
+                            "description": "List of search results",
+                            "schema": {
+                                "name": "results",
+                                "type": "array",
+                                "description": null,
+                                "array_type": false,
+                                "items": {
+                                    "name": "result",
+                                    "type": "string",
+                                    "description": null,
+                                    "array_type": false,
+                                    "items": null,
+                                    "fields": null
+                                },
+                                "fields": null
+                            }
+                        }
+                    ]
+                },
+                "created_at": "2025-02-16T14:20:31",
+                "updated_at": "2025-02-16T14:20:33"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "variable_id": "var-1739741094265",
+            "name": "query",
+            "description": "",
+            "type": "string",
+            "schema": {
+                "name": "query",
+                "type": "string"
+            },
+            "io_type": "input"
+        }
+    ],
+    "outputs": [
+        {
+            "variable_id": "var-1739741096808",
+            "name": "res",
+            "description": "List of PubMed search results",
+            "type": "string",
+            "schema": {
+                "name": "res",
+                "type": "string",
+                "description": "Array of PubMed search results",
+                "array_type": true,
+                "items": {
+                    "name": "item",
+                    "type": "string",
+                    "description": "Individual PubMed article result"
+                }
+            },
+            "io_type": "output"
+        }
+    ]
 }

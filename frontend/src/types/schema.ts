@@ -1,40 +1,19 @@
 // Basic type definitions
-export type PrimitiveType = 'string' | 'number' | 'boolean';
-export type ComplexType = 'array' | 'object' | 'file';
+export type PrimitiveType = 'string' | 'number' | 'boolean' | 'file';
+export type ComplexType = 'object';
 export type ValueType = PrimitiveType | ComplexType;
 
-// Base value type that all schema entries extend
-export interface BaseValue {
+export interface SchemaValue {
     name: string;
     type: ValueType;
     description?: string;
-    required?: boolean;
+    array_type: boolean;
+    // Only used for object type
+    fields?: Record<string, SchemaValue>;
+    // File-specific fields
+    format?: string;
+    content_types?: string[];
+    file_id?: string;
 }
 
-// Primitive values (string, number, boolean)
-export interface PrimitiveValue extends BaseValue {
-    type: PrimitiveType;
-}
-
-// Array values
-export interface ArrayValue extends BaseValue {
-    type: 'array';
-    items: SchemaValue;  // The type of items in the array
-}
-
-// Object values with nested fields
-export interface ObjectValue extends BaseValue {
-    type: 'object';
-    fields: Record<string, SchemaValue>;  // Named fields mapping to their types
-}
-
-// File values
-export interface FileValue extends BaseValue {
-    type: 'file';
-    file_id?: string;  // Optional because it may not be set until runtime
-}
-
-// Union type for all possible schema values
-export type SchemaValue = PrimitiveValue | ArrayValue | ObjectValue | FileValue;
-
-export type SchemaValueType = string | number | boolean | any[] | Record<string, any> | { file_id: string };
+export type SchemaValueType = string | number | boolean | Record<string, any> | { file_id: string } | any[];

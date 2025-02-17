@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { SchemaValue, ValueType, ObjectValue, ArrayValue, FileValue } from '../types/schema';
-import { WorkflowVariable } from '../types';
+import { SchemaValue, ValueType } from '../types/schema';
+import { WorkflowVariable, createBasicSchema, createArraySchema } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
 import { FileInfo } from '../lib/api/fileApi';
 import Dialog from './common/Dialog';
 import FileLibrary from './FileLibrary';
 import { fileApi } from '../lib/api/fileApi';
 
-const VALUE_TYPES: ValueType[] = ['string', 'number', 'boolean', 'array', 'object', 'file'];
+const VALUE_TYPES: ValueType[] = ['string', 'number', 'boolean', 'file', 'object'];
 
 interface SchemaFieldProps {
     value: SchemaValue;
@@ -19,9 +19,20 @@ interface SchemaFieldProps {
 
 const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, indent = 0, onFileSelect }) => {
     const [showFileSelector, setShowFileSelector] = useState(false);
-    const isObjectValue = (v: SchemaValue): v is ObjectValue => v.type === 'object';
-    const isArrayValue = (v: SchemaValue): v is ArrayValue => v.type === 'array';
-    const isFileValue = (v: SchemaValue): v is FileValue => v.type === 'file';
+
+    const handleTypeChange = (type: ValueType) => {
+        if (value.array_type) {
+            // If it's an array, just update the base type
+            onChange({ ...value, type });
+        } else {
+            // If it's not an array, just update the type
+            onChange(createBasicSchema(value.name, type, value.description));
+        }
+    };
+
+    const handleArrayChange = (isArray: boolean) => {
+        onChange({ ...value, array_type: isArray });
+    };
 
     const handleFileSelect = (file: FileInfo) => {
         if (onFileSelect) {
@@ -31,45 +42,33 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
     };
 
     return (
-        <div className="space-y-2" style={{ marginLeft: `${indent * 20}px` }}>
-            <div className="flex items-center gap-2">
+        <div className="space-y-4" style={{ marginLeft: `${indent * 20}px` }}>
+            <div className="flex items-center gap-4">
                 <input
+                    type="text"
                     value={value.name}
-                    onChange={e => {
-                        const newName = e.target.value;
-                        onChange({ ...value, name: newName });
-                    }}
-                    placeholder="Field name"
-                    className="flex-1 px-3 py-2 
-                             border border-gray-300 dark:border-gray-600
-                             bg-white dark:bg-gray-700 
-                             text-gray-900 dark:text-gray-100
-                             rounded-md"
+                    onChange={e => onChange({ ...value, name: e.target.value })}
+                    placeholder="Name"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md"
                 />
                 <select
                     value={value.type}
-                    onChange={e => {
-                        const type = e.target.value as ValueType;
-                        if (type === 'object') {
-                            onChange({ ...value, type: 'object', fields: {} } as ObjectValue);
-                        } else if (type === 'array') {
-                            onChange({ ...value, type: 'array', items: { name: 'item', type: 'string' } } as ArrayValue);
-                        } else if (type === 'file') {
-                            onChange({ ...value, type: 'file' } as FileValue);
-                        } else {
-                            onChange({ ...value, type });
-                        }
-                    }}
-                    className="px-3 py-2 
-                             border border-gray-300 dark:border-gray-600
-                             bg-white dark:bg-gray-700 
-                             text-gray-900 dark:text-gray-100
-                             rounded-md"
+                    onChange={e => handleTypeChange(e.target.value as ValueType)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md"
                 >
                     {VALUE_TYPES.map(type => (
                         <option key={type} value={type}>{type}</option>
                     ))}
                 </select>
+                <label className="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        checked={value.array_type}
+                        onChange={e => handleArrayChange(e.target.checked)}
+                        className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Is Array</span>
+                </label>
                 <button
                     onClick={onRemove}
                     className="p-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
@@ -78,72 +77,11 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
                 </button>
             </div>
 
-            {isObjectValue(value) && (
-                <div className="mt-2 space-y-2">
-                    {Object.entries(value.fields).map(([key, field]) => (
-                        <SchemaField
-                            key={key}
-                            value={field}
-                            onChange={newValue => {
-                                onChange({
-                                    ...value,
-                                    fields: {
-                                        ...value.fields,
-                                        [key]: newValue
-                                    }
-                                });
-                            }}
-                            onRemove={() => {
-                                const { [key]: _, ...rest } = value.fields;
-                                onChange({
-                                    ...value,
-                                    fields: rest
-                                });
-                            }}
-                            indent={indent + 1}
-                            onFileSelect={onFileSelect}
-                        />
-                    ))}
-                    <button
-                        onClick={() => {
-                            const newName = `field_${Object.keys(value.fields).length + 1}`;
-                            onChange({
-                                ...value,
-                                fields: {
-                                    ...value.fields,
-                                    [newName]: { name: newName, type: 'string' }
-                                }
-                            });
-                        }}
-                        className="ml-4 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                    >
-                        + Add Field
-                    </button>
-                </div>
-            )}
-
-            {isArrayValue(value) && (
-                <div className="mt-2">
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Array items:</span>
-                    </div>
-                    <SchemaField
-                        value={value.items}
-                        onChange={newValue => onChange({ ...value, items: newValue })}
-                        onRemove={() => { }}
-                        indent={indent + 1}
-                        onFileSelect={onFileSelect}
-                    />
-                </div>
-            )}
-
-            {isFileValue(value) && onFileSelect && (
+            {value.type === 'file' && onFileSelect && (
                 <div className="mt-2">
                     <button
                         onClick={() => setShowFileSelector(true)}
-                        className="px-4 py-2 text-sm bg-blue-100 dark:bg-blue-900 
-                                 text-blue-700 dark:text-blue-300 rounded-md
-                                 hover:bg-blue-200 dark:hover:bg-blue-800"
+                        className="px-4 py-2 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-md hover:bg-blue-200 dark:hover:bg-blue-800"
                     >
                         {value.file_id ? 'Change File' : 'Select File'}
                     </button>
@@ -175,6 +113,39 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
                     )}
                 </div>
             )}
+
+            {value.type === 'object' && 'fields' in value && (
+                <div className="ml-8 space-y-4">
+                    {Object.entries(value.fields || {}).map(([fieldName, fieldValue]) => (
+                        <SchemaField
+                            key={fieldName}
+                            value={fieldValue}
+                            onChange={newValue => {
+                                const newFields = { ...value.fields };
+                                newFields[fieldName] = newValue;
+                                onChange({ ...value, fields: newFields });
+                            }}
+                            onRemove={() => {
+                                const { [fieldName]: removed, ...newFields } = value.fields || {};
+                                onChange({ ...value, fields: newFields });
+                            }}
+                            indent={indent + 1}
+                            onFileSelect={onFileSelect}
+                        />
+                    ))}
+                    <button
+                        onClick={() => {
+                            const newFields = { ...value.fields };
+                            const fieldName = `field${Object.keys(newFields).length + 1}`;
+                            newFields[fieldName] = createBasicSchema(fieldName, 'string');
+                            onChange({ ...value, fields: newFields });
+                        }}
+                        className="ml-8 px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                        + Add Field
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
@@ -201,36 +172,44 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
         if (newVarName) {
             const newVar: WorkflowVariable = {
                 variable_id: `var-${Date.now()}`,
-                name: newVarName,
-                description: '',
-                type: 'string',
-                schema: {
-                    name: newVarName,
-                    type: 'string'
-                },
+                schema: createBasicSchema(newVarName, 'string'),
                 io_type: title.toLowerCase().includes('input') ? 'input' : 'output'
             };
-            onChange([...(variables || []), newVar]);
+            onChange([...variables, newVar]);
             setSelectedVar(newVar.variable_id);
             setNewVarName('');
         }
     };
 
     const handleRemoveVariable = (variable_id: string) => {
-        onChange((variables || []).filter(v => v.variable_id !== variable_id));
+        onChange(variables.filter(v => v.variable_id !== variable_id));
         if (selectedVar === variable_id) {
             setSelectedVar(null);
         }
     };
 
     const handleVariableChange = (variable_id: string, updates: Partial<WorkflowVariable>) => {
-        onChange((variables || []).map(v => {
+        onChange(variables.map(v => {
             if (v.variable_id !== variable_id) return v;
-            if (updates.schema) {
-                return { ...v, ...updates, type: updates.schema.type };
-            }
             return { ...v, ...updates };
         }));
+    };
+
+    const handleFileSelect = (file: FileInfo, schema: SchemaValue) => {
+        // Create updated schema while preserving array_type and other fields
+        const updatedSchema = createBasicSchema(file.name, 'file', file.description || schema.description);
+        updatedSchema.array_type = schema.array_type;
+        updatedSchema.file_id = file.file_id;
+
+        // Find and update the variable that contains this schema
+        const updatedVariables = variables.map(variable => {
+            if (variable.schema === schema) {
+                return { ...variable, schema: updatedSchema };
+            }
+            return variable;
+        });
+
+        onChange(updatedVariables);
     };
 
     return (
@@ -245,17 +224,14 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                         type="text"
                         value={newVarName}
                         onChange={(e) => setNewVarName(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 
-                                 bg-white dark:bg-gray-800 rounded-md 
-                                 text-gray-900 dark:text-gray-100"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-gray-100"
                         placeholder="Enter variable name"
                     />
                 </div>
                 <button
                     onClick={handleAddVariable}
                     disabled={!newVarName}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md 
-                             hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
                 >
                     Add Variable
                 </button>
@@ -264,8 +240,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
             {/* Variables Display */}
             <div className="grid grid-cols-3 gap-6">
                 {/* Variables List */}
-                <div className="border border-gray-200 dark:border-gray-700 
-                              bg-white dark:bg-gray-800/50 rounded-md p-4">
+                <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 rounded-md p-4">
                     <h3 className="font-medium mb-4 text-gray-900 dark:text-gray-100">
                         {title}
                     </h3>
@@ -273,8 +248,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                         {variables.map((variable) => (
                             <div
                                 key={variable.variable_id}
-                                className="flex justify-between items-center p-2 
-                                         hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded"
+                                className="flex justify-between items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded"
                             >
                                 <button
                                     onClick={() => setSelectedVar(variable.variable_id)}
@@ -283,12 +257,11 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                                         : 'text-gray-700 dark:text-gray-300'
                                         }`}
                                 >
-                                    {variable.name}
+                                    {variable.schema.name}
                                 </button>
                                 <button
                                     onClick={() => handleRemoveVariable(variable.variable_id)}
-                                    className="text-red-600 dark:text-red-400 
-                                             hover:text-red-700 dark:hover:text-red-300"
+                                    className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                                 >
                                     ×
                                 </button>
@@ -299,8 +272,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
 
                 {/* Variable Editor */}
                 {selectedVar && (
-                    <div className="col-span-2 border border-gray-200 dark:border-gray-700 
-                                  bg-white dark:bg-gray-800/50 rounded-md p-4">
+                    <div className="col-span-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 rounded-md p-4">
                         {variables.map(variable => {
                             if (variable.variable_id !== selectedVar) return null;
                             return (
@@ -310,11 +282,11 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                                             Variable Name
                                         </label>
                                         <input
-                                            value={variable.name}
-                                            onChange={e => handleVariableChange(variable.variable_id, { name: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 
-                                                     bg-white dark:bg-gray-800 rounded-md 
-                                                     text-gray-900 dark:text-gray-100"
+                                            value={variable.schema.name}
+                                            onChange={e => handleVariableChange(variable.variable_id, {
+                                                schema: { ...variable.schema, name: e.target.value }
+                                            })}
+                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-gray-100"
                                         />
                                     </div>
                                     <div>
@@ -322,11 +294,11 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                                             Description
                                         </label>
                                         <textarea
-                                            value={variable.description}
-                                            onChange={e => handleVariableChange(variable.variable_id, { description: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 
-                                                     bg-white dark:bg-gray-800 rounded-md 
-                                                     text-gray-900 dark:text-gray-100"
+                                            value={variable.schema.description || ''}
+                                            onChange={e => handleVariableChange(variable.variable_id, {
+                                                schema: { ...variable.schema, description: e.target.value }
+                                            })}
+                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-gray-100"
                                             rows={2}
                                         />
                                     </div>
@@ -367,23 +339,20 @@ const WorkflowIOEditor: React.FC = () => {
         updateWorkflow({ outputs: newOutputs });
     };
 
-    const handleFileSelect = (file: FileInfo, value: SchemaValue) => {
-        if (value.type !== 'file') return;
+    const handleFileSelect = (file: FileInfo, schema: SchemaValue) => {
+        // Create updated schema while preserving array_type and other fields
+        const updatedSchema = createBasicSchema(file.name, 'file', file.description || schema.description);
+        updatedSchema.array_type = schema.array_type;
+        updatedSchema.file_id = file.file_id;
 
-        // Find the variable that contains this schema value
-        const variables = activeTab === 'inputs' ? inputs : outputs;
-        const updatedVariables = variables.map(variable => {
+        // Find and update the variable that contains this schema
+        const updatedVariables = (activeTab === 'inputs' ? inputs : outputs).map(variable => {
             // Deep clone the variable to avoid mutating state
             const newVariable = { ...variable };
 
             // Check if this variable's schema is the one being updated
-            if (newVariable.schema === value) {
-                newVariable.schema = {
-                    type: 'file',
-                    name: file.name,
-                    file_id: file.file_id,
-                    description: file.description || value.description
-                };
+            if (newVariable.schema === schema) {
+                newVariable.schema = updatedSchema;
             }
             return newVariable;
         });

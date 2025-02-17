@@ -1,16 +1,20 @@
-import { SchemaValue } from './schema';
+import { SchemaValue, SchemaValueType } from './schema';
 
 export type ToolType = 'llm' | 'search' | 'retrieve' | 'utility';
 
 export interface ToolParameter {
-    name: string;
-    description?: string;
+    schema: SchemaValue;
+    required?: boolean;
+    default?: any;
+}
+
+export interface ToolOutput {
     schema: SchemaValue;
 }
 
 export interface ToolSignature {
     parameters: ToolParameter[];
-    outputs: ToolParameter[];
+    outputs: ToolOutput[];
 }
 
 // Tool and workflow variable names as branded types
@@ -32,13 +36,13 @@ export interface LLMParameters {
 // Type for resolved parameter values
 export type ResolvedParameters = LLMParameters | Record<string, any>;
 
-// Type for tool outputs
-export type ToolOutputs = Record<ToolOutputName, string | number | boolean | string[]>;
+// Type for tool outputs - using SchemaValueType from schema.ts
+export type ToolOutputs = Record<ToolOutputName, SchemaValueType>;
 
 export interface Tool {
     tool_id: string;
-    tool_type: ToolType;
     name: string;
     description: string;
+    tool_type: string;
     signature: ToolSignature;
 } 

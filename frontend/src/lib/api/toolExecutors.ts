@@ -23,16 +23,14 @@ export const executePubMedSearch = async (parameters: ResolvedParameters): Promi
         const response = await api.get('/api/pubmed/search', { params: { query } });
         const articles = response.data;
 
-        // Format all articles into a single string with clear separators
+        // Format each article into a structured result
         const formattedResults = articles.map((article: any) =>
-            `=== Article ===\n` +
             `Title: ${article.title}\n` +
             `Journal: ${article.journal}\n` +
             `Date: ${article.publication_date}\n` +
             `Abstract: ${article.abstract}\n` +
-            `URL: ${article.url}\n` +
-            `============\n`
-        ).join('\n');
+            `URL: ${article.url}`
+        );
 
         return {
             ['results' as ToolOutputName]: formattedResults
