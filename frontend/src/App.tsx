@@ -15,6 +15,7 @@ import Workflow from './pages/Workflow';
 import PromptTemplateManager from './pages/PromptTemplateManager';
 import FilesManager from './pages/FilesManager';
 import PromptTemplate from './pages/PromptTemplate';
+import Jobs from './pages/Jobs';
 
 // Main app content when authenticated
 const AuthenticatedApp = () => {
@@ -96,6 +97,7 @@ const AuthenticatedApp = () => {
               <Route path="/prompts" element={<PromptTemplateManager />} />
               <Route path="/prompt/:templateId" element={<PromptTemplate />} />
               <Route path="/files" element={<FilesManager />} />
+              <Route path="/jobs" element={<Jobs />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

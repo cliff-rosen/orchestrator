@@ -37,9 +37,16 @@ const AssetList: React.FC<AssetListProps> = ({
                 </h1>
                 <button
                     onClick={onCreateNew}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 
-                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="inline-flex items-center justify-center rounded-md
+                             px-3 py-1.5 text-sm font-medium
+                             text-gray-500 hover:text-gray-700 hover:bg-gray-100
+                             dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800
+                             focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                             transition-colors"
                 >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
                     {createButtonText}
                 </button>
             </div>
