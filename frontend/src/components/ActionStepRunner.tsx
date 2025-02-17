@@ -132,7 +132,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         const newOutputValues: Record<string, any> = {};
         if (actionStep.output_mappings) {
             Object.entries(actionStep.output_mappings).forEach(([outputName, varName]) => {
-                const variable = workflow?.outputs?.find(v => v.variable_id === varName);
+                const variable = workflow?.outputs?.find(v => v.schema.name === varName);
                 newOutputValues[outputName] = {
                     value: variable?.value,
                     schema: variable?.schema
@@ -475,7 +475,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                                     {currentTemplate.description}
                                 </p>
                                 <div className="font-mono text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-700">
-                                    {currentTemplate.template}
+                                    {currentTemplate.system_message_template}
+                                    {currentTemplate.user_message_template}
                                 </div>
                             </div>
                         </div>

@@ -18,6 +18,7 @@ export const executeSearch = async (parameters: ResolvedParameters): Promise<Too
 
 // Execute PubMed search tool function
 export const executePubMedSearch = async (parameters: ResolvedParameters): Promise<ToolOutputs> => {
+    console.log('Executing PubMed search with parameters:', parameters);
     const query = (parameters as Record<string, string>)['query'];
     try {
         const response = await api.get('/api/pubmed/search', { params: { query } });

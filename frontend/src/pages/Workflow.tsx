@@ -227,8 +227,8 @@ const Workflow: React.FC = () => {
 
                     if (currentStep.parameter_mappings) {
                         for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
-                            const variable = workflow?.inputs?.find(v => v.name === varName) ||
-                                workflow?.outputs?.find(v => v.name === varName);
+                            const variable = workflow?.inputs?.find(v => v.schema.name === varName) ||
+                                workflow?.outputs?.find(v => v.schema.name === varName);
 
                             if (variable?.schema.type === 'file') {
                                 const fileValue = variable.value;
@@ -257,7 +257,7 @@ const Workflow: React.FC = () => {
                         // console.log(`Loading output ${outputName} into ${varName} with value`, value);
 
                         // Find and update the output variable
-                        const outputVar = updatedOutputs.find(v => v.name === varName);
+                        const outputVar = updatedOutputs.find(v => v.schema.name === varName);
                         if (outputVar) {
                             outputVar.value = value;
                         }
