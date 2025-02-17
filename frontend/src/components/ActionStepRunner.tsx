@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useWorkflows } from '../context/WorkflowContext';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
 import { fileApi } from '../lib/api/fileApi';
@@ -327,23 +328,69 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             return (
                 <div className="space-y-2">
                     <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                        <div className="prose dark:prose-invert">
+                        <div className="prose prose-slate dark:prose-invert max-w-none">
                             <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
                                 components={{
                                     table: props => (
-                                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700">
+                                        <table className="min-w-full border-collapse border border-gray-200 dark:border-gray-700">
                                             {props.children}
                                         </table>
                                     ),
+                                    thead: props => (
+                                        <thead className="bg-gray-50 dark:bg-gray-800">
+                                            {props.children}
+                                        </thead>
+                                    ),
+                                    tbody: props => (
+                                        <tbody className="bg-white dark:bg-gray-900">
+                                            {props.children}
+                                        </tbody>
+                                    ),
+                                    tr: props => (
+                                        <tr className="border-b border-gray-200 dark:border-gray-700">
+                                            {props.children}
+                                        </tr>
+                                    ),
                                     th: props => (
-                                        <th className="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 text-left text-sm font-medium text-gray-900 dark:text-white">
+                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 last:border-r-0">
                                             {props.children}
                                         </th>
                                     ),
                                     td: props => (
-                                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700">
+                                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 last:border-r-0">
                                             {props.children}
                                         </td>
+                                    ),
+                                    h1: props => (
+                                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                                            {props.children}
+                                        </h1>
+                                    ),
+                                    h2: props => (
+                                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                                            {props.children}
+                                        </h2>
+                                    ),
+                                    h3: props => (
+                                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                                            {props.children}
+                                        </h3>
+                                    ),
+                                    p: props => (
+                                        <p className="text-base text-gray-900 dark:text-white mb-4">
+                                            {props.children}
+                                        </p>
+                                    ),
+                                    ul: props => (
+                                        <ul className="list-disc list-inside space-y-1 text-gray-900 dark:text-white mb-4">
+                                            {props.children}
+                                        </ul>
+                                    ),
+                                    li: props => (
+                                        <li className="text-base">
+                                            {props.children}
+                                        </li>
                                     ),
                                     code: props => (
                                         <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono">
@@ -679,99 +726,6 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                     />
                 </Dialog>
             )}
-
-            {/* Super simple markdown test */}
-            <div className="mt-8 p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <div className="prose prose-slate dark:prose-invert max-w-none">
-                    <ReactMarkdown
-                        components={{
-                            table: props => (
-                                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700">
-                                    {props.children}
-                                </table>
-                            ),
-                            th: props => (
-                                <th className="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 text-left text-sm font-medium text-gray-900 dark:text-white">
-                                    {props.children}
-                                </th>
-                            ),
-                            td: props => (
-                                <td className="px-4 py-2 text-sm text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700">
-                                    {props.children}
-                                </td>
-                            ),
-                            code: props => (
-                                <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono">
-                                    {props.children}
-                                </code>
-                            ),
-                            pre: props => (
-                                <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto">
-                                    {props.children}
-                                </pre>
-                            ),
-                            blockquote: props => (
-                                <blockquote className="border-l-4 border-gray-200 dark:border-gray-700 pl-4 italic text-gray-600 dark:text-gray-400">
-                                    {props.children}
-                                </blockquote>
-                            ),
-                            h1: props => (
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                                    {props.children}
-                                </h1>
-                            ),
-                            h2: props => (
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                                    {props.children}
-                                </h2>
-                            ),
-                            h3: props => (
-                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                                    {props.children}
-                                </h3>
-                            ),
-                            p: props => (
-                                <p className="text-base text-gray-900 dark:text-white mb-4">
-                                    {props.children}
-                                </p>
-                            ),
-                            ul: props => (
-                                <ul className="list-disc list-inside space-y-1 text-gray-900 dark:text-white mb-4">
-                                    {props.children}
-                                </ul>
-                            ),
-                            li: props => (
-                                <li className="text-base">
-                                    {props.children}
-                                </li>
-                            )
-                        }}
-                    >{`# Test Heading
-
-This is **bold** and *italic* text.
-
-## Table Example
-| Column 1 | Column 2 |
-|----------|----------|
-| Row 1    | Data     |
-| Row 2    | Info     |
-
-### List Example
-- Item 1
-- Item 2
-  - Nested item
-  - Another nested item
-- Item 3
-
-> This is a blockquote example
-> It can span multiple lines
-
-\`\`\`
-This is a code block
-It preserves formatting
-\`\`\``}</ReactMarkdown>
-                </div>
-            </div>
         </div>
     );
 };
