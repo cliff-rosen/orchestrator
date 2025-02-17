@@ -81,6 +81,7 @@ const PromptTemplateManager: React.FC = () => {
             )}
             <AssetList
                 title="Prompt Templates"
+                subtitle="Create and manage templates used to generate prompts in your workflows"
                 assets={assets}
                 onCreateNew={handleCreateNew}
                 onEdit={handleEdit}

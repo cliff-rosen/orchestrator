@@ -77,6 +77,7 @@ const WorkflowsManager: React.FC = () => {
     return (
         <AssetList
             title="Workflows"
+            subtitle="Design and author sequences of steps to accomplish your goals"
             assets={assets}
             onCreateNew={handleCreateWorkflow}
             onEdit={handleEdit}

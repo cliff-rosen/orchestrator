@@ -118,6 +118,7 @@ const FilesManager: React.FC = () => {
             )}
             <AssetList
                 title="Files"
+                subtitle="Upload and manage files to use in your workflows and prompts"
                 assets={assets}
                 onCreateNew={handleCreateNew}
                 onEdit={handleEdit}

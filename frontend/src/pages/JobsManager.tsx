@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useJobs } from '../context/JobsContext';
 import { useWorkflows } from '../context/WorkflowContext';
@@ -11,7 +11,8 @@ import {
     DialogTrigger,
     DialogFooter,
 } from '../components/ui/dialog';
-import { Plus, PlayCircle, CheckCircle2, XCircle, Clock, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import AssetList from '../components/common/AssetList';
 import { JobStatus } from '../types/jobs';
 
 const JobsManager: React.FC = () => {
@@ -22,41 +23,55 @@ const JobsManager: React.FC = () => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
     const [jobToDelete, setJobToDelete] = useState<string | null>(null);
+    const [jobName, setJobName] = useState('');
+    const [isCreating, setIsCreating] = useState(false);
 
-    const getStatusIcon = (status: JobStatus) => {
-        switch (status) {
-            case JobStatus.RUNNING:
-                return <PlayCircle className="h-5 w-5 text-blue-500" />;
-            case JobStatus.COMPLETED:
-                return <CheckCircle2 className="h-5 w-5 text-green-500" />;
-            case JobStatus.FAILED:
-                return <XCircle className="h-5 w-5 text-red-500" />;
-            default:
-                return <Clock className="h-5 w-5 text-gray-500" />;
+    useEffect(() => {
+        if (selectedWorkflow) {
+            const workflow = workflows?.find(w => w.workflow_id === selectedWorkflow);
+            if (workflow) {
+                const date = new Date().toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                setJobName(`${workflow.name || 'Untitled Workflow'} - ${date}`);
+            }
+        } else {
+            setJobName('');
         }
-    };
+    }, [selectedWorkflow, workflows]);
 
     const handleCreateJob = async () => {
-        if (!selectedWorkflow) return;
+        console.log('handleCreateJob');
+        if (!selectedWorkflow || isCreating) return;
 
         const workflow = workflows?.find(w => w.workflow_id === selectedWorkflow);
         if (!workflow) return;
 
+        setIsCreating(true);
         try {
             const job = await createJob({
                 workflow_id: selectedWorkflow,
-                name: `${workflow.name || 'Untitled Workflow'} Job`,
+                name: jobName,
                 input_variables: []
             });
+
+            // Only close dialog and reset state after successful creation
             setIsCreateDialogOpen(false);
-            navigate(`/jobs/${job.job_id}`);
+            setSelectedWorkflow(null);
+            setJobName('');
+            navigate(`/jobs/${job.job_id}?mode=inputs`);
         } catch (error) {
             console.error('Failed to create job:', error);
+        } finally {
+            setIsCreating(false);
         }
     };
 
-    const handleDeleteClick = (e: React.MouseEvent, jobId: string) => {
-        e.stopPropagation(); // Prevent navigation to job details
+    const handleDeleteClick = (jobId: string) => {
         setJobToDelete(jobId);
         setIsDeleteDialogOpen(true);
     };
@@ -73,75 +88,32 @@ const JobsManager: React.FC = () => {
         }
     };
 
+    const handleCloseCreateDialog = () => {
+        if (!isCreating) {
+            setIsCreateDialogOpen(false);
+            setSelectedWorkflow(null);
+            setJobName('');
+        }
+    };
+
+    const assets = jobs.map(job => ({
+        id: job.job_id,
+        name: job.name,
+        description: job.description || 'No description',
+        metadata: [
+            {
+                label: 'status',
+                value: job.status
+            },
+            {
+                label: 'created',
+                value: new Date(job.created_at).toLocaleString()
+            }
+        ]
+    }));
+
     return (
-        <div className="container mx-auto px-4 py-8">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Jobs</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Run and monitor your workflow executions</p>
-                </div>
-
-                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="flex items-center gap-2 bg-white dark:bg-gray-800">
-                            <Plus className="h-4 w-4" />
-                            Create Job
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl bg-white dark:bg-gray-800">
-                        <DialogHeader>
-                            <DialogTitle className="text-gray-900 dark:text-gray-100">Create New Job</DialogTitle>
-                        </DialogHeader>
-
-                        {/* Workflow Selection */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                            {workflows?.map(workflow => (
-                                <div
-                                    key={workflow.workflow_id}
-                                    onClick={() => setSelectedWorkflow(workflow.workflow_id)}
-                                    className={`p-4 rounded-lg border cursor-pointer transition-all
-                                              ${selectedWorkflow === workflow.workflow_id
-                                            ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20'
-                                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
-                                        }`}
-                                >
-                                    <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                                        {workflow.name || 'Untitled Workflow'}
-                                    </h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                        {workflow.description || 'No description'}
-                                    </p>
-                                    <div className="flex gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                        <span>{workflow.steps?.length || 0} steps</span>
-                                        <span>•</span>
-                                        <span>{workflow.inputs?.length || 0} inputs</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex justify-end gap-3 mt-6">
-                            <Button
-                                variant="outline"
-                                onClick={() => setIsCreateDialogOpen(false)}
-                                className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                disabled={!selectedWorkflow}
-                                onClick={handleCreateJob}
-                                className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
-                            >
-                                Continue
-                            </Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-            </div>
-
-            {/* Delete Confirmation Dialog */}
+        <>
             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                 <DialogContent className="bg-white dark:bg-gray-800">
                     <DialogHeader>
@@ -171,60 +143,90 @@ const JobsManager: React.FC = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* Jobs List */}
-            {jobs.length === 0 ? (
-                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div className="max-w-md mx-auto">
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                            No jobs yet
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                            Create a job to run a workflow with your inputs and see the results.
-                        </p>
-                    </div>
-                </div>
-            ) : (
-                <div className="grid gap-4">
-                    {jobs.map(job => (
-                        <div
-                            key={job.job_id}
-                            className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 
-                                     p-4 hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
-                        >
-                            <div className="flex items-center justify-between">
+            <AssetList
+                title="Jobs"
+                subtitle="Run and monitor your workflow executions"
+                assets={assets}
+                onEdit={(jobId) => navigate(`/jobs/${jobId}`)}
+                onDelete={handleDeleteClick}
+                onCreateNew={() => setIsCreateDialogOpen(true)}
+                emptyStateMessage="No jobs yet. Create one to get started."
+            />
+
+            <Dialog open={isCreateDialogOpen} onOpenChange={handleCloseCreateDialog}>
+                <DialogContent className="max-w-2xl bg-white dark:bg-gray-800">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-gray-100">Create New Job</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {workflows?.map(workflow => (
                                 <div
-                                    className="flex items-center gap-3 flex-1 cursor-pointer"
-                                    onClick={() => navigate(`/jobs/${job.job_id}`)}
+                                    key={workflow.workflow_id}
+                                    onClick={() => setSelectedWorkflow(workflow.workflow_id)}
+                                    className={`p-4 rounded-lg border cursor-pointer transition-all
+                                              ${selectedWorkflow === workflow.workflow_id
+                                            ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20'
+                                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
+                                        }`}
                                 >
-                                    {getStatusIcon(job.status)}
-                                    <div>
-                                        <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                                            {job.name}
-                                        </h3>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            {job.description || 'No description'}
-                                        </p>
+                                    <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                                        {workflow.name || 'Untitled Workflow'}
+                                    </h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                        {workflow.description || 'No description'}
+                                    </p>
+                                    <div className="flex gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                        <span>{workflow.steps?.length || 0} steps</span>
+                                        <span>•</span>
+                                        <span>{workflow.inputs?.length || 0} inputs</span>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                                        {new Date(job.created_at).toLocaleString()}
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e) => handleDeleteClick(e, job.job_id)}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                    </Button>
-                                </div>
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-            )}
-        </div>
+
+                        {selectedWorkflow && (
+                            <div className="space-y-2">
+                                <label htmlFor="jobName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Job Name
+                                </label>
+                                <input
+                                    id="jobName"
+                                    type="text"
+                                    value={jobName}
+                                    onChange={(e) => setJobName(e.target.value)}
+                                    autoFocus
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 
+                                             rounded-md bg-white dark:bg-gray-700 
+                                             text-gray-900 dark:text-gray-100
+                                             focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter job name"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex justify-end gap-3 mt-6">
+                        <Button
+                            variant="outline"
+                            onClick={handleCloseCreateDialog}
+                            disabled={isCreating}
+                            className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            disabled={!selectedWorkflow || !jobName.trim() || isCreating}
+                            onClick={handleCreateJob}
+                            className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+                        >
+                            {isCreating ? 'Creating...' : 'Continue'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 };
 

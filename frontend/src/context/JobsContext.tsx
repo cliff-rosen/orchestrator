@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { Job, JobStatus, JobExecutionState, CreateJobRequest } from '../types/jobs';
+import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable } from '../types/jobs';
 import { jobsApi } from '../lib/api/jobsApi';
 
 interface JobsContextState {
@@ -19,7 +19,7 @@ interface JobsContextValue extends JobsContextState {
     deleteJob: (jobId: string) => Promise<void>;
 
     // Job Execution
-    startJob: (jobId: string) => Promise<void>;
+    startJob: (jobId: string, inputVariables?: JobVariable[]) => Promise<void>;
     cancelJob: (jobId: string) => Promise<void>;
 
     // State Management
@@ -129,10 +129,10 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     // Job execution
-    const startJob = useCallback(async (jobId: string): Promise<void> => {
+    const startJob = useCallback(async (jobId: string, inputVariables?: JobVariable[]): Promise<void> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            const job = await jobsApi.startJob(jobId);
+            const job = await jobsApi.startJob(jobId, inputVariables);
             setState(prev => ({
                 ...prev,
                 jobs: prev.jobs.map(j => j.job_id === jobId ? job : j),
@@ -140,22 +140,31 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 isLoading: false
             }));
 
-            // Start polling execution state
-            const pollState = async () => {
-                try {
-                    const executionState = await jobsApi.getJobExecutionState(jobId);
-                    setState(prev => ({ ...prev, executionState }));
+            // Only start polling if the job is in RUNNING state
+            if (job.status === JobStatus.RUNNING) {
+                let isPolling = true;  // Flag to control polling
 
-                    // Continue polling if job is still running
-                    if (executionState.status === JobStatus.RUNNING) {
-                        setTimeout(pollState, 1000);
+                const pollState = async () => {
+                    if (!isPolling) return;  // Stop if we're no longer polling
+
+                    try {
+                        const executionState = await jobsApi.getJobExecutionState(jobId);
+                        setState(prev => ({ ...prev, executionState }));
+
+                        // Continue polling only if job is still running and we haven't stopped polling
+                        if (executionState.status === JobStatus.RUNNING && isPolling) {
+                            setTimeout(pollState, 1000);
+                        } else {
+                            isPolling = false;  // Stop polling when job is done
+                        }
+                    } catch (error) {
+                        console.error('Failed to poll execution state:', error);
+                        isPolling = false;  // Stop polling on error
                     }
-                } catch (error) {
-                    console.error('Failed to poll execution state:', error);
-                }
-            };
+                };
 
-            pollState();
+                pollState();
+            }
         } catch (error) {
             setState(prev => ({
                 ...prev,

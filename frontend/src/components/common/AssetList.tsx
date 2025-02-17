@@ -12,6 +12,7 @@ interface Asset {
 
 interface AssetListProps {
     title: string;
+    subtitle?: string;
     assets: Asset[];
     onCreateNew: () => void;
     onEdit: (id: string) => void;
@@ -22,6 +23,7 @@ interface AssetListProps {
 
 const AssetList: React.FC<AssetListProps> = ({
     title,
+    subtitle,
     assets,
     onCreateNew,
     onEdit,
@@ -32,9 +34,16 @@ const AssetList: React.FC<AssetListProps> = ({
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    {title}
-                </h1>
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                        {title}
+                    </h1>
+                    {subtitle && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {subtitle}
+                        </p>
+                    )}
+                </div>
                 <button
                     onClick={onCreateNew}
                     className="inline-flex items-center justify-center rounded-md

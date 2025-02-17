@@ -11,9 +11,11 @@ from schemas import (
     WorkflowStepCreate,
     WorkflowExecuteRequest,
     WorkflowResponse,
-    WorkflowStepResponse
+    WorkflowStepResponse,
+    WorkflowVariableResponse,
+    VariableSchema
 )
-from models import User
+from models import User, WorkflowVariable
 
 router = APIRouter()
 
@@ -56,8 +58,45 @@ async def get_workflows(
                 )
                 for s in w.steps
             ],
-            inputs=[],  # Add inputs if needed
-            outputs=[],  # Add outputs if needed
+            # Get workflow variables and split into inputs/outputs
+            inputs=[
+                WorkflowVariableResponse(
+                    variable_id=var.variable_id,
+                    workflow_id=w.workflow_id,
+                    schema=VariableSchema(
+                        name=var.name,
+                        type=var.type,
+                        description=var.description,
+                        **{k: v for k, v in var.schema.items() if k not in ['name', 'type', 'description']}
+                    ),
+                    io_type=var.io_type,
+                    created_at=var.created_at,
+                    updated_at=var.updated_at
+                )
+                for var in workflow_service.db.query(WorkflowVariable).filter(
+                    WorkflowVariable.workflow_id == w.workflow_id,
+                    WorkflowVariable.io_type == "input"
+                ).all()
+            ],
+            outputs=[
+                WorkflowVariableResponse(
+                    variable_id=var.variable_id,
+                    workflow_id=w.workflow_id,
+                    schema=VariableSchema(
+                        name=var.name,
+                        type=var.type,
+                        description=var.description,
+                        **{k: v for k, v in var.schema.items() if k not in ['name', 'type', 'description']}
+                    ),
+                    io_type=var.io_type,
+                    created_at=var.created_at,
+                    updated_at=var.updated_at
+                )
+                for var in workflow_service.db.query(WorkflowVariable).filter(
+                    WorkflowVariable.workflow_id == w.workflow_id,
+                    WorkflowVariable.io_type == "output"
+                ).all()
+            ],
             created_at=w.created_at,
             updated_at=w.updated_at
         )

@@ -44,6 +44,13 @@ export interface Job {
     input_variables: JobVariable[];
     output_data?: any;
     steps: JobStep[];
+
+    // Execution state
+    execution_progress?: {
+        current_step: number;
+        total_steps: number;
+    };
+    live_output?: string;
 }
 
 export interface JobExecutionState {
