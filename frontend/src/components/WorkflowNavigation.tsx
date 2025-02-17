@@ -36,8 +36,16 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                 {activeStep > 0 && (
                     <button
                         onClick={onBack}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                        className="inline-flex items-center justify-center rounded-md
+                                 px-3 py-1.5 text-sm font-medium
+                                 text-gray-500 hover:text-gray-700 hover:bg-gray-100
+                                 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800
+                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                                 transition-colors"
                     >
+                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
                         Back
                     </button>
                 )}
@@ -49,12 +57,18 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                     <button
                         onClick={onExecute}
                         disabled={isLoading}
-                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md flex items-center space-x-2 
-                            ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+                        className={`inline-flex items-center justify-center rounded-md
+                                  px-3 py-1.5 text-sm font-medium
+                                  ${isLoading
+                                ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800'
+                            }
+                                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                                  transition-colors`}
                     >
                         {isLoading ? (
                             <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent mr-2"></div>
                                 <span>Running...</span>
                             </>
                         ) : (
@@ -67,12 +81,18 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                     <button
                         onClick={onNext}
                         disabled={isLoading}
-                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md flex items-center space-x-2 ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
-                            }`}
+                        className={`inline-flex items-center justify-center rounded-md
+                                  px-3 py-1.5 text-sm font-medium
+                                  ${isLoading
+                                ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800'
+                            }
+                                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                                  transition-colors`}
                     >
                         {isLoading ? (
                             <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent mr-2"></div>
                                 <span>Processing...</span>
                             </>
                         ) : (
@@ -84,7 +104,12 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                 {activeStep === totalSteps - 1 && stepExecuted && (
                     <button
                         onClick={onRestart}
-                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                        className="inline-flex items-center justify-center rounded-md
+                                 px-3 py-1.5 text-sm font-medium
+                                 text-gray-500 hover:text-gray-700 hover:bg-gray-100
+                                 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800
+                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                                 transition-colors"
                     >
                         New Question
                     </button>

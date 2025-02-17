@@ -56,9 +56,12 @@ const WorkflowMenuBar: React.FC<WorkflowMenuBarProps> = ({
                 <div className="flex items-center space-x-4">
                     <button
                         onClick={handleBack}
-                        className="flex items-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 
-                                 text-sm font-medium transition-colors duration-150 rounded-md px-2 py-1
-                                 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                        className="inline-flex items-center justify-center rounded-md
+                                 px-3 py-1.5 text-sm font-medium
+                                 text-gray-500 hover:text-gray-700 hover:bg-gray-100
+                                 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800
+                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                                 transition-colors"
                     >
                         <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -80,7 +83,7 @@ const WorkflowMenuBar: React.FC<WorkflowMenuBarProps> = ({
                                 }}
                                 autoFocus
                                 placeholder="Enter workflow name"
-                                className="px-3 py-1 border border-gray-300 dark:border-gray-600 
+                                className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 
                                          rounded-md bg-white dark:bg-gray-700 
                                          text-gray-900 dark:text-gray-100
                                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500
@@ -95,7 +98,11 @@ const WorkflowMenuBar: React.FC<WorkflowMenuBarProps> = ({
                                 {isEditMode && (
                                     <button
                                         onClick={() => setEditingName(true)}
-                                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                        className="inline-flex items-center justify-center rounded-md w-7 h-7
+                                                 text-gray-400 hover:text-gray-500 hover:bg-gray-100
+                                                 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800
+                                                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                                                 transition-colors"
                                         title="Edit workflow name"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,26 +118,58 @@ const WorkflowMenuBar: React.FC<WorkflowMenuBarProps> = ({
                 {/* Right Section - Actions */}
                 <div className="flex items-center space-x-3">
                     {/* Edit/Run Mode Toggle */}
-                    <button
-                        onClick={onToggleEditMode}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors
-                            ${isEditMode
-                                ? 'text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                                : 'text-green-600 dark:text-green-400 border border-green-600 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                    <div className="flex items-center space-x-3">
+                        {/* Mode Indicator */}
+                        <div className={`inline-flex items-center text-sm
+                                     ${!isEditMode
+                                ? 'text-emerald-600 dark:text-emerald-400 pulse-animation'
+                                : 'text-gray-500 dark:text-gray-400'
                             }`}
-                    >
-                        {isEditMode ? 'Switch to Run Mode' : 'Switch to Edit Mode'}
-                    </button>
+                        >
+                            {!isEditMode ? (
+                                <>
+                                    <svg className="w-4 h-4 mr-1.5 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span className="font-medium">Running</span>
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4 mr-1.5 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    <span className="font-medium">Editing</span>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Mode Toggle Button */}
+                        <button
+                            onClick={onToggleEditMode}
+                            className="inline-flex items-center justify-center rounded-md
+                                     px-3 py-1.5 text-sm font-medium
+                                     text-gray-500 hover:text-gray-700 hover:bg-gray-100
+                                     dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800
+                                     focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                                     transition-colors"
+                        >
+                            Switch to {isEditMode ? 'Run' : 'Edit'}
+                        </button>
+                    </div>
 
                     {/* Save Button */}
                     <button
                         onClick={saveWorkflow}
                         disabled={!hasUnsavedChanges}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md text-white 
-                                 transition-colors ${hasUnsavedChanges
-                                ? 'bg-blue-600 hover:bg-blue-700'
-                                : 'bg-gray-400 cursor-not-allowed'
-                            }`}
+                        className={`inline-flex items-center justify-center rounded-md
+                                  px-3 py-1.5 text-sm font-medium
+                                  ${hasUnsavedChanges
+                                ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800'
+                                : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                            }
+                                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                                  transition-colors`}
                     >
                         Save
                     </button>
