@@ -353,57 +353,57 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                                         </tr>
                                     ),
                                     th: props => (
-                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 last:border-r-0">
+                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
                                             {props.children}
                                         </th>
                                     ),
                                     td: props => (
-                                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 last:border-r-0">
+                                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
                                             {props.children}
                                         </td>
                                     ),
                                     h1: props => (
-                                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                                             {props.children}
                                         </h1>
                                     ),
                                     h2: props => (
-                                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                                        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
                                             {props.children}
                                         </h2>
                                     ),
                                     h3: props => (
-                                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                                        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
                                             {props.children}
                                         </h3>
                                     ),
                                     p: props => (
-                                        <p className="text-base text-gray-900 dark:text-white mb-4">
+                                        <p className="text-base text-gray-900 dark:text-gray-100 mb-4">
                                             {props.children}
                                         </p>
                                     ),
                                     ul: props => (
-                                        <ul className="list-disc list-inside space-y-1 text-gray-900 dark:text-white mb-4">
+                                        <ul className="list-disc list-inside space-y-1 text-gray-900 dark:text-gray-100 mb-4">
                                             {props.children}
                                         </ul>
                                     ),
                                     li: props => (
-                                        <li className="text-base">
+                                        <li className="text-base text-gray-900 dark:text-gray-100">
                                             {props.children}
                                         </li>
                                     ),
                                     code: props => (
-                                        <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono">
+                                        <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono text-gray-900 dark:text-gray-100">
                                             {props.children}
                                         </code>
                                     ),
                                     pre: props => (
-                                        <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto">
+                                        <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto text-gray-900 dark:text-gray-100">
                                             {props.children}
                                         </pre>
                                     ),
                                     blockquote: props => (
-                                        <blockquote className="border-l-4 border-gray-200 dark:border-gray-700 pl-4 italic text-gray-600 dark:text-gray-400">
+                                        <blockquote className="border-l-4 border-gray-200 dark:border-gray-700 pl-4 italic text-gray-600 dark:text-gray-300">
                                             {props.children}
                                         </blockquote>
                                     )
