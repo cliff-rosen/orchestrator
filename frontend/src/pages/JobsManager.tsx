@@ -8,16 +8,13 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
     DialogFooter,
 } from '../components/ui/dialog';
-import { Plus } from 'lucide-react';
 import AssetList from '../components/common/AssetList';
-import { JobStatus } from '../types/jobs';
 
 const JobsManager: React.FC = () => {
     const navigate = useNavigate();
-    const { jobs, createJob, deleteJob } = useJobs();
+    const { jobs, createJob, deleteJob, currentJob } = useJobs();
     const { workflows } = useWorkflows();
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -43,6 +40,16 @@ const JobsManager: React.FC = () => {
             setJobName('');
         }
     }, [selectedWorkflow, workflows]);
+
+    useEffect(() => {
+        if (currentJob) {
+            navigate(`/jobs/${currentJob.job_id}`);
+        }
+    }, [currentJob, navigate]);
+
+    if (currentJob) {
+        return null;
+    }
 
     const handleCreateJob = async () => {
         console.log('handleCreateJob');

@@ -52,6 +52,30 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { workflows } = useWorkflows();
 
+    // Persist current job in sessionStorage
+    useEffect(() => {
+        if (state.currentJob) {
+            sessionStorage.setItem('currentJob', JSON.stringify(state.currentJob));
+        }
+    }, [state.currentJob]);
+
+    // Restore current job from sessionStorage
+    useEffect(() => {
+        const savedJob = sessionStorage.getItem('currentJob');
+        if (savedJob) {
+            setState(prev => ({
+                ...prev,
+                currentJob: JSON.parse(savedJob)
+            }));
+        }
+    }, []);
+
+    // Clear session storage when resetting current job
+    const resetCurrentJob = useCallback(() => {
+        setState(prev => ({ ...prev, currentJob: undefined }));
+        sessionStorage.removeItem('currentJob');
+    }, []);
+
     // Load jobs on mount
     useEffect(() => {
         loadJobs();
@@ -446,10 +470,6 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // State management helpers
     const setCurrentJob = useCallback((job?: Job) => {
         setState(prev => ({ ...prev, currentJob: job }));
-    }, []);
-
-    const resetCurrentJob = useCallback(() => {
-        setState(prev => ({ ...prev, currentJob: undefined }));
     }, []);
 
     const clearError = useCallback(() => {

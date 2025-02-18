@@ -48,10 +48,7 @@ const Job: React.FC = () => {
         if (jobId) {
             loadJob(jobId);
         }
-        return () => {
-            resetCurrentJob();
-        };
-    }, [jobId, loadJob, resetCurrentJob]);
+    }, [jobId, loadJob]);
 
     // Initialize input values when workflow inputs change
     useEffect(() => {
@@ -164,12 +161,15 @@ const Job: React.FC = () => {
     return (
         <div className="container mx-auto px-2 sm:px-3 md:px-4 py-2">
             {/* Unified Header */}
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center justify-between mb-6">
                 {/* Left side: Back button and Job info */}
                 <div className="flex items-center gap-6">
                     <Button
                         variant="ghost"
-                        onClick={() => navigate('/jobs')}
+                        onClick={() => {
+                            resetCurrentJob();
+                            navigate('/jobs');
+                        }}
                         className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                     >
                         <ArrowLeft className="h-4 w-4" />
