@@ -1,5 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Job, JobStatus } from '../../types/jobs';
+
+// Constants for text truncation
+const MAX_TEXT_LENGTH = 200;  // Characters for text
+const MAX_ARRAY_LENGTH = 3;   // Items for arrays
+const MAX_ARRAY_ITEM_LENGTH = 100;  // Characters per array item
 
 interface JobLiveOutputProps {
     job: Job;
@@ -8,6 +15,167 @@ interface JobLiveOutputProps {
 export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
     const isComplete = job.status === JobStatus.COMPLETED;
     const isFailed = job.status === JobStatus.FAILED;
+    const [expandedValues, setExpandedValues] = useState<Record<string, boolean>>({});
+
+    const toggleExpand = (id: string) => {
+        setExpandedValues(prev => ({
+            ...prev,
+            [id]: !prev[id]
+        }));
+    };
+
+    // Helper function to format values for display
+    const formatValue = (value: any, isOutput: boolean = false) => {
+        if (value === undefined || value === null) {
+            return <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>;
+        }
+
+        // Handle array values
+        if (Array.isArray(value)) {
+            const id = `array-${JSON.stringify(value).slice(0, 50)}`;
+            const isExpanded = expandedValues[id];
+            const items = value;
+            const displayItems = isExpanded ? items : items.slice(0, MAX_ARRAY_LENGTH);
+            const hasMore = items.length > MAX_ARRAY_LENGTH;
+
+            return (
+                <div className="space-y-2 p-2 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+                    {displayItems.map((item: any, index: number) => {
+                        const itemStr = String(item);
+                        const truncatedItem = isExpanded ? itemStr :
+                            itemStr.length > MAX_ARRAY_ITEM_LENGTH ?
+                                `${itemStr.substring(0, MAX_ARRAY_ITEM_LENGTH)}...` : itemStr;
+
+                        return (
+                            <div key={index} className="text-sm font-medium text-gray-900 dark:text-white p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                                <span className="font-normal text-gray-500 dark:text-gray-400 mr-2">{index + 1}.</span>
+                                {truncatedItem}
+                            </div>
+                        );
+                    })}
+                    {hasMore && (
+                        <button
+                            onClick={() => toggleExpand(id)}
+                            className="mt-2 px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
+                                     dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                                     dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                        >
+                            {isExpanded ? 'Show Less' : `Show ${items.length - MAX_ARRAY_LENGTH} More...`}
+                        </button>
+                    )}
+                </div>
+            );
+        }
+
+        // Handle text values
+        const text = String(value);
+        const id = `text-${text.slice(0, 50)}`;
+        const isExpanded = expandedValues[id];
+
+        // For output values or text containing markdown, use ReactMarkdown
+        if (isOutput || text.includes('|') || text.includes('#') || text.includes('*')) {
+            const displayText = text.length > MAX_TEXT_LENGTH && !isExpanded
+                ? `${text.substring(0, MAX_TEXT_LENGTH)}...`
+                : text;
+
+            return (
+                <div className="space-y-2">
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                        <div className="prose prose-slate dark:prose-invert max-w-none">
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                    table: props => (
+                                        <table className="min-w-full border-collapse border border-gray-200 dark:border-gray-700">
+                                            {props.children}
+                                        </table>
+                                    ),
+                                    thead: props => (
+                                        <thead className="bg-gray-50 dark:bg-gray-800">
+                                            {props.children}
+                                        </thead>
+                                    ),
+                                    tbody: props => (
+                                        <tbody className="bg-white dark:bg-gray-900">
+                                            {props.children}
+                                        </tbody>
+                                    ),
+                                    tr: props => (
+                                        <tr className="border-b border-gray-200 dark:border-gray-700">
+                                            {props.children}
+                                        </tr>
+                                    ),
+                                    th: props => (
+                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
+                                            {props.children}
+                                        </th>
+                                    ),
+                                    td: props => (
+                                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
+                                            {props.children}
+                                        </td>
+                                    ),
+                                    code: props => (
+                                        <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono text-gray-900 dark:text-gray-100">
+                                            {props.children}
+                                        </code>
+                                    ),
+                                    pre: props => (
+                                        <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto text-gray-900 dark:text-gray-100">
+                                            {props.children}
+                                        </pre>
+                                    )
+                                }}
+                            >
+                                {displayText}
+                            </ReactMarkdown>
+                        </div>
+                    </div>
+                    {text.length > MAX_TEXT_LENGTH && (
+                        <button
+                            onClick={() => toggleExpand(id)}
+                            className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
+                                     dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                                     dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                        >
+                            {isExpanded ? 'Show Less' : 'Show More...'}
+                        </button>
+                    )}
+                </div>
+            );
+        }
+
+        // For regular text without markdown
+        if (text.length <= MAX_TEXT_LENGTH) {
+            return (
+                <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                    <div className="text-base text-gray-900 dark:text-white whitespace-pre-wrap font-normal">
+                        {text}
+                    </div>
+                </div>
+            );
+        }
+
+        const truncatedText = isExpanded ? text : `${text.substring(0, MAX_TEXT_LENGTH)}...`;
+
+        return (
+            <div className="space-y-2">
+                <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                    <div className="text-base text-gray-900 dark:text-white whitespace-pre-wrap font-normal">
+                        {truncatedText}
+                    </div>
+                </div>
+                <button
+                    onClick={() => toggleExpand(id)}
+                    className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
+                             dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                             dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                >
+                    {isExpanded ? 'Show Less' : 'Show More...'}
+                </button>
+            </div>
+        );
+    };
 
     if (isComplete) {
         // Get the final step's output
@@ -58,9 +226,7 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
                                     </span>
                                     <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
                                     <span className="text-gray-700 dark:text-gray-200 flex-1">
-                                        {typeof variable.value === 'object'
-                                            ? JSON.stringify(variable.value, null, 2)
-                                            : String(variable.value)}
+                                        {formatValue(variable.value)}
                                     </span>
                                 </div>
                             ))}
@@ -87,9 +253,7 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
                                     </span>
                                     <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
                                     <span className="text-gray-700 dark:text-gray-200 flex-1">
-                                        {typeof value === 'object'
-                                            ? JSON.stringify(value, null, 2)
-                                            : String(value)}
+                                        {formatValue(value, true)}
                                     </span>
                                 </div>
                             ))}
@@ -119,9 +283,7 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
                                     </span>
                                     <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
                                     <span className="text-gray-700 dark:text-gray-200 flex-1">
-                                        {typeof value === 'object'
-                                            ? JSON.stringify(value, null, 2)
-                                            : String(value)}
+                                        {formatValue(value, true)}
                                     </span>
                                 </div>
                             ))}
@@ -180,7 +342,7 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
                                         <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
                                         <span className="text-gray-400 dark:text-gray-500"> = </span>
                                         <span className="text-gray-700 dark:text-gray-200">
-                                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                            {formatValue(value)}
                                         </span>
                                     </div>
                                 );
@@ -196,9 +358,11 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
                     <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
                         Live Output
                     </h4>
-                    <pre className="text-sm overflow-auto max-h-32 text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
-                        {job.live_output}
-                    </pre>
+                    <div className="prose prose-slate dark:prose-invert max-w-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {job.live_output}
+                        </ReactMarkdown>
+                    </div>
                 </div>
             )}
 
