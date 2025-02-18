@@ -162,12 +162,7 @@ const mockApi = {
             // Execute the tool
             const result = await toolApi.executeTool(tool.tool_id, parameters);
 
-            // Update variables with output mappings
-            for (const [outputName, varName] of Object.entries(step.output_mappings)) {
-                state.variables[varName] = result[outputName as ToolOutputName];
-            }
-
-            // Update step result
+            // Update step result with outputs
             stepResult.status = JobStatus.COMPLETED;
             stepResult.output_data = result;
             stepResult.completed_at = new Date().toISOString();
@@ -175,6 +170,23 @@ const mockApi = {
             // Update execution state
             state.step_results[stepIndex] = stepResult;
             state.current_step_index = stepIndex + 1;
+
+            // Update the step in the job with outputs
+            const updatedStep = job.steps[stepIndex];
+            updatedStep.status = JobStatus.COMPLETED;
+            updatedStep.output_data = result;
+            updatedStep.completed_at = new Date().toISOString();
+
+            // Update job's output data if this step has output mappings
+            if (updatedStep.output_mappings) {
+                if (!job.output_data) job.output_data = {};
+                Object.entries(updatedStep.output_mappings).forEach(([outputName, variableName]) => {
+                    if (result && outputName in result) {
+                        job.output_data[variableName] = result[outputName as ToolOutputName];
+                    }
+                });
+            }
+
             if (stepIndex + 1 >= job.steps.length) {
                 state.status = JobStatus.COMPLETED;
                 job.status = JobStatus.COMPLETED;
@@ -339,4 +351,4 @@ export const jobsApi = {
             throw handleApiError(error);
         }
     }
-}; 
+};

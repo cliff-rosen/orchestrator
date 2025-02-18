@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable } from '../types/jobs';
+import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult } from '../types/jobs';
 import { jobsApi } from '../lib/api/jobsApi';
-import { workflowApi } from '../lib/api/workflowApi';
 import { WorkflowVariable } from '../types/workflows';
 import { useWorkflows } from './WorkflowContext';
 
@@ -25,7 +24,7 @@ interface JobsContextValue extends JobsContextState {
 
     // Job Execution
     startJob: (jobId: string, inputVariables?: JobVariable[]) => Promise<void>;
-    executeStep: (jobId: string, stepIndex: number) => Promise<void>;
+    executeStep: (jobId: string, stepIndex: number) => Promise<StepExecutionResult>;
     cancelJob: (jobId: string) => Promise<void>;
     resetJob: (jobId: string) => Promise<void>;
 
@@ -145,7 +144,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     // Job execution
-    const executeStep = useCallback(async (jobId: string, stepIndex: number): Promise<void> => {
+    const executeStep = useCallback(async (jobId: string, stepIndex: number): Promise<StepExecutionResult> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
             // Execute the step
@@ -157,19 +156,34 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Get updated job
             const job = await jobsApi.getJob(jobId);
 
+            // Update the step with outputs
+            const updatedJob = {
+                ...job,
+                steps: job.steps.map((step, idx) => {
+                    if (idx === stepIndex) {
+                        return {
+                            ...step,
+                            status: stepResult.status,
+                            output_data: stepResult.output_data,
+                            error_message: stepResult.error_message,
+                            started_at: stepResult.started_at,
+                            completed_at: stepResult.completed_at
+                        };
+                    }
+                    return step;
+                })
+            };
+
             // Update state
-            console.log('JobsContext: Updating state', {
-                currentJob: job,
-                executionState,
-                isLoading: false
-            });
             setState(prev => ({
                 ...prev,
-                jobs: prev.jobs.map(j => j.job_id === jobId ? job : j),
-                currentJob: prev.currentJob?.job_id === jobId ? job : prev.currentJob,
+                jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
+                currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob,
                 executionState,
                 isLoading: false
             }));
+
+            return stepResult;
         } catch (error) {
             setState(prev => ({
                 ...prev,
@@ -203,11 +217,12 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Start executing steps
             let currentStep = 0;
+            const jobOutputs: Record<string, any> = {};
             while (currentStep < job.steps.length) {
                 console.log(`JobsContext: Executing step ${currentStep}`);
                 try {
                     // Execute step
-                    await executeStep(jobId, currentStep);
+                    const stepResult = await executeStep(jobId, currentStep);
 
                     // Get updated job state
                     const updatedJob = await jobsApi.getJob(jobId);
@@ -217,13 +232,41 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const updatedState = await jobsApi.getJobExecutionState(jobId);
                     console.log('JobsContext: Updated execution state:', updatedState);
 
-                    // Update UI with latest state - using a Promise to ensure state is updated
+                    // Update job outputs with step outputs based on output mappings
+                    if (stepResult.output_data) {
+                        const step = updatedJob.steps[currentStep];
+                        if (step.output_mappings) {
+                            Object.entries(step.output_mappings).forEach(([outputName, variableName]) => {
+                                if (stepResult.output_data && outputName in stepResult.output_data) {
+                                    jobOutputs[variableName] = stepResult.output_data[outputName];
+                                }
+                            });
+                        }
+                    }
+
+                    // Update UI with latest state and ensure output_data is properly set
                     await new Promise<void>(resolve => {
                         setState(prev => {
+                            // Update the current step with its outputs
+                            const updatedSteps = [...updatedJob.steps];
+                            if (updatedSteps[currentStep]) {
+                                updatedSteps[currentStep] = {
+                                    ...updatedSteps[currentStep],
+                                    output_data: stepResult.output_data
+                                };
+                            }
+
+                            // Create the updated job with both step outputs and job outputs
+                            const jobWithOutputs = {
+                                ...updatedJob,
+                                steps: updatedSteps,
+                                output_data: jobOutputs
+                            };
+
                             const newState = {
                                 ...prev,
-                                jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
-                                currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob,
+                                jobs: prev.jobs.map(j => j.job_id === jobId ? jobWithOutputs : j),
+                                currentJob: prev.currentJob?.job_id === jobId ? jobWithOutputs : prev.currentJob,
                                 executionState: updatedState,
                                 isLoading: false
                             };
@@ -251,8 +294,14 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                     setState(prev => ({
                         ...prev,
-                        jobs: prev.jobs.map(j => j.job_id === jobId ? failedJob : j),
-                        currentJob: prev.currentJob?.job_id === jobId ? failedJob : prev.currentJob,
+                        jobs: prev.jobs.map(j => j.job_id === jobId ? {
+                            ...failedJob,
+                            output_data: jobOutputs
+                        } : j),
+                        currentJob: prev.currentJob?.job_id === jobId ? {
+                            ...failedJob,
+                            output_data: jobOutputs
+                        } : prev.currentJob,
                         executionState: failedState,
                         isLoading: false,
                         error: error instanceof Error ? error.message : 'Failed to execute step'
@@ -320,7 +369,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const validateInputs = useCallback(() => {
         if (!state.currentJob?.workflow_id) return false;
 
-        const workflow = workflows?.find(w => w.workflow_id === state.currentJob.workflow_id);
+        const workflow = workflows?.find(w => w.workflow_id === state.currentJob?.workflow_id);
         const workflowInputs = workflow?.inputs || [];
 
         const newErrors: Record<string, string> = {};
@@ -353,7 +402,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const areInputsValid = useCallback(() => {
         if (!state.currentJob?.workflow_id) return false;
 
-        const workflow = workflows?.find(w => w.workflow_id === state.currentJob.workflow_id);
+        const workflow = workflows?.find(w => w.workflow_id === state.currentJob?.workflow_id);
         const workflowInputs = workflow?.inputs || [];
 
         return workflowInputs.every((input: WorkflowVariable) => {
