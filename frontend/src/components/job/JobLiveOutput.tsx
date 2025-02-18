@@ -10,6 +10,18 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
     const isFailed = job.status === JobStatus.FAILED;
 
     if (isComplete) {
+        // Get the final step's output
+        const finalStep = job.steps[job.steps.length - 1];
+        const finalStepOutput = finalStep?.output_data || {};
+
+        // Get all other outputs from job.output_data that aren't in the final step
+        const otherOutputs = Object.entries(job.output_data || {}).reduce((acc, [key, value]) => {
+            if (!(key in finalStepOutput)) {
+                acc[key] = value;
+            }
+            return acc;
+        }, {} as Record<string, any>);
+
         return (
             <div className="space-y-6">
                 {/* Job Summary Header */}
@@ -27,65 +39,95 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
                     </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Workflow Inputs */}
-                    {job.input_variables && job.input_variables.length > 0 && (
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                    <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Workflow Inputs
-                                </h3>
-                            </div>
-                            <div className="p-4 space-y-2">
-                                {job.input_variables.map((variable) => (
-                                    <div key={variable.variable_id} className="text-sm flex items-start">
-                                        <span className="font-medium text-gray-600 dark:text-gray-300 min-w-[120px]">
-                                            {variable.schema.name}
-                                        </span>
-                                        <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
-                                        <span className="text-gray-700 dark:text-gray-200 flex-1">
-                                            {typeof variable.value === 'object'
-                                                ? JSON.stringify(variable.value, null, 2)
-                                                : String(variable.value)}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
+                {/* Workflow Inputs - Full Width */}
+                {job.input_variables && job.input_variables.length > 0 && (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Workflow Inputs
+                            </h3>
                         </div>
-                    )}
+                        <div className="p-4 grid grid-cols-2 gap-4">
+                            {job.input_variables.map((variable) => (
+                                <div key={variable.variable_id} className="text-sm flex items-start">
+                                    <span className="font-medium text-gray-600 dark:text-gray-300 min-w-[120px]">
+                                        {variable.schema.name}
+                                    </span>
+                                    <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
+                                    <span className="text-gray-700 dark:text-gray-200 flex-1">
+                                        {typeof variable.value === 'object'
+                                            ? JSON.stringify(variable.value, null, 2)
+                                            : String(variable.value)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
-                    {/* Final Output */}
-                    {job.output_data && Object.keys(job.output_data).length > 0 && (
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                    <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Final Output
-                                </h3>
-                            </div>
-                            <div className="p-4 space-y-2">
-                                {Object.entries(job.output_data).map(([key, value]) => (
-                                    <div key={key} className="text-sm flex items-start">
-                                        <span className="font-medium text-gray-600 dark:text-gray-300 min-w-[120px]">
-                                            {key}
-                                        </span>
-                                        <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
-                                        <span className="text-gray-700 dark:text-gray-200 flex-1">
-                                            {typeof value === 'object'
-                                                ? JSON.stringify(value, null, 2)
-                                                : String(value)}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
+                {/* Final Step Output */}
+                {Object.keys(finalStepOutput).length > 0 && (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Final Output
+                            </h3>
                         </div>
-                    )}
-                </div>
+                        <div className="p-4 space-y-2">
+                            {Object.entries(finalStepOutput).map(([key, value]) => (
+                                <div key={key} className="text-sm flex items-start">
+                                    <span className="font-medium text-gray-600 dark:text-gray-300 min-w-[120px]">
+                                        {key}
+                                    </span>
+                                    <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
+                                    <span className="text-gray-700 dark:text-gray-200 flex-1">
+                                        {typeof value === 'object'
+                                            ? JSON.stringify(value, null, 2)
+                                            : String(value)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Other Outputs (Collapsible) */}
+                {Object.keys(otherOutputs).length > 0 && (
+                    <details className="group">
+                        <summary className="cursor-pointer bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+                            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                                Intermediate Outputs
+                            </h3>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {Object.keys(otherOutputs).length} outputs
+                            </span>
+                        </summary>
+                        <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 space-y-2">
+                            {Object.entries(otherOutputs).map(([key, value]) => (
+                                <div key={key} className="text-sm flex items-start">
+                                    <span className="font-medium text-gray-600 dark:text-gray-300 min-w-[120px]">
+                                        {key}
+                                    </span>
+                                    <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
+                                    <span className="text-gray-700 dark:text-gray-200 flex-1">
+                                        {typeof value === 'object'
+                                            ? JSON.stringify(value, null, 2)
+                                            : String(value)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </details>
+                )}
             </div>
         );
     }
