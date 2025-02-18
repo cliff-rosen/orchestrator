@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Job, JobStatus } from '../../types/jobs';
 import { ChevronRight, ChevronDown } from 'lucide-react';
+import { useValueFormatter } from '../../hooks/useValueFormatter.tsx';
 
 // Constants for text truncation
 const MAX_TEXT_LENGTH = 200;  // Characters for text
@@ -18,172 +19,12 @@ interface JobStepCardProps {
 }
 
 const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onToggle, job }) => {
-    const [expandedValues, setExpandedValues] = useState<Record<string, boolean>>({});
+    const { formatValue } = useValueFormatter();
 
     // Function to format timestamp
     const formatTimestamp = (timestamp: string | undefined) => {
         if (!timestamp) return '';
         return new Date(timestamp).toLocaleTimeString();
-    };
-
-    const toggleExpand = (id: string) => {
-        setExpandedValues(prev => ({
-            ...prev,
-            [id]: !prev[id]
-        }));
-    };
-
-    // Helper function to format values for display
-    const formatValue = (value: any, isOutput: boolean = false) => {
-        if (value === undefined || value === null) {
-            return <span className="text-gray-400 dark:text-gray-500 italic">Not set</span>;
-        }
-
-        // Handle array values
-        if (Array.isArray(value)) {
-            const id = `array-${JSON.stringify(value).slice(0, 50)}`;
-            const isExpanded = expandedValues[id];
-            const items = value;
-            const displayItems = isExpanded ? items : items.slice(0, MAX_ARRAY_LENGTH);
-            const hasMore = items.length > MAX_ARRAY_LENGTH;
-
-            return (
-                <div className="space-y-2 p-2 bg-gray-50 dark:bg-gray-900/50 rounded-md">
-                    {displayItems.map((item: any, index: number) => {
-                        const itemStr = String(item);
-                        const truncatedItem = isExpanded ? itemStr :
-                            itemStr.length > MAX_ARRAY_ITEM_LENGTH ?
-                                `${itemStr.substring(0, MAX_ARRAY_ITEM_LENGTH)}...` : itemStr;
-
-                        return (
-                            <div key={index} className="text-sm font-medium text-gray-900 dark:text-white p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                                <span className="font-normal text-gray-500 dark:text-gray-400 mr-2">{index + 1}.</span>
-                                {truncatedItem}
-                            </div>
-                        );
-                    })}
-                    {hasMore && (
-                        <button
-                            onClick={() => toggleExpand(id)}
-                            className="mt-2 px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
-                                     dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
-                                     dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                        >
-                            {isExpanded ? 'Show Less' : `Show ${items.length - MAX_ARRAY_LENGTH} More...`}
-                        </button>
-                    )}
-                </div>
-            );
-        }
-
-        // Handle text values
-        const text = String(value);
-        const id = `text-${text.slice(0, 50)}`;
-        const isExpanded = expandedValues[id];
-
-        // For output values or text containing markdown, use ReactMarkdown
-        if (isOutput || text.includes('|') || text.includes('#') || text.includes('*')) {
-            const displayText = text.length > MAX_TEXT_LENGTH && !isExpanded
-                ? `${text.substring(0, MAX_TEXT_LENGTH)}...`
-                : text;
-
-            return (
-                <div className="space-y-2">
-                    <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                        <div className="prose prose-slate dark:prose-invert max-w-none">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                    table: props => (
-                                        <table className="min-w-full border-collapse border border-gray-200 dark:border-gray-700">
-                                            {props.children}
-                                        </table>
-                                    ),
-                                    thead: props => (
-                                        <thead className="bg-gray-50 dark:bg-gray-800">
-                                            {props.children}
-                                        </thead>
-                                    ),
-                                    tbody: props => (
-                                        <tbody className="bg-white dark:bg-gray-900">
-                                            {props.children}
-                                        </tbody>
-                                    ),
-                                    tr: props => (
-                                        <tr className="border-b border-gray-200 dark:border-gray-700">
-                                            {props.children}
-                                        </tr>
-                                    ),
-                                    th: props => (
-                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                                            {props.children}
-                                        </th>
-                                    ),
-                                    td: props => (
-                                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                                            {props.children}
-                                        </td>
-                                    ),
-                                    code: props => (
-                                        <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono text-gray-900 dark:text-gray-100">
-                                            {props.children}
-                                        </code>
-                                    ),
-                                    pre: props => (
-                                        <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto text-gray-900 dark:text-gray-100">
-                                            {props.children}
-                                        </pre>
-                                    )
-                                }}
-                            >
-                                {displayText}
-                            </ReactMarkdown>
-                        </div>
-                    </div>
-                    {text.length > MAX_TEXT_LENGTH && (
-                        <button
-                            onClick={() => toggleExpand(id)}
-                            className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
-                                     dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
-                                     dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                        >
-                            {isExpanded ? 'Show Less' : 'Show More...'}
-                        </button>
-                    )}
-                </div>
-            );
-        }
-
-        // For regular text without markdown
-        if (text.length <= MAX_TEXT_LENGTH) {
-            return (
-                <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                    <div className="text-base text-gray-900 dark:text-white whitespace-pre-wrap font-normal">
-                        {text}
-                    </div>
-                </div>
-            );
-        }
-
-        const truncatedText = isExpanded ? text : `${text.substring(0, MAX_TEXT_LENGTH)}...`;
-
-        return (
-            <div className="space-y-2">
-                <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                    <div className="text-base text-gray-900 dark:text-white whitespace-pre-wrap font-normal">
-                        {truncatedText}
-                    </div>
-                </div>
-                <button
-                    onClick={() => toggleExpand(id)}
-                    className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
-                             dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
-                             dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                >
-                    {isExpanded ? 'Show Less' : 'Show More...'}
-                </button>
-            </div>
-        );
     };
 
     // Get the actual input values from the job's variables
@@ -224,7 +65,7 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
                 className={`w-full px-4 py-3 flex items-center justify-between text-left ${hasDetails ? 'cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/30' : ''
                     }`}
             >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${step.status === JobStatus.RUNNING ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' :
                         step.status === JobStatus.COMPLETED ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' :
                             step.status === JobStatus.FAILED ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' :
