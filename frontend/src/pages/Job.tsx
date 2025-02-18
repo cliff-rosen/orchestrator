@@ -162,9 +162,9 @@ const Job: React.FC = () => {
     };
 
     return (
-        <div className="container mx-auto px-4 pt-2 pb-4">
+        <div className="container mx-auto px-4 py-2">
             {/* Unified Header */}
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-8">
                 {/* Left side: Back button and Job info */}
                 <div className="flex items-center gap-6">
                     <Button
@@ -176,28 +176,30 @@ const Job: React.FC = () => {
                         Back to Jobs
                     </Button>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-2">
                         <h1 className="text-xl font-bold text-gray-900 dark:text-gray-50">
                             {currentJob.name}
                         </h1>
-                        <div className="flex items-center gap-2">
-                            <span className="text-gray-500 dark:text-gray-400">Workflow:</span>
-                            <span className="font-medium text-gray-900 dark:text-gray-50">{workflow.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-gray-500 dark:text-gray-400">Status:</span>
-                            <span className={`inline-flex items-center gap-2 ${currentJob.status === JobStatus.RUNNING ? 'text-blue-500 dark:text-blue-400' :
-                                currentJob.status === JobStatus.COMPLETED ? 'text-green-500 dark:text-green-400' :
-                                    currentJob.status === JobStatus.FAILED ? 'text-red-500 dark:text-red-400' :
-                                        'text-gray-500 dark:text-gray-400'
-                                }`}>
-                                <span className={`h-2 w-2 rounded-full ${currentJob.status === JobStatus.RUNNING ? 'bg-blue-500 animate-pulse' :
-                                    currentJob.status === JobStatus.COMPLETED ? 'bg-green-500' :
-                                        currentJob.status === JobStatus.FAILED ? 'bg-red-500' :
-                                            'bg-gray-500'
-                                    }`} />
-                                {currentJob.status}
-                            </span>
+                        <div className="flex items-center gap-4 text-sm">
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-500 dark:text-gray-400">Workflow:</span>
+                                <span className="font-medium text-gray-900 dark:text-gray-50">{workflow.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-500 dark:text-gray-400">Status:</span>
+                                <span className={`inline-flex items-center gap-2 ${currentJob.status === JobStatus.RUNNING ? 'text-blue-500 dark:text-blue-400' :
+                                    currentJob.status === JobStatus.COMPLETED ? 'text-green-500 dark:text-green-400' :
+                                        currentJob.status === JobStatus.FAILED ? 'text-red-500 dark:text-red-400' :
+                                            'text-gray-500 dark:text-gray-400'
+                                    }`}>
+                                    <span className={`h-2 w-2 rounded-full ${currentJob.status === JobStatus.RUNNING ? 'bg-blue-500 animate-pulse' :
+                                        currentJob.status === JobStatus.COMPLETED ? 'bg-green-500' :
+                                            currentJob.status === JobStatus.FAILED ? 'bg-red-500' :
+                                                'bg-gray-500'
+                                        }`} />
+                                    {currentJob.status}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -241,7 +243,7 @@ const Job: React.FC = () => {
             </div>
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-12 gap-6">
+            <div className="grid grid-cols-12 gap-6 py-4">
                 {/* Steps List - Left Side */}
                 <div className="col-span-4">
                     <JobStepsList
