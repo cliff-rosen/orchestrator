@@ -1,5 +1,9 @@
 import { api, handleApiError } from './index';
-import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable } from '../../types/jobs';
+import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult } from '../../types/jobs';
+import { toolApi } from './toolApi';
+import { ToolOutputName } from '../../types/tools';
+import { workflowApi } from './workflowApi';
+import { WorkflowStep } from '../../types/workflows';
 
 // ============= Development Mock Data (TEMPORARY) =============
 const generateUniqueId = () => {
@@ -12,19 +16,33 @@ const generateUniqueId = () => {
 const mockData: {
     jobs: Job[];
     usedIds: Set<string>;
+    executionStates: Record<string, JobExecutionState>;
 } = {
     jobs: [],
-    usedIds: new Set()
+    usedIds: new Set(),
+    executionStates: {}
 };
 
 // Mock data management (will be replaced by real API calls)
 const mockApi = {
-    createJob: (data: CreateJobRequest): Job => {
+    createJob: async (data: CreateJobRequest): Promise<Job> => {
         let jobId;
         do {
             jobId = generateUniqueId();
         } while (mockData.usedIds.has(jobId));
         mockData.usedIds.add(jobId);
+
+        // Get workflow to copy steps
+        const workflow = await workflowApi.getWorkflow(data.workflow_id);
+        const workflowSteps = workflow.steps.map((step: WorkflowStep, index: number) => ({
+            step_id: generateUniqueId(),
+            job_id: jobId,
+            sequence_number: index,
+            status: JobStatus.PENDING,
+            tool: step.tool,
+            parameter_mappings: step.parameter_mappings,
+            output_mappings: step.output_mappings
+        }));
 
         const newJob: Job = {
             job_id: jobId,
@@ -36,7 +54,11 @@ const mockApi = {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             input_variables: data.input_variables,
-            steps: [],
+            steps: workflowSteps,
+            execution_progress: {
+                current_step: 0,
+                total_steps: workflowSteps.length
+            },
             output_data: null
         };
 
@@ -66,6 +88,20 @@ const mockApi = {
             input_variables: inputVariables || mockData.jobs[jobIndex].input_variables
         };
 
+        // Initialize execution state
+        mockData.executionStates[jobId] = {
+            job_id: jobId,
+            current_step_index: 0,
+            total_steps: updatedJob.steps.length,
+            is_paused: false,
+            live_output: '',
+            status: JobStatus.RUNNING,
+            step_results: [],
+            variables: Object.fromEntries(
+                (inputVariables || []).map(v => [v.schema.name, v.value])
+            )
+        };
+
         mockData.jobs[jobIndex] = updatedJob;
         return { ...updatedJob };
     },
@@ -90,17 +126,75 @@ const mockApi = {
     },
 
     getJobExecutionState: (jobId: string): JobExecutionState => {
+        const state = mockData.executionStates[jobId];
+        if (!state) throw new Error('Job execution state not found');
+        return { ...state };
+    },
+
+    executeStep: async (jobId: string, stepIndex: number): Promise<StepExecutionResult> => {
         const job = mockData.jobs.find(j => j.job_id === jobId);
         if (!job) throw new Error('Job not found');
 
-        return {
-            job_id: jobId,
-            current_step_index: 0,
-            total_steps: 1,
-            is_paused: false,
-            live_output: 'Sample output...',
-            status: job.status
+        const state = mockData.executionStates[jobId];
+        if (!state) throw new Error('Job execution state not found');
+
+        const step = job.steps[stepIndex];
+        if (!step) throw new Error('Step not found');
+
+        // Create step result
+        const stepResult: StepExecutionResult = {
+            step_id: step.step_id,
+            status: JobStatus.RUNNING,
+            started_at: new Date().toISOString(),
         };
+
+        try {
+            // Execute the step using toolApi
+            const tool = step.tool;
+            if (!tool) throw new Error('No tool configured for step');
+
+            // Prepare parameters from variable mappings
+            const parameters: Record<string, any> = {};
+            for (const [paramName, varName] of Object.entries(step.parameter_mappings)) {
+                parameters[paramName] = state.variables[varName];
+            }
+
+            // Execute the tool
+            const result = await toolApi.executeTool(tool.tool_id, parameters);
+
+            // Update variables with output mappings
+            for (const [outputName, varName] of Object.entries(step.output_mappings)) {
+                state.variables[varName] = result[outputName as ToolOutputName];
+            }
+
+            // Update step result
+            stepResult.status = JobStatus.COMPLETED;
+            stepResult.output_data = result;
+            stepResult.completed_at = new Date().toISOString();
+
+            // Update execution state
+            state.step_results[stepIndex] = stepResult;
+            state.current_step_index = stepIndex + 1;
+            if (stepIndex + 1 >= job.steps.length) {
+                state.status = JobStatus.COMPLETED;
+                job.status = JobStatus.COMPLETED;
+                job.completed_at = new Date().toISOString();
+            }
+
+            return stepResult;
+        } catch (error) {
+            stepResult.status = JobStatus.FAILED;
+            stepResult.error_message = error instanceof Error ? error.message : 'Unknown error';
+            stepResult.completed_at = new Date().toISOString();
+
+            // Update execution state
+            state.step_results[stepIndex] = stepResult;
+            state.status = JobStatus.FAILED;
+            job.status = JobStatus.FAILED;
+            job.error_message = stepResult.error_message;
+
+            throw error;
+        }
     }
 };
 
@@ -177,6 +271,17 @@ export const jobsApi = {
             // TODO: Replace with actual API call
             // await api.delete(`/api/jobs/${jobId}`);
             return mockApi.deleteJob(jobId);
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
+    executeStep: async (jobId: string, stepIndex: number): Promise<StepExecutionResult> => {
+        try {
+            // TODO: Replace with actual API call
+            // const response = await api.post(`/api/jobs/${jobId}/steps/${stepIndex}/execute`);
+            // return response.data;
+            return mockApi.executeStep(jobId, stepIndex);
         } catch (error) {
             throw handleApiError(error);
         }

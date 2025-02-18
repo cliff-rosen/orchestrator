@@ -51,6 +51,26 @@ export interface Workflow {
     steps: WorkflowStep[];
 }
 
+// Helper function to create an array schema
+export const createArraySchema = (name: string, itemType: ValueType, description?: string): SchemaValue => ({
+    name,
+    type: itemType,  // The base type of the items
+    description,
+    array_type: true  // This indicates it's an array of itemType
+});
+
+// Default workflow with empty arrays
+export const DEFAULT_WORKFLOW: Workflow = {
+    workflow_id: '',
+    name: 'Untitled Workflow',
+    description: 'A new custom workflow',
+    status: WorkflowStatus.DRAFT,
+    steps: [],
+    inputs: [],
+    outputs: []
+};
+
+
 /* 
 Explanation of inputs, outputs and parameter mappings:
 - inputs: variables that are collected from the user
@@ -186,21 +206,3 @@ export const createBasicSchema = (name: string, type: ValueType, description?: s
     array_type: false
 });
 
-// Helper function to create an array schema
-export const createArraySchema = (name: string, itemType: ValueType, description?: string): SchemaValue => ({
-    name,
-    type: itemType,  // The base type of the items
-    description,
-    array_type: true  // This indicates it's an array of itemType
-});
-
-// Default workflow with empty arrays
-export const DEFAULT_WORKFLOW: Workflow = {
-    workflow_id: '',
-    name: 'Untitled Workflow',
-    description: 'A new custom workflow',
-    status: WorkflowStatus.DRAFT,
-    steps: [],
-    inputs: [],
-    outputs: []
-};

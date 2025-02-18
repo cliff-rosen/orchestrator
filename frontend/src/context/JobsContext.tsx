@@ -20,6 +20,7 @@ interface JobsContextValue extends JobsContextState {
 
     // Job Execution
     startJob: (jobId: string, inputVariables?: JobVariable[]) => Promise<void>;
+    executeStep: (jobId: string, stepIndex: number) => Promise<void>;
     cancelJob: (jobId: string) => Promise<void>;
 
     // State Management
@@ -31,7 +32,6 @@ interface JobsContextValue extends JobsContextState {
 const JobsContext = createContext<JobsContextValue | undefined>(undefined);
 
 export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // State
     const [state, setState] = useState<JobsContextState>({
         jobs: [],
         isLoading: false,
@@ -129,41 +129,74 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     // Job execution
-    const startJob = useCallback(async (jobId: string, inputVariables?: JobVariable[]): Promise<void> => {
+    const executeStep = useCallback(async (jobId: string, stepIndex: number): Promise<void> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            const job = await jobsApi.startJob(jobId, inputVariables);
+            // Execute the step
+            const stepResult = await jobsApi.executeStep(jobId, stepIndex);
+
+            // Get updated execution state
+            const executionState = await jobsApi.getJobExecutionState(jobId);
+
+            // Get updated job
+            const job = await jobsApi.getJob(jobId);
+
+            // Update state
             setState(prev => ({
                 ...prev,
                 jobs: prev.jobs.map(j => j.job_id === jobId ? job : j),
                 currentJob: prev.currentJob?.job_id === jobId ? job : prev.currentJob,
+                executionState,
+                isLoading: false
+            }));
+        } catch (error) {
+            setState(prev => ({
+                ...prev,
+                isLoading: false,
+                error: error instanceof Error ? error.message : 'Failed to execute step'
+            }));
+            throw error;
+        }
+    }, []);
+
+    const startJob = useCallback(async (jobId: string, inputVariables?: JobVariable[]): Promise<void> => {
+        setState(prev => ({ ...prev, isLoading: true, error: undefined }));
+        try {
+            // Initialize job state
+            const job = await jobsApi.startJob(jobId, inputVariables);
+
+            // Get execution state with step information
+            const executionState = await jobsApi.getJobExecutionState(jobId);
+
+            // Update UI state
+            setState(prev => ({
+                ...prev,
+                jobs: prev.jobs.map(j => j.job_id === jobId ? job : j),
+                currentJob: prev.currentJob?.job_id === jobId ? job : prev.currentJob,
+                executionState,
                 isLoading: false
             }));
 
-            // Only start polling if the job is in RUNNING state
-            if (job.status === JobStatus.RUNNING) {
-                let isPolling = true;  // Flag to control polling
+            // Start executing steps
+            let currentStep = 0;
+            while (currentStep < job.steps.length) {
+                try {
+                    // Execute step
+                    await executeStep(jobId, currentStep);
 
-                const pollState = async () => {
-                    if (!isPolling) return;  // Stop if we're no longer polling
+                    // Get updated state
+                    const updatedState = await jobsApi.getJobExecutionState(jobId);
 
-                    try {
-                        const executionState = await jobsApi.getJobExecutionState(jobId);
-                        setState(prev => ({ ...prev, executionState }));
-
-                        // Continue polling only if job is still running and we haven't stopped polling
-                        if (executionState.status === JobStatus.RUNNING && isPolling) {
-                            setTimeout(pollState, 1000);
-                        } else {
-                            isPolling = false;  // Stop polling when job is done
-                        }
-                    } catch (error) {
-                        console.error('Failed to poll execution state:', error);
-                        isPolling = false;  // Stop polling on error
+                    // Check if job was cancelled or failed
+                    if (updatedState.status === JobStatus.FAILED) {
+                        break;
                     }
-                };
 
-                pollState();
+                    currentStep++;
+                } catch (error) {
+                    console.error(`Error executing step ${currentStep}:`, error);
+                    break;
+                }
             }
         } catch (error) {
             setState(prev => ({
@@ -173,7 +206,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }));
             throw error;
         }
-    }, []);
+    }, [executeStep]);
 
     const cancelJob = useCallback(async (jobId: string): Promise<void> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
@@ -216,6 +249,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createJob,
         deleteJob,
         startJob,
+        executeStep,
         cancelJob,
         setCurrentJob,
         resetCurrentJob,

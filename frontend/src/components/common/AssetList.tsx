@@ -19,6 +19,7 @@ interface AssetListProps {
     onDelete: (id: string) => void;
     createButtonText?: string;
     emptyStateMessage?: string;
+    useConfirmDialog?: boolean;
 }
 
 const AssetList: React.FC<AssetListProps> = ({
@@ -29,7 +30,8 @@ const AssetList: React.FC<AssetListProps> = ({
     onEdit,
     onDelete,
     createButtonText = 'Create New',
-    emptyStateMessage = 'No items found'
+    emptyStateMessage = 'No items found',
+    useConfirmDialog = true
 }) => {
     return (
         <div className="container mx-auto px-4 py-8">
@@ -82,7 +84,7 @@ const AssetList: React.FC<AssetListProps> = ({
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (window.confirm(`Are you sure you want to delete "${asset.name}"?`)) {
+                                        if (!useConfirmDialog || window.confirm(`Are you sure you want to delete "${asset.name}"?`)) {
                                             onDelete(asset.id);
                                         }
                                     }}

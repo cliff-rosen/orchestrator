@@ -550,14 +550,14 @@ const Workflow: React.FC = () => {
 
                 {/* Main Content */}
                 <div className="flex-1 overflow-y-auto">
-                    <div className="container mx-auto px-4 py-6">
+                    <div className="container mx-auto px-4">
                         <div className="flex-1">
                             {showConfig ? (
                                 <WorkflowConfig />
                             ) : (
                                 <>
                                     {/* Step Detail */}
-                                    <div className="mt-4">
+                                    <div>
                                         {currentStep ? (
                                             <StepDetail
                                                 step={allSteps[activeStep]}

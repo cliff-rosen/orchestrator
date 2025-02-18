@@ -151,6 +151,7 @@ const JobsManager: React.FC = () => {
                 onDelete={handleDeleteClick}
                 onCreateNew={() => setIsCreateDialogOpen(true)}
                 emptyStateMessage="No jobs yet. Create one to get started."
+                useConfirmDialog={false}
             />
 
             <Dialog open={isCreateDialogOpen} onOpenChange={handleCloseCreateDialog}>

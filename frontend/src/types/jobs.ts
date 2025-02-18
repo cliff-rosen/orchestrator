@@ -1,3 +1,6 @@
+import { SchemaValue } from './schema';
+import { Tool } from './tools';
+
 export enum JobStatus {
     PENDING = 'pending',
     RUNNING = 'running',
@@ -6,11 +9,9 @@ export enum JobStatus {
 }
 
 export interface JobVariable {
-    name: string;
-    label?: string;
-    description?: string;
+    variable_id: string;
+    schema: SchemaValue;
     value: any;
-    type: 'string' | 'number' | 'boolean' | 'object';
     required: boolean;
 }
 
@@ -23,6 +24,9 @@ export interface JobStep {
     error_message?: string;
     started_at?: string;
     completed_at?: string;
+    tool?: Tool;
+    parameter_mappings: Record<string, string>;
+    output_mappings: Record<string, string>;
 }
 
 export interface Job {
@@ -53,6 +57,15 @@ export interface Job {
     live_output?: string;
 }
 
+export interface StepExecutionResult {
+    step_id: string;
+    status: JobStatus;
+    output_data?: any;
+    error_message?: string;
+    started_at: string;
+    completed_at?: string;
+}
+
 export interface JobExecutionState {
     job_id: string;
     current_step_index: number;
@@ -60,6 +73,8 @@ export interface JobExecutionState {
     is_paused: boolean;
     live_output: string;
     status: JobStatus;
+    step_results: StepExecutionResult[];
+    variables: Record<string, any>;
 }
 
 export interface CreateJobRequest {
