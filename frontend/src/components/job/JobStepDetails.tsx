@@ -1,14 +1,8 @@
 import React, { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Job, JobStatus } from '../../types/jobs';
-import { ChevronRight, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useValueFormatter } from '../../hooks/useValueFormatter.tsx';
-
-// Constants for text truncation
-const MAX_TEXT_LENGTH = 200;  // Characters for text
-const MAX_ARRAY_LENGTH = 3;   // Items for arrays
-const MAX_ARRAY_ITEM_LENGTH = 100;  // Characters per array item
+import { PromptTemplateLink } from './PromptTemplateLink';
 
 interface JobStepCardProps {
     step: Job['steps'][0];
@@ -80,16 +74,19 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
                             </span>
                             <span className="text-xs text-gray-500 dark:text-gray-400">
                                 {formatTimestamp(step.started_at)}
+                                {step.completed_at && ` - ${formatTimestamp(step.completed_at)}`}
                             </span>
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {step.tool?.name}
+                        <div className="space-y-1">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {step.tool?.name}
+                            </p>
                             {step.tool?.tool_type === 'llm' && step.prompt_template && (
-                                <span className="ml-2 text-gray-400 dark:text-gray-500">
-                                    • Template: {step.prompt_template}
-                                </span>
+                                <div className="text-xs">
+                                    <PromptTemplateLink templateId={step.prompt_template} />
+                                </div>
                             )}
-                        </p>
+                        </div>
                     </div>
                 </div>
                 {hasDetails && (
@@ -102,26 +99,6 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
 
             {isExpanded && hasDetails && (
                 <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-                    {/* Step Info */}
-                    <div className="mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                    {step.tool?.name || `Step ${index + 1}`}
-                                </h3>
-                                {step.tool?.description && (
-                                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                        {step.tool.description}
-                                    </p>
-                                )}
-                            </div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {formatTimestamp(step.started_at)}
-                                {step.completed_at && ` - ${formatTimestamp(step.completed_at)}`}
-                            </span>
-                        </div>
-                    </div>
-
                     {/* Inputs and Outputs */}
                     <div className="space-y-4">
                         {/* Input Parameters */}
