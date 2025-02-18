@@ -1,6 +1,8 @@
 import React from 'react';
 import { Job, JobStatus } from '../../types/jobs';
 import { useValueFormatter } from '../../hooks/useValueFormatter.tsx';
+import { WorkflowInputs } from './WorkflowInputs';
+import { WorkflowOutputs } from './WorkflowOutputs';
 
 interface JobLiveOutputProps {
     job: Job;
@@ -41,89 +43,11 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
                     </span>
                 </div>
 
-                {/* Workflow Inputs - Full Width */}
-                {job.input_variables && job.input_variables.length > 0 && (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Workflow Inputs
-                            </h3>
-                        </div>
-                        <div className="p-4 grid grid-cols-2 gap-4">
-                            {job.input_variables.map((variable) => (
-                                <div key={variable.variable_id} className="text-sm flex items-start">
-                                    <span className="font-medium text-gray-600 dark:text-gray-300 min-w-[120px]">
-                                        {variable.schema.name}
-                                    </span>
-                                    <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
-                                    <span className="text-gray-700 dark:text-gray-200 flex-1">
-                                        {formatValue(variable.value)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {/* Workflow Inputs */}
+                {job.input_variables && <WorkflowInputs inputs={job.input_variables} />}
 
-                {/* Final Step Output */}
-                {Object.keys(finalStepOutput).length > 0 && (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Final Output
-                            </h3>
-                        </div>
-                        <div className="p-4 space-y-2">
-                            {Object.entries(finalStepOutput).map(([key, value]) => (
-                                <div key={key} className="text-sm flex items-start">
-                                    <span className="font-medium text-gray-600 dark:text-gray-300 min-w-[120px]">
-                                        {key}
-                                    </span>
-                                    <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
-                                    <span className="text-gray-700 dark:text-gray-200 flex-1">
-                                        {formatValue(value, true)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Other Outputs (Collapsible) */}
-                {Object.keys(otherOutputs).length > 0 && (
-                    <details className="group">
-                        <summary className="cursor-pointer bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
-                            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                                <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                                Intermediate Outputs
-                            </h3>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {Object.keys(otherOutputs).length} outputs
-                            </span>
-                        </summary>
-                        <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 space-y-2">
-                            {Object.entries(otherOutputs).map(([key, value]) => (
-                                <div key={key} className="text-sm flex items-start">
-                                    <span className="font-medium text-gray-600 dark:text-gray-300 min-w-[120px]">
-                                        {key}
-                                    </span>
-                                    <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
-                                    <span className="text-gray-700 dark:text-gray-200 flex-1">
-                                        {formatValue(value, true)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </details>
-                )}
+                {/* Workflow Outputs */}
+                <WorkflowOutputs finalStepOutput={finalStepOutput} otherOutputs={otherOutputs} />
             </div>
         );
     }
