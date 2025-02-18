@@ -243,6 +243,11 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             {step.tool?.name}
+                            {step.tool?.tool_type === 'llm' && step.prompt_template && (
+                                <span className="ml-2 text-gray-400 dark:text-gray-500">
+                                    • Template: {step.prompt_template}
+                                </span>
+                            )}
                         </p>
                     </div>
                 </div>

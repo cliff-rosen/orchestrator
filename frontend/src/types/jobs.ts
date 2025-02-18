@@ -25,6 +25,7 @@ export interface JobStep {
     started_at?: string;
     completed_at?: string;
     tool?: Tool;
+    prompt_template?: string;
     parameter_mappings: Record<string, string>;
     output_mappings: Record<string, string>;
 }

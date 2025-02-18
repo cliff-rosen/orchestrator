@@ -18,22 +18,22 @@ export const JobStepsList: React.FC<JobStepsListProps> = ({ job, workflow, needs
                 <div
                     key={step.step_id}
                     className={`p-4 rounded-lg border transition-all duration-300 ${needsInput && index === 0
+                        ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-900/10'
+                        : currentStepIndex === index
                             ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-900/10'
-                            : currentStepIndex === index
-                                ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-900/10'
-                                : index < currentStepIndex
-                                    ? 'border-gray-200 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-900/10'
-                                    : 'border-gray-200 dark:border-gray-700'
+                            : index < currentStepIndex
+                                ? 'border-gray-200 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-900/10'
+                                : 'border-gray-200 dark:border-gray-700'
                         }`}
                 >
                     <div className="flex items-start gap-3">
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${needsInput && index === 0
+                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                            : currentStepIndex === index
                                 ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                                : currentStepIndex === index
-                                    ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                                    : index < currentStepIndex
-                                        ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                                        : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                                : index < currentStepIndex
+                                    ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                                    : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
                             }`}>
                             {index + 1}
                         </div>
