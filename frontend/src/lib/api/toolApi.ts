@@ -153,7 +153,40 @@ export const toolApi = {
         if (!executor) {
             throw new Error(`No executor found for tool ${toolId}`);
         }
-        return executor(parameters);
+
+        const tool = await toolApi.getTool(toolId);
+        let transformedParams: Record<string, any> = { ...parameters };
+
+        // For any tool, convert file variables to file IDs
+        Object.entries(parameters).forEach(([key, value]) => {
+            if (typeof value === 'object' && value !== null && 'file_id' in value) {
+                transformedParams[key] = value.file_id;
+            }
+        });
+
+        // Additional transformation for LLM tools
+        if (tool.tool_type === 'llm') {
+            const regular_variables: Record<string, any> = {};
+            const file_variables: Record<string, string> = {};
+
+            Object.entries(transformedParams).forEach(([key, value]) => {
+                if (key === 'prompt_template_id') return;
+                if (typeof value === 'string' && value.startsWith('file:')) {
+                    file_variables[key] = value.substring(5);
+                } else {
+                    regular_variables[key] = value;
+                }
+            });
+
+            transformedParams = {
+                prompt_template_id: parameters.prompt_template_id,
+                regular_variables,
+                file_variables
+            };
+        }
+
+        console.log('Executing tool:', toolId, transformedParams);
+        return executor(transformedParams);
     },
 
     // Clear the cache (useful when we need to force a refresh)
@@ -177,7 +210,7 @@ export const toolApi = {
         // Clear parameter mappings for parameters that no longer exist
         if (step.parameter_mappings) {
             Object.keys(step.parameter_mappings).forEach(param => {
-                if (!signature.parameters.find(p => p.name === param)) {
+                if (!signature.parameters.find(p => p.parameter_id === param)) {
                     delete parameterMappings[param];
                 }
             });
@@ -186,7 +219,7 @@ export const toolApi = {
         // Clear output mappings for outputs that no longer exist
         if (step.output_mappings) {
             Object.keys(step.output_mappings).forEach(output => {
-                if (!signature.outputs.find(o => o.name === output)) {
+                if (!signature.outputs.find(o => o.output_id === output)) {
                     delete outputMappings[output];
                 }
             });

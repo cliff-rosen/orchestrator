@@ -41,7 +41,8 @@ const mockApi = {
             status: JobStatus.PENDING,
             tool: step.tool,
             parameter_mappings: step.parameter_mappings,
-            output_mappings: step.output_mappings
+            output_mappings: step.output_mappings,
+            prompt_template: step.prompt_template
         }));
 
         const newJob: Job = {
@@ -88,7 +89,19 @@ const mockApi = {
             input_variables: inputVariables || mockData.jobs[jobIndex].input_variables
         };
 
-        // Initialize execution state
+        // Initialize execution state with a single pool of variables
+        // Start with input variables
+        const variables: Record<string, any> = {};
+        if (inputVariables) {
+            inputVariables.forEach(v => {
+                // Store by both variable_id and schema name for robust lookups
+                variables[v.variable_id] = v.value;
+                if (v.schema.name) {
+                    variables[v.schema.name] = v.value;
+                }
+            });
+        }
+
         mockData.executionStates[jobId] = {
             job_id: jobId,
             current_step_index: 0,
@@ -97,9 +110,7 @@ const mockApi = {
             live_output: '',
             status: JobStatus.RUNNING,
             step_results: [],
-            variables: Object.fromEntries(
-                (inputVariables || []).map(v => [v.schema.name, v.value])
-            )
+            variables // Single pool of variables
         };
 
         mockData.jobs[jobIndex] = updatedJob;
@@ -156,8 +167,20 @@ const mockApi = {
             // Prepare parameters from variable mappings
             const parameters: Record<string, any> = {};
             for (const [paramName, varName] of Object.entries(step.parameter_mappings)) {
-                parameters[paramName] = state.variables[varName];
+                // Look up the variable in our single pool
+                const value = state.variables[varName];
+                if (value === undefined) {
+                    console.warn(`Variable ${varName} not found in workflow variables`);
+                }
+                parameters[paramName] = value;
             }
+
+            // Add prompt template ID for LLM tools
+            if (tool.tool_type === 'llm' && 'prompt_template' in step) {
+                parameters.prompt_template_id = step.prompt_template;
+            }
+
+            console.log('Executing tool with parameters:', parameters);
 
             // Execute the tool
             const result = await toolApi.executeTool(tool.tool_id, parameters);
@@ -177,12 +200,15 @@ const mockApi = {
             updatedStep.output_data = result;
             updatedStep.completed_at = new Date().toISOString();
 
-            // Update job's output data if this step has output mappings
+            // Add step outputs to the variable pool
             if (updatedStep.output_mappings) {
                 if (!job.output_data) job.output_data = {};
                 Object.entries(updatedStep.output_mappings).forEach(([outputName, variableName]) => {
                     if (result && outputName in result) {
-                        job.output_data[variableName] = result[outputName as ToolOutputName];
+                        const value = result[outputName as ToolOutputName];
+                        // Update both job output data and variable pool
+                        job.output_data[variableName] = value;
+                        state.variables[variableName] = value;
                     }
                 });
             }

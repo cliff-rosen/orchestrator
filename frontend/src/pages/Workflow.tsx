@@ -168,7 +168,6 @@ const Workflow: React.FC = () => {
     };
 
     const handleExecuteTool = async (): Promise<void> => {
-        console.log('handleExecuteTool called with tool_id:', currentStep.tool?.tool_id);
         try {
             setIsExecuting(true);
             const currentStep = allSteps[activeStep];
@@ -176,84 +175,26 @@ const Workflow: React.FC = () => {
 
             if (currentStep.tool?.tool_id) {
                 const toolId = currentStep.tool.tool_id;
-                let outputs;
+                let parameters: Record<string, any> = {};
 
-                // Clear output values for this step before execution
-                if (workflow?.outputs && currentStep.output_mappings) {
-                    const clearedOutputs = workflow.outputs.map(output => {
-                        if (Object.values(currentStep.output_mappings || {}).includes(output.schema.name)) {
-                            return { ...output, value: undefined };
+                // Collect parameters from mappings
+                if (currentStep.parameter_mappings) {
+                    for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
+                        const variable = workflow?.inputs?.find(v => v.schema.name === varName) ||
+                            workflow?.outputs?.find(v => v.schema.name === varName);
+
+                        if (variable) {
+                            parameters[paramName] = variable.value;
                         }
-                        return output;
-                    });
-                    updateWorkflow({ outputs: clearedOutputs });
+                    }
                 }
 
-                // Special handling for LLM tools
-                if (currentStep.tool.tool_type === 'llm') {
-                    if (!currentStep.prompt_template) {
-                        throw new Error('No prompt template selected for LLM tool');
-                    }
-
-                    const regular_variables: Record<string, any> = {};
-                    const file_variables: Record<string, string> = {};
-
-                    if (currentStep.parameter_mappings) {
-                        for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
-                            const variable = workflow?.inputs?.find(v => v.schema.name === varName) ||
-                                workflow?.outputs?.find(v => v.schema.name === varName);
-
-                            if (variable?.schema.type === 'file') {
-                                const fileValue = variable.value;
-                                if (fileValue?.file_id) {
-                                    file_variables[paramName] = fileValue.file_id;
-                                } else {
-                                    console.warn(`File variable ${varName} has no file_id`);
-                                }
-                            } else {
-                                // Handle string array to string conversion
-                                const parameterDef = currentStep.tool?.signature.parameters.find(p => p.schema.name === paramName);
-                                if (Array.isArray(variable?.value) && !parameterDef?.schema.array_type) {
-                                    // Join array elements with newlines for better readability
-                                    regular_variables[paramName] = variable.value.join('\n');
-                                } else {
-                                    regular_variables[paramName] = variable?.value;
-                                }
-                            }
-                        }
-                    }
-
-                    outputs = await toolApi.executeTool(toolId, {
-                        prompt_template_id: currentStep.prompt_template,
-                        regular_variables,
-                        file_variables
-                    });
-                } else {
-                    // For non-LLM tools, collect all parameters in a flat object
-                    const parameters: Record<string, any> = {};
-
-                    if (currentStep.parameter_mappings) {
-                        for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
-                            const variable = workflow?.inputs?.find(v => v.schema.name === varName) ||
-                                workflow?.outputs?.find(v => v.schema.name === varName);
-
-                            if (variable?.schema.type === 'file') {
-                                const fileValue = variable.value;
-                                if (fileValue?.file_id) {
-                                    parameters[paramName] = fileValue.file_id;
-                                } else {
-                                    console.warn(`File variable ${varName} has no file_id`);
-                                }
-                            } else {
-                                parameters[paramName] = variable?.value;
-                            }
-                        }
-                    }
-
-                    outputs = await toolApi.executeTool(toolId, parameters);
+                // Add prompt template ID for LLM tools
+                if (currentStep.tool.tool_type === 'llm' && currentStep.prompt_template) {
+                    parameters.prompt_template_id = currentStep.prompt_template;
                 }
 
-                console.log('Tool execution outputs:', outputs);
+                const outputs = await toolApi.executeTool(toolId, parameters);
 
                 // Store outputs in workflow variables
                 if (currentStep.output_mappings) {
@@ -261,23 +202,19 @@ const Workflow: React.FC = () => {
 
                     for (const [outputName, varName] of Object.entries(currentStep.output_mappings)) {
                         const value = outputs[outputName as ToolOutputName];
-                        // console.log(`Loading output ${outputName} into ${varName} with value`, value);
-
-                        // Find and update the output variable
                         const outputVar = updatedOutputs.find(v => v.schema.name === varName);
                         if (outputVar) {
                             outputVar.value = value;
                         }
                     }
 
-                    // Update workflow with new output values
                     updateWorkflow({ outputs: updatedOutputs });
                 }
                 setStepExecuted(true);
             }
         } catch (error) {
-            console.error('Error executing step:', error);
-            setError('Failed to execute step');
+            console.error('Error executing tool:', error);
+            setError(error instanceof Error ? error.message : 'Unknown error occurred');
         } finally {
             setIsExecuting(false);
         }
