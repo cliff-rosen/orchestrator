@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable } from '../types/jobs';
 import { jobsApi } from '../lib/api/jobsApi';
+import { workflowApi } from '../lib/api/workflowApi';
+import { WorkflowVariable } from '../types/workflows';
+import { useWorkflows } from './WorkflowContext';
 
 interface JobsContextState {
     jobs: Job[];
@@ -8,6 +11,8 @@ interface JobsContextState {
     executionState?: JobExecutionState;
     isLoading: boolean;
     error?: string;
+    inputValues: Record<string, any>;
+    inputErrors: Record<string, string>;
 }
 
 interface JobsContextValue extends JobsContextState {
@@ -22,6 +27,13 @@ interface JobsContextValue extends JobsContextState {
     startJob: (jobId: string, inputVariables?: JobVariable[]) => Promise<void>;
     executeStep: (jobId: string, stepIndex: number) => Promise<void>;
     cancelJob: (jobId: string) => Promise<void>;
+    resetJob: (jobId: string) => Promise<void>;
+
+    // Input Management
+    setInputValue: (variableId: string, value: any) => void;
+    validateInputs: () => boolean;
+    clearInputs: () => void;
+    areInputsValid: () => boolean;
 
     // State Management
     setCurrentJob: (job?: Job) => void;
@@ -35,7 +47,11 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [state, setState] = useState<JobsContextState>({
         jobs: [],
         isLoading: false,
+        inputValues: {},
+        inputErrors: {},
     });
+
+    const { workflows } = useWorkflows();
 
     // Load jobs on mount
     useEffect(() => {
@@ -142,6 +158,11 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const job = await jobsApi.getJob(jobId);
 
             // Update state
+            console.log('JobsContext: Updating state', {
+                currentJob: job,
+                executionState,
+                isLoading: false
+            });
             setState(prev => ({
                 ...prev,
                 jobs: prev.jobs.map(j => j.job_id === jobId ? job : j),
@@ -160,15 +181,18 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const startJob = useCallback(async (jobId: string, inputVariables?: JobVariable[]): Promise<void> => {
+        console.log('JobsContext: Starting job', { jobId, inputVariables });
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
             // Initialize job state
             const job = await jobsApi.startJob(jobId, inputVariables);
+            console.log('JobsContext: Job initialized', job);
 
-            // Get execution state with step information
+            // Get execution state
             const executionState = await jobsApi.getJobExecutionState(jobId);
+            console.log('JobsContext: Got execution state', executionState);
 
-            // Update UI state
+            // Update UI state with initial state
             setState(prev => ({
                 ...prev,
                 jobs: prev.jobs.map(j => j.job_id === jobId ? job : j),
@@ -180,25 +204,65 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Start executing steps
             let currentStep = 0;
             while (currentStep < job.steps.length) {
+                console.log(`JobsContext: Executing step ${currentStep}`);
                 try {
                     // Execute step
                     await executeStep(jobId, currentStep);
 
-                    // Get updated state
+                    // Get updated job state
+                    const updatedJob = await jobsApi.getJob(jobId);
+                    console.log('JobsContext: Updated job state:', updatedJob);
+
+                    // Get updated execution state
                     const updatedState = await jobsApi.getJobExecutionState(jobId);
+                    console.log('JobsContext: Updated execution state:', updatedState);
+
+                    // Update UI with latest state - using a Promise to ensure state is updated
+                    await new Promise<void>(resolve => {
+                        setState(prev => {
+                            const newState = {
+                                ...prev,
+                                jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
+                                currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob,
+                                executionState: updatedState,
+                                isLoading: false
+                            };
+                            resolve();
+                            return newState;
+                        });
+                    });
 
                     // Check if job was cancelled or failed
                     if (updatedState.status === JobStatus.FAILED) {
+                        console.log('JobsContext: Job failed, breaking execution');
                         break;
                     }
 
+                    // Add a small delay to ensure UI can update
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
                     currentStep++;
                 } catch (error) {
-                    console.error(`Error executing step ${currentStep}:`, error);
+                    console.error(`JobsContext: Error executing step ${currentStep}:`, error);
+
+                    // Update UI with error state
+                    const failedJob = await jobsApi.getJob(jobId);
+                    const failedState = await jobsApi.getJobExecutionState(jobId);
+
+                    setState(prev => ({
+                        ...prev,
+                        jobs: prev.jobs.map(j => j.job_id === jobId ? failedJob : j),
+                        currentJob: prev.currentJob?.job_id === jobId ? failedJob : prev.currentJob,
+                        executionState: failedState,
+                        isLoading: false,
+                        error: error instanceof Error ? error.message : 'Failed to execute step'
+                    }));
+
                     break;
                 }
             }
         } catch (error) {
+            console.error('JobsContext: Error starting job:', error);
             setState(prev => ({
                 ...prev,
                 isLoading: false,
@@ -228,6 +292,100 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, []);
 
+    // Input Management
+    const setInputValue = useCallback((variableId: string, value: any) => {
+        setState(prev => {
+            const newInputValues = {
+                ...prev.inputValues,
+                [variableId]: value
+            };
+
+            // Clear error when value is set
+            const newInputErrors = { ...prev.inputErrors };
+            delete newInputErrors[variableId];
+
+            // Validate in real-time if needed
+            if (!value || value === '') {
+                newInputErrors[variableId] = 'This field is required';
+            }
+
+            return {
+                ...prev,
+                inputValues: newInputValues,
+                inputErrors: newInputErrors
+            };
+        });
+    }, []);
+
+    const validateInputs = useCallback(() => {
+        if (!state.currentJob?.workflow_id) return false;
+
+        const workflow = workflows?.find(w => w.workflow_id === state.currentJob.workflow_id);
+        const workflowInputs = workflow?.inputs || [];
+
+        const newErrors: Record<string, string> = {};
+        let isValid = true;
+
+        workflowInputs.forEach((input: WorkflowVariable) => {
+            const value = state.inputValues[input.variable_id];
+            if (!value && input.schema.type !== 'boolean') {
+                newErrors[input.variable_id] = 'This field is required';
+                isValid = false;
+            }
+        });
+
+        setState(prev => ({
+            ...prev,
+            inputErrors: newErrors
+        }));
+
+        return isValid;
+    }, [state.currentJob, state.inputValues, workflows]);
+
+    const clearInputs = useCallback(() => {
+        setState(prev => ({
+            ...prev,
+            inputValues: {},
+            inputErrors: {}
+        }));
+    }, []);
+
+    const areInputsValid = useCallback(() => {
+        if (!state.currentJob?.workflow_id) return false;
+
+        const workflow = workflows?.find(w => w.workflow_id === state.currentJob.workflow_id);
+        const workflowInputs = workflow?.inputs || [];
+
+        return workflowInputs.every((input: WorkflowVariable) => {
+            const value = state.inputValues[input.variable_id];
+            if (input.schema.type === 'boolean') return true;
+            if (input.schema.type === 'file') return value instanceof File;
+            return value !== undefined && value !== '';
+        });
+    }, [state.currentJob, state.inputValues, workflows]);
+
+    const resetJob = useCallback(async (jobId: string): Promise<void> => {
+        setState(prev => ({ ...prev, isLoading: true, error: undefined }));
+        try {
+            const job = await jobsApi.resetJob(jobId);
+            setState(prev => ({
+                ...prev,
+                jobs: prev.jobs.map(j => j.job_id === jobId ? job : j),
+                currentJob: prev.currentJob?.job_id === jobId ? job : prev.currentJob,
+                isLoading: false,
+                inputValues: {},
+                inputErrors: {}
+            }));
+        } catch (error) {
+            setState(prev => ({
+                ...prev,
+                isLoading: false,
+                error: error instanceof Error ? error.message : 'Failed to reset job'
+            }));
+            throw error;
+        }
+    }, []);
+
     // State management helpers
     const setCurrentJob = useCallback((job?: Job) => {
         setState(prev => ({ ...prev, currentJob: job }));
@@ -251,6 +409,11 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         startJob,
         executeStep,
         cancelJob,
+        resetJob,
+        setInputValue,
+        validateInputs,
+        clearInputs,
+        areInputsValid,
         setCurrentJob,
         resetCurrentJob,
         clearError,

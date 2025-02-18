@@ -72,6 +72,8 @@ const registerAllTools = () => {
     // Utility tools
     registerToolExecutor('echo', async (parameters: ResolvedParameters) => {
         const input = (parameters as Record<string, string>)['input'];
+        // Add delay for echo tool
+        await new Promise(resolve => setTimeout(resolve, 1000));
         return {
             ['output' as ToolOutputName]: `Echo: ${input}`
         };
@@ -80,6 +82,8 @@ const registerAllTools = () => {
     registerToolExecutor('concatenate', async (parameters: ResolvedParameters) => {
         const first = (parameters as Record<string, string>)['first'];
         const second = (parameters as Record<string, string>)['second'];
+        // Add delay for cat tool
+        await new Promise(resolve => setTimeout(resolve, 2000));
         return {
             ['result' as ToolOutputName]: `${first}${second}`
         };

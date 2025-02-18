@@ -181,6 +181,15 @@ const mockApi = {
                 job.completed_at = new Date().toISOString();
             }
 
+            // Update job's execution progress
+            job.execution_progress = {
+                current_step: stepIndex + 1,
+                total_steps: job.steps.length
+            };
+
+            // Update job's live output
+            job.live_output = state.live_output;
+
             return stepResult;
         } catch (error) {
             stepResult.status = JobStatus.FAILED;
@@ -195,6 +204,42 @@ const mockApi = {
 
             throw error;
         }
+    },
+
+    resetJob: (jobId: string): Job => {
+        const jobIndex = mockData.jobs.findIndex(j => j.job_id === jobId);
+        if (jobIndex === -1) throw new Error('Job not found');
+
+        const job = mockData.jobs[jobIndex];
+
+        // Reset the job to its initial state
+        const resetJob = {
+            ...job,
+            status: JobStatus.PENDING,
+            error_message: undefined,
+            started_at: undefined,
+            completed_at: undefined,
+            execution_progress: {
+                current_step: 0,
+                total_steps: job.steps.length
+            },
+            live_output: undefined,
+            steps: job.steps.map(step => ({
+                ...step,
+                status: JobStatus.PENDING,
+                output_data: undefined,
+                error_message: undefined,
+                started_at: undefined,
+                completed_at: undefined
+            }))
+        };
+
+        // Clear execution state
+        delete mockData.executionStates[jobId];
+
+        // Update the job in the store
+        mockData.jobs[jobIndex] = resetJob;
+        return { ...resetJob };
     }
 };
 
@@ -282,6 +327,14 @@ export const jobsApi = {
             // const response = await api.post(`/api/jobs/${jobId}/steps/${stepIndex}/execute`);
             // return response.data;
             return mockApi.executeStep(jobId, stepIndex);
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    },
+
+    resetJob: async (jobId: string): Promise<Job> => {
+        try {
+            return mockApi.resetJob(jobId);
         } catch (error) {
             throw handleApiError(error);
         }
