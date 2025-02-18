@@ -188,14 +188,17 @@ export const JobStepDetails: React.FC<JobStepDetailsProps> = ({ job }) => {
         setExpandedSteps(newExpanded);
     };
 
+    // Filter to only show executed steps
+    const executedSteps = job.steps.filter(step => step.status !== JobStatus.PENDING);
+
     return (
         <div className="space-y-2">
             {/* Steps List */}
-            {job.steps.map((step, index) => (
+            {executedSteps.map((step, index) => (
                 <JobStepCard
                     key={step.step_id}
                     step={step}
-                    index={index}
+                    index={job.steps.findIndex(s => s.step_id === step.step_id)} // Keep original step index for numbering
                     isExpanded={expandedSteps.has(index)}
                     onToggle={() => toggleStep(index)}
                     job={job}

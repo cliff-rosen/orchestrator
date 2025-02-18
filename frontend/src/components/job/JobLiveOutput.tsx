@@ -6,170 +6,169 @@ interface JobLiveOutputProps {
 }
 
 export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
-    // Always show the last executed step, or the last step if job is complete
+    const isComplete = job.status === JobStatus.COMPLETED;
+    const isFailed = job.status === JobStatus.FAILED;
+
+    if (isComplete) {
+        return (
+            <div className="space-y-6">
+                {/* Job Summary Header */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">
+                            Job Summary
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Workflow execution completed successfully
+                        </p>
+                    </div>
+                    <span className="px-3 py-1 text-sm font-medium rounded-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 ring-1 ring-green-600/20 dark:ring-green-300/20">
+                        Completed
+                    </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Workflow Inputs */}
+                    {job.input_variables && job.input_variables.length > 0 && (
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                    <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Workflow Inputs
+                                </h3>
+                            </div>
+                            <div className="p-4 space-y-2">
+                                {job.input_variables.map((variable) => (
+                                    <div key={variable.variable_id} className="text-sm flex items-start">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300 min-w-[120px]">
+                                            {variable.schema.name}
+                                        </span>
+                                        <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
+                                        <span className="text-gray-700 dark:text-gray-200 flex-1">
+                                            {typeof variable.value === 'object'
+                                                ? JSON.stringify(variable.value, null, 2)
+                                                : String(variable.value)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Final Output */}
+                    {job.output_data && Object.keys(job.output_data).length > 0 && (
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                    <svg className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Final Output
+                                </h3>
+                            </div>
+                            <div className="p-4 space-y-2">
+                                {Object.entries(job.output_data).map(([key, value]) => (
+                                    <div key={key} className="text-sm flex items-start">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300 min-w-[120px]">
+                                            {key}
+                                        </span>
+                                        <span className="text-gray-400 dark:text-gray-500 mx-2">=</span>
+                                        <span className="text-gray-700 dark:text-gray-200 flex-1">
+                                            {typeof value === 'object'
+                                                ? JSON.stringify(value, null, 2)
+                                                : String(value)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // For running or failed jobs, show current step info
     const currentStepIndex = job.execution_progress?.current_step || 0;
-    const lastExecutedIndex = job.steps.findIndex(step => step.status === JobStatus.PENDING) - 1;
-    const displayIndex = job.status === JobStatus.COMPLETED ? job.steps.length - 1 :
-        lastExecutedIndex >= 0 ? lastExecutedIndex : currentStepIndex;
-    const currentStep = job.steps[displayIndex];
+    const currentStep = job.steps[currentStepIndex];
 
     if (!currentStep) return null;
-
-    // Get the actual input values from the job's variables
-    const getInputValue = (mapping: string) => {
-        if (!job.input_variables) return mapping;
-        const variable = job.input_variables.find(v => v.variable_id === mapping || v.schema.name === mapping);
-        return variable ? variable.value : mapping;
-    };
 
     return (
         <div className="space-y-4">
             {/* Current Step Info */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                        {currentStep.tool?.name || 'Unknown Tool'}
+            <div className="bg-gray-50/50 dark:bg-gray-900/30 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {currentStep.tool?.name || 'Current Step'}
+                    </h3>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full 
+                        ${currentStep.status === JobStatus.RUNNING
+                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                            : currentStep.status === JobStatus.FAILED
+                                ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
+                        {currentStep.status}
                     </span>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {currentStep.tool?.description}
+                </div>
+
+                {/* Tool Description */}
+                {currentStep.tool?.description && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        {currentStep.tool.description}
                     </p>
-                </div>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentStep.status === JobStatus.COMPLETED ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' :
-                    currentStep.status === JobStatus.FAILED ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' :
-                        currentStep.status === JobStatus.RUNNING ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' :
-                            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                    }`}>
-                    {currentStep.status}
-                </span>
-            </div>
-
-            {/* Current Step Details */}
-            <div className="space-y-3">
-                <div className="bg-gray-50/50 dark:bg-gray-900/30 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                    {/* Step Name Header */}
-                    <div className="mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                {currentStep.tool?.name || 'Current Step'}
-                            </h3>
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentStep.status === JobStatus.COMPLETED ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' :
-                                currentStep.status === JobStatus.FAILED ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' :
-                                    currentStep.status === JobStatus.RUNNING ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' :
-                                        'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                                }`}>
-                                {currentStep.status}
-                            </span>
-                        </div>
-                        {currentStep.tool?.description && (
-                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                {currentStep.tool.description}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                        {/* Input Parameters - Left Column */}
-                        <div>
-                            {currentStep.parameter_mappings && Object.keys(currentStep.parameter_mappings).length > 0 && (
-                                <div>
-                                    <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
-                                        Inputs
-                                    </h4>
-                                    <div className="space-y-1">
-                                        {Object.entries(currentStep.parameter_mappings).map(([key, mapping]) => (
-                                            <div key={key} className="text-sm">
-                                                <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
-                                                <span className="text-gray-400 dark:text-gray-500"> = </span>
-                                                <span className="text-gray-700 dark:text-gray-200">
-                                                    {JSON.stringify(getInputValue(mapping))}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Middle Column - Step Info */}
-                        <div className="flex flex-col items-center justify-start">
-                            <div className="text-center">
-                                <div className="text-lg font-semibold text-gray-700 dark:text-gray-200">
-                                    {`${displayIndex + 1}`}
-                                </div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {currentStep.tool?.name || 'No tool'}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Outputs - Right Column */}
-                        <div>
-                            {currentStep.output_data && Object.keys(currentStep.output_data).length > 0 && (
-                                <div>
-                                    <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
-                                        Outputs
-                                    </h4>
-                                    <div className="space-y-1">
-                                        {Object.entries(currentStep.output_data).map(([key, value]) => (
-                                            <div key={key} className="text-sm">
-                                                <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
-                                                <span className="text-gray-400 dark:text-gray-500"> = </span>
-                                                <span className="text-gray-700 dark:text-gray-200">
-                                                    {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Live Output - Full Width */}
-                {job.live_output && currentStep.status === JobStatus.RUNNING && (
-                    <div className="bg-gray-50/50 dark:bg-gray-900/30 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                        <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
-                            Live Output
-                        </h4>
-                        <pre className="text-sm overflow-auto max-h-32 text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
-                            {job.live_output}
-                        </pre>
-                    </div>
                 )}
 
-                {/* Error Message - Full Width */}
-                {currentStep.status === JobStatus.FAILED && currentStep.error_message && (
-                    <div className="border border-rose-200 dark:border-rose-900 bg-rose-50/30 dark:bg-rose-900/10 rounded-lg p-3">
-                        <h4 className="text-xs uppercase font-medium text-rose-600 dark:text-rose-400 mb-2">
-                            Error
-                        </h4>
-                        <p className="text-sm text-rose-600 dark:text-rose-300">
-                            {currentStep.error_message}
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            {/* Final Job Output - Full Width */}
-            {job.status === JobStatus.COMPLETED && job.output_data && (
-                <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <div className="bg-gray-50/50 dark:bg-gray-900/30 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                {/* Current Step Parameters */}
+                {currentStep.parameter_mappings && Object.keys(currentStep.parameter_mappings).length > 0 && (
+                    <div className="mb-4">
                         <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
-                            Final Job Output
+                            Input Parameters
                         </h4>
                         <div className="space-y-1">
-                            {Object.entries(job.output_data).map(([key, value]) => (
-                                <div key={key} className="text-sm">
-                                    <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
-                                    <span className="text-gray-400 dark:text-gray-500"> = </span>
-                                    <span className="text-gray-700 dark:text-gray-200">
-                                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                    </span>
-                                </div>
-                            ))}
+                            {Object.entries(currentStep.parameter_mappings).map(([key, mapping]) => {
+                                const value = job.input_variables?.find(v =>
+                                    v.variable_id === mapping || v.schema.name === mapping
+                                )?.value || mapping;
+
+                                return (
+                                    <div key={key} className="text-sm">
+                                        <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
+                                        <span className="text-gray-400 dark:text-gray-500"> = </span>
+                                        <span className="text-gray-700 dark:text-gray-200">
+                                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                        </span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
+                )}
+            </div>
+
+            {/* Live Output */}
+            {job.live_output && currentStep.status === JobStatus.RUNNING && (
+                <div className="bg-gray-50/50 dark:bg-gray-900/30 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
+                        Live Output
+                    </h4>
+                    <pre className="text-sm overflow-auto max-h-32 text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+                        {job.live_output}
+                    </pre>
+                </div>
+            )}
+
+            {/* Error Message */}
+            {isFailed && currentStep.error_message && (
+                <div className="border border-rose-200 dark:border-rose-900 bg-rose-50/30 dark:bg-rose-900/10 rounded-lg p-4">
+                    <h4 className="text-xs uppercase font-medium text-rose-600 dark:text-rose-400 mb-2">
+                        Error
+                    </h4>
+                    <p className="text-sm text-rose-600 dark:text-rose-300">
+                        {currentStep.error_message}
+                    </p>
                 </div>
             )}
         </div>
