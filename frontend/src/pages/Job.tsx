@@ -273,7 +273,7 @@ const Job: React.FC = () => {
 
                                 {/* Current Step Section */}
                                 <div className="p-4">
-                                    <JobLiveOutput job={currentJob} />
+                                    <JobLiveOutput job={currentJob} workflow={workflow} />
                                 </div>
                             </div>
 

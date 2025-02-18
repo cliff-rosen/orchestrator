@@ -1,14 +1,17 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Job, JobStatus } from '../../types/jobs';
+import { Workflow } from '../../types/workflows';
 import { useValueFormatter } from '../../hooks/useValueFormatter.tsx';
 import { WorkflowInputs } from './WorkflowInputs';
 import { WorkflowOutputs } from './WorkflowOutputs';
 
 interface JobLiveOutputProps {
     job: Job;
+    workflow?: Workflow;
 }
 
-export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
+export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) => {
     const isComplete = job.status === JobStatus.COMPLETED;
     const isFailed = job.status === JobStatus.FAILED;
     const { formatValue } = useValueFormatter();
@@ -35,7 +38,19 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job }) => {
                             Job Summary
                         </h2>
                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            Workflow execution completed successfully
+                            {workflow ? (
+                                <>
+                                    Running{' '}
+                                    <Link
+                                        to={`/workflow/${workflow.workflow_id}`}
+                                        className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                                    >
+                                        {workflow.name}
+                                    </Link>
+                                </>
+                            ) : (
+                                'Workflow execution completed successfully'
+                            )}
                         </p>
                     </div>
                     <span className="px-3 py-1 text-sm font-medium rounded-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 ring-1 ring-green-600/20 dark:ring-green-300/20">
