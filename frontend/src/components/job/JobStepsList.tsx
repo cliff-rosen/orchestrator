@@ -17,7 +17,7 @@ export const JobStepsList: React.FC<JobStepsListProps> = ({ job, workflow, needs
             {workflow.steps.map((step, index) => (
                 <div
                     key={step.step_id}
-                    className={`p-4 rounded-lg border transition-all duration-300 ${needsInput && index === 0
+                    className={`p-3 rounded-lg border transition-all duration-300 ${needsInput && index === 0
                         ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-900/10'
                         : currentStepIndex === index
                             ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-900/10'
@@ -26,27 +26,41 @@ export const JobStepsList: React.FC<JobStepsListProps> = ({ job, workflow, needs
                                 : 'border-gray-200 dark:border-gray-700'
                         }`}
                 >
-                    <div className="flex items-start gap-3">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${needsInput && index === 0
-                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                    <div className="flex items-start">
+                        <div className={`w-8 flex-none flex items-center justify-center ${needsInput && index === 0
+                            ? 'text-indigo-700 dark:text-indigo-300'
                             : currentStepIndex === index
-                                ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                                ? 'text-indigo-700 dark:text-indigo-300'
                                 : index < currentStepIndex
-                                    ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                                    : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                                    ? 'text-gray-600 dark:text-gray-300'
+                                    : 'text-gray-500 dark:text-gray-400'
                             }`}>
-                            {index + 1}
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${needsInput && index === 0
+                                ? 'bg-indigo-50 dark:bg-indigo-900/30'
+                                : currentStepIndex === index
+                                    ? 'bg-indigo-50 dark:bg-indigo-900/30'
+                                    : index < currentStepIndex
+                                        ? 'bg-gray-100 dark:bg-gray-800'
+                                        : 'bg-gray-100 dark:bg-gray-800'
+                                }`}>
+                                {index + 1}
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="font-medium text-gray-700 dark:text-gray-200">
+                        <div className="min-w-0 flex-1">
+                            <h3 className="font-medium text-gray-700 dark:text-gray-200 truncate">
                                 {step.label || `Step ${index + 1}`}
                             </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
                                 {step.description}
                             </p>
                             {step.tool && (
-                                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                     Tool: {step.tool.name}
+                                    {step.tool.tool_type === 'llm' && step.prompt_template && (
+                                        <span className="ml-2 text-gray-400 dark:text-gray-500">
+                                            • Template: {step.prompt_template}
+                                        </span>
+                                    )}
                                 </div>
                             )}
                         </div>

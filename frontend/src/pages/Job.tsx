@@ -162,7 +162,7 @@ const Job: React.FC = () => {
     };
 
     return (
-        <div className="container mx-auto px-4 py-2">
+        <div className="container mx-auto px-2 sm:px-3 md:px-4 py-2">
             {/* Unified Header */}
             <div className="flex justify-between items-center mb-8">
                 {/* Left side: Back button and Job info */}
@@ -243,9 +243,9 @@ const Job: React.FC = () => {
             </div>
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-12 gap-6 py-4">
+            <div className="grid grid-cols-12 gap-3 md:gap-6 py-4">
                 {/* Steps List - Left Side */}
-                <div className="col-span-4">
+                <div className="col-span-3">
                     <JobStepsList
                         job={currentJob}
                         workflow={workflow}
@@ -254,7 +254,7 @@ const Job: React.FC = () => {
                 </div>
 
                 {/* Execution Details - Right Side */}
-                <div className="col-span-8 space-y-6">
+                <div className="col-span-9 space-y-6">
                     {needsInput ? (
                         <JobInputForm
                             workflowInputs={workflowInputs}
