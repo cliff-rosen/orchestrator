@@ -149,6 +149,8 @@ export const toolApi = {
 
     // Execute a tool
     executeTool: async (toolId: string, parameters: ResolvedParameters): Promise<ToolOutputs> => {
+        console.log('Executing tool:', toolId, parameters);
+
         const executor = getToolExecutor(toolId);
         if (!executor) {
             throw new Error(`No executor found for tool ${toolId}`);
@@ -157,22 +159,27 @@ export const toolApi = {
         const tool = await toolApi.getTool(toolId);
         let transformedParams: Record<string, any> = { ...parameters };
 
-        // For any tool, convert file variables to file IDs
-        Object.entries(parameters).forEach(([key, value]) => {
-            if (typeof value === 'object' && value !== null && 'file_id' in value) {
-                transformedParams[key] = value.file_id;
-            }
-        });
-
         // Additional transformation for LLM tools
         if (tool.tool_type === 'llm') {
             const regular_variables: Record<string, any> = {};
             const file_variables: Record<string, string> = {};
 
+            // Get the signature from the prompt template
+            const promptTemplateId = parameters.prompt_template_id;
+            if (!promptTemplateId) {
+                throw new Error('No prompt template ID provided for LLM tool');
+            }
+
+            const signature = await toolApi.createToolSignatureFromTemplate(promptTemplateId);
+            console.log('Template signature:', signature);
+
             Object.entries(transformedParams).forEach(([key, value]) => {
                 if (key === 'prompt_template_id') return;
-                if (typeof value === 'string' && value.startsWith('file:')) {
-                    file_variables[key] = value.substring(5);
+
+                // Find the parameter definition in the template signature
+                const paramDef = signature.parameters.find(p => p.schema.name === key);
+                if (paramDef?.schema.type === 'file') {
+                    file_variables[key] = value.file_id;
                 } else {
                     regular_variables[key] = value;
                 }
@@ -210,7 +217,7 @@ export const toolApi = {
         // Clear parameter mappings for parameters that no longer exist
         if (step.parameter_mappings) {
             Object.keys(step.parameter_mappings).forEach(param => {
-                if (!signature.parameters.find(p => p.parameter_id === param)) {
+                if (!signature.parameters.find(p => p.schema.name === param)) {
                     delete parameterMappings[param];
                 }
             });
@@ -219,7 +226,7 @@ export const toolApi = {
         // Clear output mappings for outputs that no longer exist
         if (step.output_mappings) {
             Object.keys(step.output_mappings).forEach(output => {
-                if (!signature.outputs.find(o => o.output_id === output)) {
+                if (!signature.outputs.find(o => o.schema.name === output)) {
                     delete outputMappings[output];
                 }
             });
