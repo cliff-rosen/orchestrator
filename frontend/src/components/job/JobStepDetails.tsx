@@ -108,15 +108,27 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
                                     Inputs
                                 </h4>
                                 <div className="space-y-1">
-                                    {Object.entries(step.parameter_mappings).map(([key, mapping]) => (
-                                        <div key={key} className="text-sm">
-                                            <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
-                                            <span className="text-gray-400 dark:text-gray-500"> = </span>
-                                            <span className="text-gray-700 dark:text-gray-200">
-                                                {formatValue(getInputValue(mapping))}
-                                            </span>
-                                        </div>
-                                    ))}
+                                    {Object.entries(step.parameter_mappings).map(([key, mapping]) => {
+                                        const value = getInputValue(mapping);
+                                        const formattedValue = formatValue(value);
+                                        const isComplexValue = React.isValidElement(formattedValue);
+
+                                        return (
+                                            <div key={key} className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
+                                                <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
+                                                <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
+                                                {isComplexValue ? (
+                                                    <div className="min-w-0">
+                                                        {formattedValue}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-700 dark:text-gray-200">
+                                                        {formattedValue}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -128,15 +140,26 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
                                     Outputs
                                 </h4>
                                 <div className="space-y-1">
-                                    {Object.entries(step.output_data).map(([key, value]) => (
-                                        <div key={key} className="text-sm">
-                                            <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
-                                            <span className="text-gray-400 dark:text-gray-500"> = </span>
-                                            <span className="text-gray-700 dark:text-gray-200">
-                                                {formatValue(value, true)}
-                                            </span>
-                                        </div>
-                                    ))}
+                                    {Object.entries(step.output_data).map(([key, value]) => {
+                                        const formattedValue = formatValue(value, true);
+                                        const isComplexValue = React.isValidElement(formattedValue);
+
+                                        return (
+                                            <div key={key} className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
+                                                <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
+                                                <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
+                                                {isComplexValue ? (
+                                                    <div className="min-w-0">
+                                                        {formattedValue}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-700 dark:text-gray-200">
+                                                        {formattedValue}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}

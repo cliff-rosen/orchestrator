@@ -32,6 +32,7 @@ export const useValueFormatter = (): UseValueFormatterReturn => {
             );
         }
 
+        // Handle arrays
         if (Array.isArray(value)) {
             const id = `array-${JSON.stringify(value).slice(0, 50)}`;
             const isExpanded = expandedValues[id];
@@ -44,7 +45,7 @@ export const useValueFormatter = (): UseValueFormatterReturn => {
                     {displayItems.map((item: any, index: number) => (
                         <div
                             key={index}
-                            className="text-sm font-medium text-gray-900 dark:text-white p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
+                            className="text-sm font-medium text-gray-700 dark:text-gray-200 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
                         >
                             <span className="font-normal text-gray-500 dark:text-gray-400 mr-2">
                                 {index + 1}.
@@ -64,22 +65,38 @@ export const useValueFormatter = (): UseValueFormatterReturn => {
             );
         }
 
+        // Handle objects
+        if (typeof value === 'object') {
+            return (
+                <div className="p-2 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+                    <pre className="text-sm text-gray-700 dark:text-gray-200">
+                        {JSON.stringify(value, null, 2)}
+                    </pre>
+                </div>
+            );
+        }
+
         const text = String(value);
         const id = `text-${text.slice(0, 50)}`;
         const isExpanded = expandedValues[id];
 
-        if (isOutput || text.includes('|') || text.includes('#') || text.includes('*')) {
+        // Only use markdown formatting if explicitly requested for output
+        // and the text is long or contains newlines
+        if (isOutput && (text.length > MAX_TEXT_LENGTH || text.includes('\n'))) {
             const displayText = text.length > MAX_TEXT_LENGTH && !isExpanded
                 ? `${text.substring(0, MAX_TEXT_LENGTH)}...`
                 : text;
 
             return (
                 <div className="space-y-2">
-                    <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                        <div className="prose prose-slate dark:prose-invert max-w-none">
+                    <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700">
+                        <div className="prose prose-gray dark:prose-invert max-w-none">
                             <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 components={{
+                                    p: ({ children }) => (
+                                        <p className="text-gray-700 dark:text-gray-200">{children}</p>
+                                    ),
                                     table: props => (
                                         <table className="min-w-full border-collapse border border-gray-200 dark:border-gray-700">
                                             {props.children}
@@ -101,22 +118,22 @@ export const useValueFormatter = (): UseValueFormatterReturn => {
                                         </tr>
                                     ),
                                     th: props => (
-                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
+                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
                                             {props.children}
                                         </th>
                                     ),
                                     td: props => (
-                                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
+                                        <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
                                             {props.children}
                                         </td>
                                     ),
                                     code: props => (
-                                        <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono text-gray-900 dark:text-gray-100">
+                                        <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono text-gray-700 dark:text-gray-200">
                                             {props.children}
                                         </code>
                                     ),
                                     pre: props => (
-                                        <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto text-gray-900 dark:text-gray-100">
+                                        <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto text-gray-700 dark:text-gray-200">
                                             {props.children}
                                         </pre>
                                     )
@@ -138,33 +155,8 @@ export const useValueFormatter = (): UseValueFormatterReturn => {
             );
         }
 
-        if (text.length <= MAX_TEXT_LENGTH) {
-            return (
-                <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                    <div className="text-base text-gray-900 dark:text-white whitespace-pre-wrap font-normal">
-                        {text}
-                    </div>
-                </div>
-            );
-        }
-
-        const truncatedText = isExpanded ? text : `${text.substring(0, MAX_TEXT_LENGTH)}...`;
-
-        return (
-            <div className="space-y-2">
-                <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                    <div className="text-base text-gray-900 dark:text-white whitespace-pre-wrap font-normal">
-                        {truncatedText}
-                    </div>
-                </div>
-                <button
-                    onClick={() => toggleExpand(id)}
-                    className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                >
-                    {isExpanded ? 'Show Less' : 'Show More...'}
-                </button>
-            </div>
-        );
+        // For simple text values, just return the text directly
+        return text;
     };
 
     return { formatValue };

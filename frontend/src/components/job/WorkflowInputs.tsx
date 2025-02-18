@@ -23,17 +23,29 @@ export const WorkflowInputs: React.FC<WorkflowInputsProps> = ({ inputs }) => {
                 </h3>
             </div>
             <div className="p-4 space-y-2">
-                {inputs.map((variable) => (
-                    <div key={variable.variable_id} className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
-                        <span className="font-medium text-gray-600 dark:text-gray-300">
-                            {variable.schema.name}
-                        </span>
-                        <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
-                        <div className="text-gray-700 dark:text-gray-200 min-w-0">
-                            {formatValue(variable.value)}
+                {inputs.map((variable) => {
+                    const value = variable.value;
+                    const formattedValue = formatValue(value);
+                    const isComplexValue = React.isValidElement(formattedValue);
+
+                    return (
+                        <div key={variable.variable_id} className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
+                            <span className="font-medium text-gray-600 dark:text-gray-300">
+                                {variable.schema.name}
+                            </span>
+                            <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
+                            {isComplexValue ? (
+                                <div className="min-w-0">
+                                    {formattedValue}
+                                </div>
+                            ) : (
+                                <span className="text-gray-700 dark:text-gray-200">
+                                    {formattedValue}
+                                </span>
+                            )}
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

@@ -25,17 +25,28 @@ export const WorkflowOutputs: React.FC<WorkflowOutputsProps> = ({ finalStepOutpu
                     </h3>
                 </div>
                 <div className="p-4 space-y-2">
-                    {Object.entries(data).map(([key, value]) => (
-                        <div key={key} className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
-                            <span className="font-medium text-gray-600 dark:text-gray-300">
-                                {key}
-                            </span>
-                            <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
-                            <div className="text-gray-700 dark:text-gray-200 min-w-0">
-                                {formatValue(value, true)}
+                    {Object.entries(data).map(([key, value]) => {
+                        const formattedValue = formatValue(value, true);
+                        const isComplexValue = React.isValidElement(formattedValue);
+
+                        return (
+                            <div key={key} className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
+                                <span className="font-medium text-gray-600 dark:text-gray-300">
+                                    {key}
+                                </span>
+                                <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
+                                {isComplexValue ? (
+                                    <div className="min-w-0">
+                                        {formattedValue}
+                                    </div>
+                                ) : (
+                                    <span className="text-gray-700 dark:text-gray-200">
+                                        {formattedValue}
+                                    </span>
+                                )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         );
