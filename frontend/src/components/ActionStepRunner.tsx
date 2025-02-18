@@ -58,8 +58,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         const loadFileNames = async () => {
             const newFileNames: Record<string, string> = {};
             for (const [paramName, varName] of Object.entries(actionStep.parameter_mappings || {})) {
-                const variable = workflow?.inputs?.find(v => v.variable_id === varName) ||
-                    workflow?.outputs?.find(v => v.variable_id === varName);
+                const variable = workflow?.inputs?.find(v => v.schema.name === varName) ||
+                    workflow?.outputs?.find(v => v.schema.name === varName);
                 if (variable?.schema.type === 'file' && variable.value?.file_id) {
                     try {
                         const fileInfo = await fileApi.getFile(variable.value.file_id);
