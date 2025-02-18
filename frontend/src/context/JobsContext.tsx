@@ -377,7 +377,15 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         workflowInputs.forEach((input: WorkflowVariable) => {
             const value = state.inputValues[input.variable_id];
-            if (!value && input.schema.type !== 'boolean') {
+            if (input.schema.type === 'boolean') return;
+            if (input.schema.type === 'file') {
+                if (!value?.file_id) {
+                    newErrors[input.variable_id] = 'Please select a file';
+                    isValid = false;
+                }
+                return;
+            }
+            if (!value) {
                 newErrors[input.variable_id] = 'This field is required';
                 isValid = false;
             }
@@ -408,7 +416,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return workflowInputs.every((input: WorkflowVariable) => {
             const value = state.inputValues[input.variable_id];
             if (input.schema.type === 'boolean') return true;
-            if (input.schema.type === 'file') return value instanceof File;
+            if (input.schema.type === 'file') return !!value?.file_id;
             return value !== undefined && value !== '';
         });
     }, [state.currentJob, state.inputValues, workflows]);

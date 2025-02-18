@@ -13,7 +13,7 @@ const InputStepRunner: React.FC = () => {
         if (!workflow) return;
 
         const updatedInputs = inputs.map(i => {
-            if (i.name === input) {
+            if (i.schema.name === input) {
                 return { ...i, value };
             }
             return i;
@@ -32,14 +32,14 @@ const InputStepRunner: React.FC = () => {
 
             <div className="space-y-6">
                 {inputs.map((input) => (
-                    <div key={input.name} className="space-y-2">
+                    <div key={input.schema.name} className="space-y-2">
                         <h3 className="font-medium text-gray-800 dark:text-gray-200">
-                            {input.name}
+                            {input.schema.name}
                         </h3>
                         <SchemaForm
                             schema={input.schema}
                             value={input.value}
-                            onChange={value => handleInputChange(input.name, value)}
+                            onChange={value => handleInputChange(input.schema.name, value)}
                         />
                     </div>
                 ))}

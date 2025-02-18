@@ -162,19 +162,47 @@ const Job: React.FC = () => {
     };
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            {/* Navigation Bar */}
-            <div className="mb-6 flex justify-between items-center">
-                <Button
-                    variant="ghost"
-                    onClick={() => navigate('/jobs')}
-                    className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to Jobs
-                </Button>
+        <div className="container mx-auto px-4 pt-2 pb-4">
+            {/* Unified Header */}
+            <div className="flex justify-between items-center mb-6">
+                {/* Left side: Back button and Job info */}
+                <div className="flex items-center gap-6">
+                    <Button
+                        variant="ghost"
+                        onClick={() => navigate('/jobs')}
+                        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Back to Jobs
+                    </Button>
 
-                {/* Job Controls */}
+                    <div className="flex items-center gap-4">
+                        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-50">
+                            {currentJob.name}
+                        </h1>
+                        <div className="flex items-center gap-2">
+                            <span className="text-gray-500 dark:text-gray-400">Workflow:</span>
+                            <span className="font-medium text-gray-900 dark:text-gray-50">{workflow.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-gray-500 dark:text-gray-400">Status:</span>
+                            <span className={`inline-flex items-center gap-2 ${currentJob.status === JobStatus.RUNNING ? 'text-blue-500 dark:text-blue-400' :
+                                currentJob.status === JobStatus.COMPLETED ? 'text-green-500 dark:text-green-400' :
+                                    currentJob.status === JobStatus.FAILED ? 'text-red-500 dark:text-red-400' :
+                                        'text-gray-500 dark:text-gray-400'
+                                }`}>
+                                <span className={`h-2 w-2 rounded-full ${currentJob.status === JobStatus.RUNNING ? 'bg-blue-500 animate-pulse' :
+                                    currentJob.status === JobStatus.COMPLETED ? 'bg-green-500' :
+                                        currentJob.status === JobStatus.FAILED ? 'bg-red-500' :
+                                            'bg-gray-500'
+                                    }`} />
+                                {currentJob.status}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right side: Job Controls */}
                 <div className="flex gap-3">
                     {currentJob.status === JobStatus.PENDING && (
                         <Button
@@ -209,34 +237,6 @@ const Job: React.FC = () => {
                             Restart
                         </Button>
                     )}
-                </div>
-            </div>
-
-            {/* Job Header */}
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2">
-                    {currentJob.name}
-                </h1>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <span className="text-gray-500 dark:text-gray-400">Workflow:</span>
-                        <span className="font-medium text-gray-900 dark:text-gray-50">{workflow.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-gray-500 dark:text-gray-400">Status:</span>
-                        <span className={`inline-flex items-center gap-2 ${currentJob.status === JobStatus.RUNNING ? 'text-blue-500 dark:text-blue-400' :
-                            currentJob.status === JobStatus.COMPLETED ? 'text-green-500 dark:text-green-400' :
-                                currentJob.status === JobStatus.FAILED ? 'text-red-500 dark:text-red-400' :
-                                    'text-gray-500 dark:text-gray-400'
-                            }`}>
-                            <span className={`h-2 w-2 rounded-full ${currentJob.status === JobStatus.RUNNING ? 'bg-blue-500 animate-pulse' :
-                                currentJob.status === JobStatus.COMPLETED ? 'bg-green-500' :
-                                    currentJob.status === JobStatus.FAILED ? 'bg-red-500' :
-                                        'bg-gray-500'
-                                }`} />
-                            {currentJob.status}
-                        </span>
-                    </div>
                 </div>
             </div>
 
