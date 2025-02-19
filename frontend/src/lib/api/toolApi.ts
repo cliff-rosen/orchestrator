@@ -1,5 +1,6 @@
-import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolOutputName } from '../../types';
+import { Tool, ToolSignature, ResolvedParameters, ToolOutputs, ToolOutputName, ToolParameterName } from '../../types/tools';
 import { PromptTemplate, PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest } from '../../types/prompts';
+import { SchemaValueType } from '../../types/schema';
 
 import { WorkflowStep } from '../../types/workflows';
 import { api, handleApiError } from './index';
@@ -90,10 +91,13 @@ const registerAllTools = () => {
     });
 
     registerToolExecutor('retrieve', async (parameters: ResolvedParameters) => {
-        const urls = (parameters as Record<string, string[]>)['urls'];
-        return {
-            ['contents' as ToolOutputName]: urls.map(url => `Mock content from: ${url}`)
+        const urls = (parameters as unknown as { urls: string[] }).urls;
+        const output: Record<ToolOutputName, SchemaValueType> = {
+            ['contents' as ToolOutputName]: {
+                urls: urls.map(url => `Mock content from: ${url}`)
+            }
         };
+        return output;
     });
 };
 
@@ -157,15 +161,14 @@ export const toolApi = {
         }
 
         const tool = await toolApi.getTool(toolId);
-        let transformedParams: Record<string, any> = { ...parameters };
 
-        // Additional transformation for LLM tools
+        // If it's an LLM tool, transform parameters into LLM format
         if (tool.tool_type === 'llm') {
-            const regular_variables: Record<string, any> = {};
+            const regular_variables: Record<string, SchemaValueType> = {};
             const file_variables: Record<string, string> = {};
 
-            // Get the signature from the prompt template
-            const promptTemplateId = parameters.prompt_template_id;
+            // Get the prompt template ID from parameters
+            const promptTemplateId = (parameters as { prompt_template_id?: string }).prompt_template_id;
             if (!promptTemplateId) {
                 throw new Error('No prompt template ID provided for LLM tool');
             }
@@ -173,27 +176,40 @@ export const toolApi = {
             const signature = await toolApi.createToolSignatureFromTemplate(promptTemplateId);
             console.log('Template signature:', signature);
 
-            Object.entries(transformedParams).forEach(([key, value]) => {
+            // Transform parameters based on schema
+            Object.entries(parameters).forEach(([key, value]) => {
+                // Skip prompt template ID as it's handled separately
                 if (key === 'prompt_template_id') return;
 
-                // Find the parameter definition in the template signature
-                const paramDef = signature.parameters.find(p => p.schema.name === key);
-                if (paramDef?.schema.type === 'file') {
-                    file_variables[key] = value.file_id;
+                const paramDef = signature.parameters.find(p =>
+                    (p.schema as { name?: string }).name === key
+                );
+                if (!paramDef) {
+                    console.warn(`Parameter ${key} not found in template signature`);
+                    return;
+                }
+
+                if (paramDef.schema.type === 'file') {
+                    if (typeof value === 'object' && value !== null && 'file_id' in value) {
+                        file_variables[key] = value.file_id as string;
+                    }
                 } else {
                     regular_variables[key] = value;
                 }
             });
 
-            transformedParams = {
-                prompt_template_id: parameters.prompt_template_id,
+            // Return transformed LLM parameters
+            const llmParams = {
+                prompt_template_id: promptTemplateId,
                 regular_variables,
                 file_variables
             };
+
+            return executor(llmParams as unknown as ResolvedParameters);
         }
 
-        console.log('Executing tool:', toolId, transformedParams);
-        return executor(transformedParams);
+        // For non-LLM tools, use parameters as-is
+        return executor(parameters);
     },
 
     // Clear the cache (useful when we need to force a refresh)
@@ -217,8 +233,8 @@ export const toolApi = {
         // Clear parameter mappings for parameters that no longer exist
         if (step.parameter_mappings) {
             Object.keys(step.parameter_mappings).forEach(param => {
-                if (!signature.parameters.find(p => p.schema.name === param)) {
-                    delete parameterMappings[param];
+                if (!signature.parameters.find(p => p.schema.type === param)) {
+                    delete parameterMappings[param as ToolParameterName];
                 }
             });
         }
@@ -226,15 +242,15 @@ export const toolApi = {
         // Clear output mappings for outputs that no longer exist
         if (step.output_mappings) {
             Object.keys(step.output_mappings).forEach(output => {
-                if (!signature.outputs.find(o => o.schema.name === output)) {
-                    delete outputMappings[output];
+                if (!signature.outputs.find(o => o.schema.type === output)) {
+                    delete outputMappings[output as ToolOutputName];
                 }
             });
         }
 
         return {
             ...step,
-            prompt_template: templateId,
+            prompt_template_id: templateId,
             parameter_mappings: parameterMappings,
             output_mappings: outputMappings,
             tool: {

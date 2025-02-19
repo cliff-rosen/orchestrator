@@ -257,7 +257,7 @@ interface WorkflowStep {
     step_type: 'ACTION' | 'INPUT';
     tool?: Tool;
     tool_id?: string;
-    prompt_template?: string;
+    prompt_template_id?: string;
     // Maps tool parameter names to workflow variable names
     parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
     // Maps tool output names to workflow variable names

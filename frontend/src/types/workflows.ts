@@ -55,7 +55,7 @@ export interface WorkflowStep {
     tool?: Tool;
     tool_id?: string;
     // Only present for LLM tools
-    prompt_template?: string;
+    prompt_template_id?: string;
     // Maps tool parameter names to workflow variable names
     parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
     // Maps tool output names to workflow variable names
