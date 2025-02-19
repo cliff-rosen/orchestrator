@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { Tool } from '../types/tools';
-import { WorkflowVariable } from '../types/workflows';
-import { SchemaValue } from '../types/schema';
+import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
+import { WorkflowVariable, WorkflowVariableName } from '../types/workflows';
+import { Schema } from '../types/schema';
 
 interface DataFlowMapperProps {
     tool: Tool;
-    parameter_mappings: Record<string, string>;
-    output_mappings: Record<string, string>;
+    parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
+    output_mappings: Record<ToolOutputName, WorkflowVariableName>;
     inputs: WorkflowVariable[];
     outputs: WorkflowVariable[];
-    onParameterMappingChange: (mappings: Record<string, string>) => void;
-    onOutputMappingChange: (mappings: Record<string, string>) => void;
+    onParameterMappingChange: (mappings: Record<ToolParameterName, WorkflowVariableName>) => void;
+    onOutputMappingChange: (mappings: Record<ToolOutputName, WorkflowVariableName>) => void;
 }
 
 const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
@@ -25,15 +25,15 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
     const [hoveredConnection, setHoveredConnection] = useState<string | null>(null);
 
     // Helper function to check if a variable is compatible with a parameter
-    const isCompatibleType = (paramSchema: SchemaValue, varSchema: SchemaValue): boolean => {
+    const isCompatibleType = (paramSchema: Schema, varSchema: Schema): boolean => {
         // Special case: allow string array to string conversion
-        if (paramSchema.type === 'string' && !paramSchema.array_type &&
-            varSchema.type === 'string' && varSchema.array_type) {
+        if (paramSchema.type === 'string' && !paramSchema.is_array &&
+            varSchema.type === 'string' && varSchema.is_array) {
             return true;
         }
 
         // Check if either is an array type
-        if (paramSchema.array_type !== varSchema.array_type) {
+        if (paramSchema.is_array !== varSchema.is_array) {
             return false;
         }
 
@@ -72,8 +72,8 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
     };
 
     // Helper function to get display type
-    const getDisplayType = (schema: SchemaValue): string => {
-        if (schema.array_type) {
+    const getDisplayType = (schema: Schema): string => {
+        if (schema.is_array) {
             return `${schema.type}[]`;
         }
         return schema.type;
@@ -84,7 +84,7 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
         console.log('DataFlowMapper - Current mappings:', parameter_mappings);
         const newMappings = {
             ...parameter_mappings,
-            [paramName]: value
+            [paramName as ToolParameterName]: value as WorkflowVariableName
         };
         console.log('DataFlowMapper - New mappings:', newMappings);
         onParameterMappingChange(newMappings);
@@ -108,16 +108,16 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
                         {inputs.map(input => (
                             <div
                                 key={input.variable_id}
-                                className={`p-2 rounded-lg border ${hoveredConnection === input.schema.name
+                                className={`p-2 rounded-lg border ${hoveredConnection === input.variable_id
                                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                     : 'border-gray-200 dark:border-gray-700'
                                     }`}
-                                onMouseEnter={() => setHoveredConnection(input.schema.name)}
+                                onMouseEnter={() => setHoveredConnection(input.variable_id)}
                                 onMouseLeave={() => setHoveredConnection(null)}
                             >
                                 <div className="flex items-center justify-between">
-                                    <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{input.schema.name}</span>
-                                    <span className={`text-xs ${getTypeColor(input.schema.type, input.schema.array_type)}`}>
+                                    <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{input.name}</span>
+                                    <span className={`text-xs ${getTypeColor(input.schema.type, input.schema.is_array)}`}>
                                         {getDisplayType(input.schema)}
                                     </span>
                                 </div>
@@ -136,16 +136,16 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
                         {outputs.map(output => (
                             <div
                                 key={output.variable_id}
-                                className={`p-2 rounded-lg border ${hoveredConnection === output.schema.name
+                                className={`p-2 rounded-lg border ${hoveredConnection === output.variable_id
                                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                     : 'border-gray-200 dark:border-gray-700'
                                     }`}
-                                onMouseEnter={() => setHoveredConnection(output.schema.name)}
+                                onMouseEnter={() => setHoveredConnection(output.variable_id)}
                                 onMouseLeave={() => setHoveredConnection(null)}
                             >
                                 <div className="flex items-center justify-between">
-                                    <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{output.schema.name}</span>
-                                    <span className={`text-xs ${getTypeColor(output.schema.type, output.schema.array_type)}`}>
+                                    <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{output.name}</span>
+                                    <span className={`text-xs ${getTypeColor(output.schema.type, output.schema.is_array)}`}>
                                         {getDisplayType(output.schema)}
                                     </span>
                                 </div>
@@ -164,12 +164,12 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
                     </h4>
                     {tool.signature.parameters.map(param => (
                         <div
-                            key={param.schema.name}
+                            key={param.name}
                             className="relative p-4 rounded-lg border border-gray-200 dark:border-gray-700"
                         >
                             <div className="flex items-center justify-between mb-2">
-                                <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{param.schema.name}</span>
-                                <span className={`text-xs ${getTypeColor(param.schema.type, param.schema.array_type)}`}>
+                                <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{param.name}</span>
+                                <span className={`text-xs ${getTypeColor(param.schema.type, param.schema.is_array)}`}>
                                     {getDisplayType(param.schema)}
                                 </span>
                             </div>
@@ -179,11 +179,11 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
                                 </p>
                             )}
                             <select
-                                value={parameter_mappings[param.schema.name] || ''}
-                                onChange={(e) => handleParameterMappingChange(param.schema.name, e.target.value)}
+                                value={parameter_mappings[param.name as ToolParameterName] || ''}
+                                onChange={(e) => handleParameterMappingChange(param.name, e.target.value)}
                                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 
                                          rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                onMouseEnter={() => setHoveredConnection(parameter_mappings[param.schema.name])}
+                                onMouseEnter={() => setHoveredConnection(parameter_mappings[param.name as ToolParameterName])}
                                 onMouseLeave={() => setHoveredConnection(null)}
                             >
                                 <option value="" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Select source...</option>
@@ -193,9 +193,9 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
                                         {inputs
                                             .filter(input => isCompatibleType(param.schema, input.schema))
                                             .map(input => (
-                                                <option key={input.schema.name} value={input.schema.name}
+                                                <option key={input.variable_id} value={input.name as string}
                                                     className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">
-                                                    {input.schema.name}
+                                                    {input.name}
                                                 </option>
                                             ))}
                                     </optgroup>
@@ -206,9 +206,9 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
                                         {outputs
                                             .filter(output => isCompatibleType(param.schema, output.schema))
                                             .map(output => (
-                                                <option key={output.schema.name} value={output.schema.name}
+                                                <option key={output.variable_id} value={output.name as string}
                                                     className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">
-                                                    {output.schema.name}
+                                                    {output.name}
                                                 </option>
                                             ))}
                                     </optgroup>
@@ -225,12 +225,12 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
                     </h4>
                     {tool.signature.outputs.map(output => (
                         <div
-                            key={output.schema.name}
+                            key={output.name}
                             className="relative p-4 rounded-lg border border-gray-200 dark:border-gray-700"
                         >
                             <div className="flex items-center justify-between mb-2">
-                                <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{output.schema.name}</span>
-                                <span className={`text-xs ${getTypeColor(output.schema.type, output.schema.array_type)}`}>
+                                <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{output.name}</span>
+                                <span className={`text-xs ${getTypeColor(output.schema.type, output.schema.is_array)}`}>
                                     {getDisplayType(output.schema)}
                                 </span>
                             </div>
@@ -240,29 +240,29 @@ const DataFlowMapper: React.FC<DataFlowMapperProps> = ({
                                 </p>
                             )}
                             <select
-                                value={output_mappings[output.schema.name] || ''}
+                                value={output_mappings[output.name as ToolOutputName] || ''}
                                 onChange={(e) => onOutputMappingChange({
                                     ...output_mappings,
-                                    [output.schema.name]: e.target.value
+                                    [output.name as ToolOutputName]: e.target.value as WorkflowVariableName
                                 })}
                                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 
                                          rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                onMouseEnter={() => setHoveredConnection(output_mappings[output.schema.name])}
+                                onMouseEnter={() => setHoveredConnection(output_mappings[output.name as ToolOutputName])}
                                 onMouseLeave={() => setHoveredConnection(null)}
                             >
                                 <option value="" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">Map to workflow output...</option>
                                 {outputs
                                     .filter(out => {
                                         // Check if both the tool output and workflow variable are arrays
-                                        const bothArrays = output.schema.array_type === out.schema.array_type;
+                                        const bothArrays = output.schema.is_array === out.schema.is_array;
                                         // Check if their base types match
                                         const typesMatch = output.schema.type === out.schema.type;
                                         return bothArrays && typesMatch;
                                     })
                                     .map(out => (
-                                        <option key={out.schema.name} value={out.schema.name}
+                                        <option key={out.variable_id} value={out.name as string}
                                             className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">
-                                            {out.schema.name}
+                                            {out.name}
                                         </option>
                                     ))}
                             </select>

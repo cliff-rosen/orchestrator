@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Workflow, WorkflowStepType, WorkflowStatus } from '../types';
+import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId } from '../types';
 import { workflowApi } from '../lib/api';
 
 interface WorkflowContextType {
@@ -75,7 +75,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             inputs: [],
             outputs: [],
             steps: [{
-                step_id: `step-${crypto.randomUUID()}`,
+                step_id: `step-${crypto.randomUUID()}` as WorkflowStepId,
                 label: 'Step 1',
                 description: 'First step',
                 step_type: WorkflowStepType.ACTION,

@@ -142,3 +142,131 @@ export const isLLMStep = (step: WorkflowStep): step is WorkflowStep & { tool: To
     return step.tool?.tool_type === 'llm';
 };
 
+// Example workflow demonstrating various features
+export const EXAMPLE_WORKFLOW: Workflow = {
+    workflow_id: "example-research-workflow",
+    name: "Research Paper Analysis Workflow",
+    description: "A workflow that searches for research papers, analyzes them with an LLM, and generates a summary",
+    status: WorkflowStatus.PUBLISHED,
+    inputs: [
+        {
+            variable_id: "search-query-var",
+            name: "search_query" as WorkflowVariableName,
+            schema: {
+                type: "string",
+                description: "The search query for finding research papers",
+                is_array: false
+            },
+            io_type: "input",
+            required: true
+        },
+        {
+            variable_id: "max-papers-var",
+            name: "max_papers" as WorkflowVariableName,
+            schema: {
+                type: "number",
+                description: "Maximum number of papers to analyze",
+                is_array: false
+            },
+            io_type: "input",
+            required: false
+        }
+    ],
+    outputs: [
+        {
+            variable_id: "summary-var",
+            name: "final_summary" as WorkflowVariableName,
+            schema: {
+                type: "string",
+                description: "Final summarized analysis of all papers",
+                is_array: false
+            },
+            io_type: "output"
+        },
+        {
+            variable_id: "paper-details-var",
+            name: "paper_details" as WorkflowVariableName,
+            schema: {
+                type: "object",
+                description: "Detailed information about each analyzed paper",
+                is_array: true,
+                fields: {
+                    title: {
+                        type: "string",
+                        description: "Paper title",
+                        is_array: false
+                    },
+                    authors: {
+                        type: "string",
+                        description: "Paper authors",
+                        is_array: true
+                    },
+                    summary: {
+                        type: "string",
+                        description: "Individual paper summary",
+                        is_array: false
+                    }
+                }
+            },
+            io_type: "output"
+        }
+    ],
+    steps: [
+        {
+            step_id: "search-step" as WorkflowStepId,
+            workflow_id: "example-research-workflow",
+            label: "Search PubMed",
+            description: "Search for research papers on PubMed",
+            step_type: WorkflowStepType.ACTION,
+            tool_id: "pubmed",
+            sequence_number: 1,
+            parameter_mappings: {
+                query: "search_query" as WorkflowVariableName,
+                max_results: "max_papers" as WorkflowVariableName
+            } as Record<ToolParameterName, WorkflowVariableName>,
+            output_mappings: {
+                search_results: "pubmed_results" as WorkflowVariableName
+            } as Record<ToolOutputName, WorkflowVariableName>,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        },
+        {
+            step_id: "analysis-step" as WorkflowStepId,
+            workflow_id: "example-research-workflow",
+            label: "Analyze Papers",
+            description: "Use LLM to analyze each research paper",
+            step_type: WorkflowStepType.ACTION,
+            tool_id: "llm",
+            prompt_template_id: "paper-analysis-template",
+            sequence_number: 2,
+            parameter_mappings: {
+                papers: "pubmed_results" as WorkflowVariableName,
+                analysis_type: "detailed" as WorkflowVariableName
+            } as Record<ToolParameterName, WorkflowVariableName>,
+            output_mappings: {
+                paper_analyses: "paper_details" as WorkflowVariableName
+            } as Record<ToolOutputName, WorkflowVariableName>,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        },
+        {
+            step_id: "summary-step" as WorkflowStepId,
+            workflow_id: "example-research-workflow",
+            label: "Generate Summary",
+            description: "Create a final summary of all analyzed papers",
+            step_type: WorkflowStepType.ACTION,
+            tool_id: "llm",
+            prompt_template_id: "summary-template",
+            sequence_number: 3,
+            parameter_mappings: {
+                analyses: "paper_details" as WorkflowVariableName
+            } as Record<ToolParameterName, WorkflowVariableName>,
+            output_mappings: {
+                summary: "final_summary" as WorkflowVariableName
+            } as Record<ToolOutputName, WorkflowVariableName>,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        }
+    ]
+};
+

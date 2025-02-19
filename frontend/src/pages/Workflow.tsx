@@ -1,9 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 // Types
-import { WorkflowStep, WorkflowStepType, RuntimeWorkflowStep } from '../types/workflows';
-import { ToolOutputName } from '../types/tools';
+import {
+    WorkflowStep,
+    WorkflowStepType,
+    RuntimeWorkflowStep,
+    WorkflowStepId,
+    WorkflowVariableName,
+    StepExecutionResult
+} from '../types/workflows';
+import {
+    ToolOutputName,
+    ToolParameterName,
+    ResolvedParameters
+} from '../types/tools';
+import { SchemaValueType } from '../types/schema';
 
 // Context
 import { useWorkflows } from '../context/WorkflowContext';
@@ -92,12 +104,248 @@ const Workflow: React.FC = () => {
 
     //////////////////////// Handlers ////////////////////////
 
+    const handleExecuteTool = async (): Promise<StepExecutionResult> => {
+        if (!workflow) {
+            return {
+                success: false,
+                error: 'No workflow loaded'
+            };
+        }
+
+        try {
+            setIsExecuting(true);
+            const currentStep = workflow.steps[activeStep];
+            console.log('Executing step:', currentStep);
+
+            const toolId = currentStep.tool?.tool_id;
+            if (!toolId) {
+                return {
+                    success: false,
+                    error: 'No tool configured for this step'
+                };
+            }
+
+            const parameters: ResolvedParameters = {};
+
+            // Collect parameters from mappings
+            if (currentStep.parameter_mappings) {
+                for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
+                    const variable = workflow.inputs?.find(v => v.name === varName) ||
+                        workflow.outputs?.find(v => v.name === varName);
+
+                    if (variable?.value !== undefined) {
+                        parameters[paramName as ToolParameterName] = variable.value as SchemaValueType;
+                    }
+                }
+            }
+
+            // Add prompt template ID for LLM tools
+            if (currentStep.tool?.tool_type === 'llm' && currentStep.prompt_template_id) {
+                parameters['prompt_template_id' as ToolParameterName] = currentStep.prompt_template_id as SchemaValueType;
+            }
+
+            const outputs = await toolApi.executeTool(toolId, parameters);
+
+            // Store outputs in workflow variables
+            if (currentStep.output_mappings && workflow.outputs) {
+                const updatedOutputs = [...workflow.outputs];
+
+                for (const [outputName, varName] of Object.entries(currentStep.output_mappings)) {
+                    const value = outputs[outputName as ToolOutputName];
+                    const outputVarIndex = updatedOutputs.findIndex(v => v.name === varName);
+
+                    if (outputVarIndex !== -1) {
+                        updatedOutputs[outputVarIndex] = {
+                            ...updatedOutputs[outputVarIndex],
+                            value
+                        };
+                    }
+                }
+
+                updateWorkflow({ outputs: updatedOutputs });
+            }
+            setStepExecuted(true);
+
+            return {
+                success: true,
+                outputs: outputs as Record<WorkflowVariableName, SchemaValueType>
+            };
+        } catch (error) {
+            console.error('Error executing tool:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            setError(errorMessage);
+            return {
+                success: false,
+                error: errorMessage
+            };
+        } finally {
+            setIsExecuting(false);
+        }
+    };
+
+    // Memoize the createRuntimeStep function
+    const createRuntimeStep = useCallback((step: WorkflowStep, index: number): RuntimeWorkflowStep => {
+        return {
+            ...step,
+            action: async () => {
+                if (index === activeStep) {
+                    return handleExecuteTool();
+                }
+                return {
+                    success: false,
+                    error: 'Step is not active'
+                };
+            },
+            actionButtonText: () => {
+                if (index === activeStep) {
+                    return stepExecuted ? 'Next Step' : 'Execute Tool';
+                }
+                return 'Execute Tool';
+            },
+            isDisabled: () => {
+                return index !== activeStep || isExecuting;
+            },
+            getValidationErrors: () => {
+                const errors: string[] = [];
+
+                if (!step.tool) {
+                    errors.push('No tool selected');
+                }
+
+                if (step.tool?.tool_type === 'llm' && !step.prompt_template_id) {
+                    errors.push('No prompt template selected');
+                }
+
+                // Check parameter mappings
+                if (step.parameter_mappings) {
+                    for (const [paramName, varName] of Object.entries(step.parameter_mappings)) {
+                        const variable = workflow?.inputs?.find(v => v.name === varName) ||
+                            workflow?.outputs?.find(v => v.name === varName);
+
+                        if (!variable) {
+                            errors.push(`Missing variable mapping for parameter: ${paramName}`);
+                        }
+                    }
+                }
+
+                return errors;
+            }
+        };
+    }, [activeStep, stepExecuted, isExecuting, workflow, handleExecuteTool]);
+
+    // Memoize the workflow steps
+    const workflowSteps = useMemo(() => {
+        if (!workflow) return [];
+
+        // In edit mode, just return the basic workflow steps
+        if (isEditMode) {
+            return workflow.steps;
+        }
+
+        // Only create runtime steps when not in edit mode
+        return workflow.steps.map((step, index) => {
+            console.log('Converting workflow step to runtime step:', {
+                step_id: step.step_id,
+                tool: step.tool,
+                parameter_mappings: step.parameter_mappings
+            });
+            const runtimeStep = createRuntimeStep(step, index);
+            console.log('Resulting runtime step:', {
+                step_id: runtimeStep.step_id,
+                tool: runtimeStep.tool,
+                parameter_mappings: runtimeStep.parameter_mappings
+            });
+            return runtimeStep;
+        });
+    }, [workflow, createRuntimeStep, isEditMode]);
+
+    // Memoize the input step (only needed in run mode)
+    const inputStep = useMemo(() => {
+        if (!workflow || isEditMode) return null;
+
+        return {
+            step_id: `input-step-${workflow.workflow_id}` as WorkflowStepId,
+            label: 'Input Values',
+            description: 'Provide values for workflow inputs',
+            step_type: WorkflowStepType.INPUT,
+            workflow_id: workflow.workflow_id,
+            sequence_number: -1,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            parameter_mappings: {},
+            output_mappings: {},
+            action: handleExecuteTool,
+            actionButtonText: () => 'Next Step',
+            isDisabled: () => false,
+            getValidationErrors: () => []
+        } as RuntimeWorkflowStep;
+    }, [workflow, isEditMode, handleExecuteTool]);
+
+    // Memoize all steps
+    const allSteps = useMemo(() => {
+        if (!workflowSteps) return [];
+        return !isEditMode && inputStep ? [inputStep, ...workflowSteps] : workflowSteps;
+    }, [isEditMode, inputStep, workflowSteps]);
+
+    // Memoize current step
+    const currentStep = useMemo(() => {
+        return allSteps[activeStep];
+    }, [allSteps, activeStep]);
+
+    // Effect to handle invalid active step
+    useEffect(() => {
+        if (!currentStep && allSteps.length > 0) {
+            setActiveStep(0);
+        }
+    }, [currentStep, allSteps.length, setActiveStep]);
+
+    // Effect to log step changes
+    useEffect(() => {
+        console.log('All prepared steps:', allSteps.map(step => ({
+            step_id: step.step_id,
+            tool: step.tool,
+            parameter_mappings: step.parameter_mappings
+        })));
+
+        console.log('Current step being passed to StepDetail:', currentStep && {
+            step_id: currentStep.step_id,
+            tool: currentStep.tool,
+            parameter_mappings: currentStep.parameter_mappings
+        });
+    }, [allSteps, currentStep]);
+
+    const handleStepReorder = (reorderedSteps: (WorkflowStep | RuntimeWorkflowStep)[]) => {
+        if (!workflow) return;
+
+        // Convert steps back to workflow steps while preserving sequence numbers
+        const updatedSteps: WorkflowStep[] = reorderedSteps.map((step, index) => ({
+            step_id: step.step_id,
+            workflow_id: step.workflow_id,
+            label: step.label,
+            description: step.description,
+            step_type: step.step_type,
+            tool: step.tool,
+            tool_id: step.tool_id,
+            prompt_template_id: step.prompt_template_id,
+            parameter_mappings: step.parameter_mappings,
+            output_mappings: step.output_mappings,
+            sequence_number: index,
+            created_at: step.created_at,
+            updated_at: new Date().toISOString()
+        }));
+
+        updateWorkflow({
+            steps: updatedSteps
+        });
+    };
 
     const handleAddStep = () => {
         if (!workflow) return;
 
+        // Create a branded WorkflowStepId using crypto.randomUUID()
+        const stepId = `step-${crypto.randomUUID()}`;
         const newStep: WorkflowStep = {
-            step_id: `step-${workflow.steps.length + 1}`,
+            step_id: stepId as WorkflowStepId,
             label: `Step ${workflow.steps.length + 1}`,
             description: 'Configure this step by selecting a tool and setting up its parameters',
             step_type: WorkflowStepType.ACTION,
@@ -109,11 +357,12 @@ const Workflow: React.FC = () => {
             output_mappings: {},
         };
 
+        const updatedSteps = [...workflow.steps, newStep];
         updateWorkflow({
-            steps: [...workflow.steps, newStep]
+            steps: updatedSteps
         });
         // Set the new step as active
-        setActiveStep(workflow.steps.length);
+        setActiveStep(updatedSteps.length - 1);
     };
 
     const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {
@@ -167,59 +416,6 @@ const Workflow: React.FC = () => {
         }
     };
 
-    const handleExecuteTool = async (): Promise<void> => {
-        try {
-            setIsExecuting(true);
-            const currentStep = allSteps[activeStep];
-            console.log('Executing step:', currentStep);
-
-            if (currentStep.tool?.tool_id) {
-                const toolId = currentStep.tool.tool_id;
-                let parameters: Record<string, any> = {};
-
-                // Collect parameters from mappings
-                if (currentStep.parameter_mappings) {
-                    for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
-                        const variable = workflow?.inputs?.find(v => v.schema.name === varName) ||
-                            workflow?.outputs?.find(v => v.schema.name === varName);
-
-                        if (variable) {
-                            parameters[paramName] = variable.value;
-                        }
-                    }
-                }
-
-                // Add prompt template ID for LLM tools
-                if (currentStep.tool.tool_type === 'llm' && currentStep.prompt_template) {
-                    parameters.prompt_template_id = currentStep.prompt_template;
-                }
-
-                const outputs = await toolApi.executeTool(toolId, parameters);
-
-                // Store outputs in workflow variables
-                if (currentStep.output_mappings) {
-                    const updatedOutputs = [...(workflow?.outputs || [])];
-
-                    for (const [outputName, varName] of Object.entries(currentStep.output_mappings)) {
-                        const value = outputs[outputName as ToolOutputName];
-                        const outputVar = updatedOutputs.find(v => v.schema.name === varName);
-                        if (outputVar) {
-                            outputVar.value = value;
-                        }
-                    }
-
-                    updateWorkflow({ outputs: updatedOutputs });
-                }
-                setStepExecuted(true);
-            }
-        } catch (error) {
-            console.error('Error executing tool:', error);
-            setError(error instanceof Error ? error.message : 'Unknown error occurred');
-        } finally {
-            setIsExecuting(false);
-        }
-    };
-
     const handleNext = async (): Promise<void> => {
         setActiveStep(activeStep + 1);
         setStepExecuted(false);
@@ -248,84 +444,10 @@ const Workflow: React.FC = () => {
         }
     };
 
-    const handleStepReorder = (reorderedSteps: RuntimeWorkflowStep[]) => {
-        if (!workflow) return;
-
-        // Update sequence numbers based on new order
-        const updatedSteps = reorderedSteps.map((step, index) => ({
-            ...step,
-            sequence_number: index
-        }));
-
-        updateWorkflow({
-            steps: updatedSteps
-        });
-    };
-
     ///////////////////////// Workflow preparation /////////////////////////
 
     if (!workflow) return null;
     // console.log('currentWorkflow', currentWorkflow);
-
-    // Convert workflow steps to RuntimeWorkflowStep interface
-    const workflowSteps: RuntimeWorkflowStep[] = workflow.steps.map((step: WorkflowStep) => {
-        console.log('Converting workflow step to runtime step:', {
-            step_id: step.step_id,
-            tool: step.tool,
-            parameter_mappings: step.parameter_mappings
-        });
-        const runtimeStep = {
-            ...step,
-            action: handleExecuteTool,
-            actionButtonText: () => stepExecuted ? 'Next Step' : 'Execute Tool',
-            isDisabled: () => step.step_type === WorkflowStepType.ACTION && stepExecuted,
-        };
-        console.log('Resulting runtime step:', {
-            step_id: runtimeStep.step_id,
-            tool: runtimeStep.tool,
-            parameter_mappings: runtimeStep.parameter_mappings
-        });
-        return runtimeStep;
-    });
-
-    // Add input step at the beginning when in run mode
-    const inputStep: RuntimeWorkflowStep = {
-        step_id: 'input-step',
-        label: 'Input Values',
-        description: 'Provide values for workflow inputs',
-        step_type: WorkflowStepType.INPUT,
-        workflow_id: workflow.workflow_id,
-        sequence_number: -1,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        parameter_mappings: {},
-        output_mappings: {},
-        action: handleExecuteTool,
-        actionButtonText: () => 'Next Step',
-        isDisabled: () => false,
-    };
-
-    const allSteps = !isEditMode ? [inputStep, ...workflowSteps] : workflowSteps;
-    console.log('All prepared steps:', allSteps.map(step => ({
-        step_id: step.step_id,
-        tool: step.tool,
-        parameter_mappings: step.parameter_mappings
-    })));
-
-    // Get current step
-    const currentStep = allSteps[activeStep];
-    console.log('Current step being passed to StepDetail:', {
-        step_id: currentStep?.step_id,
-        tool: currentStep?.tool,
-        parameter_mappings: currentStep?.parameter_mappings
-    });
-
-    // Effect to handle invalid active step
-    useEffect(() => {
-        if (!currentStep && allSteps.length > 0) {
-            setActiveStep(0);
-        }
-    }, [currentStep, allSteps.length, setActiveStep]);
 
     ///////////////////////// Render /////////////////////////
 
@@ -497,7 +619,7 @@ const Workflow: React.FC = () => {
                                     <div>
                                         {currentStep ? (
                                             <StepDetail
-                                                step={allSteps[activeStep]}
+                                                step={currentStep}
                                                 isEditMode={isEditMode}
                                                 stepExecuted={stepExecuted}
                                                 isExecuting={isExecuting}

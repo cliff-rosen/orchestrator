@@ -7,7 +7,7 @@ load_dotenv(override=True)
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Research Agent"
+    APP_NAME: str = "Orchestrator"
     SETTING_VERSION: str = "0.0.1"
 
     # Database settings

@@ -1,9 +1,9 @@
 import React from 'react';
-import { SchemaValue } from '../types/schema';
+import { Schema } from '../types/schema';
 import FileLibrary from './FileLibrary';
 
 interface SchemaFormProps {
-    schema: SchemaValue;
+    schema: Schema;
     value: any;
     onChange: (value: any) => void;
 }

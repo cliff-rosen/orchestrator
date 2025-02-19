@@ -2,8 +2,8 @@
 // This is for editing action steps in edit mode 
 
 import React, { useEffect, useState } from 'react';
-import { WorkflowStep } from '../types/workflows';
-import { Tool } from '../types/tools';
+import { WorkflowStep, WorkflowVariableName } from '../types/workflows';
+import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
 import { toolApi, TOOL_TYPES } from '../lib/api/toolApi';
 import PromptTemplateSelector from './PromptTemplateSelector';
 import DataFlowMapper from './DataFlowMapper';
@@ -54,7 +54,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
             tool_id: tool.tool_id,
             parameter_mappings: {},
             output_mappings: {},
-            prompt_template: undefined
+            prompt_template_id: undefined
         });
     };
 
@@ -74,14 +74,14 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         console.log('handleParameterMappingChange', mappings);
         onStepUpdate({
             ...step,
-            parameter_mappings: mappings
+            parameter_mappings: mappings as Record<ToolParameterName, WorkflowVariableName>
         });
     };
 
     const handleOutputMappingChange = (mappings: Record<string, string>) => {
         onStepUpdate({
             ...step,
-            output_mappings: mappings
+            output_mappings: mappings as Record<ToolOutputName, WorkflowVariableName>
         });
     };
 
@@ -267,7 +267,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
             )}
 
             {/* Step 5: Parameter and Output Mapping */}
-            {(step.tool && (step.tool.tool_type != 'llm' || step.prompt_template)) && (
+            {(step.tool && (step.tool.tool_type != 'llm' || step.prompt_template_id)) && (
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
                         Data Flow Configuration

@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { SchemaValue, PrimitiveValue, ObjectValue } from '../../types/schema';
+import { Schema, ValueType } from '../../types/schema';
 
 interface SchemaField {
-    type: string;
-    name: string;
+    type: ValueType;
     description?: string;
 }
 
 interface SchemaEditorProps {
-    schema: SchemaValue;
-    onChange: (schema: SchemaValue) => void;
+    schema: Schema;
+    onChange: (schema: Schema) => void;
 }
 
 interface EditingField {
@@ -42,20 +41,20 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
         try {
             const parsed = JSON.parse(text);
             setJsonError(null);
-            const fields: Record<string, SchemaValue> = {};
+            const fields: Record<string, Schema> = {};
             Object.entries(parsed).forEach(([key, value]: [string, any]) => {
                 fields[key] = {
-                    type: value.type || 'string',
-                    name: key,
+                    type: (value.type || 'string') as ValueType,
+                    is_array: false,
                     description: value.description
-                } as PrimitiveValue;
+                };
             });
             onChange({
                 type: 'object',
-                name: schema.name,
+                is_array: false,
                 description: schema.description,
                 fields
-            } as ObjectValue);
+            });
         } catch (err) {
             setJsonError('Invalid JSON format');
         }
@@ -65,16 +64,16 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
         if (type === 'string') {
             onChange({
                 type: 'string',
-                name: schema.name,
+                is_array: false,
                 description: schema.description
-            } as PrimitiveValue);
+            });
         } else {
             onChange({
                 type: 'object',
-                name: schema.name,
+                is_array: false,
                 description: schema.description,
                 fields: {}
-            } as ObjectValue);
+            });
         }
     };
 
@@ -85,15 +84,15 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
         const newFields = {
             ...currentFields,
             [`field${Object.keys(currentFields).length + 1}`]: {
-                type: 'string',
-                name: `field${Object.keys(currentFields).length + 1}`,
+                type: 'string' as ValueType,
+                is_array: false,
                 description: ''
-            } as PrimitiveValue
+            }
         };
         onChange({
             ...schema,
             fields: newFields
-        } as ObjectValue);
+        });
     };
 
     const handleRemoveField = (fieldName: string) => {
@@ -105,7 +104,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
         onChange({
             ...schema,
             fields: newFields
-        } as ObjectValue);
+        });
     };
 
     const handleFieldNameChange = (fieldName: string, value: string) => {
@@ -123,13 +122,12 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
 
         const currentFields = schema.fields || {};
         const entries = Object.entries(currentFields);
-        const newFields: Record<string, SchemaValue> = {};
+        const newFields: Record<string, Schema> = {};
 
         entries.forEach(([key, fieldValue]) => {
             if (key === fieldName) {
                 newFields[value] = {
-                    ...fieldValue,
-                    name: value
+                    ...fieldValue
                 };
             } else {
                 newFields[key] = fieldValue;
@@ -139,7 +137,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
         onChange({
             ...schema,
             fields: newFields
-        } as ObjectValue);
+        });
         setEditingFieldName(null);
     };
 
@@ -160,7 +158,7 @@ const SchemaEditor: React.FC<SchemaEditorProps> = ({ schema, onChange }) => {
                     [property]: value
                 }
             }
-        } as ObjectValue);
+        });
     };
 
     return (
