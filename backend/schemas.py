@@ -242,24 +242,26 @@ class KnowledgeGraphElements(BaseModel):
 ##### TOOL SCHEMAS #####
 
 class SchemaValue(BaseModel):
-    name: str
     type: str = Field(description="Base type (string, number, boolean, object)")
     description: Optional[str] = None
-    array_type: bool = Field(default=False, description="Whether this is an array of the specified type")
+    is_array: bool = Field(default=False, description="Whether this is an array of the base type")
     fields: Optional[Dict[str, 'SchemaValue']] = Field(None, description="Fields for object type")
     # File-specific fields
     format: Optional[str] = Field(None, description="Format specification")
     content_types: Optional[List[str]] = Field(None, description="Allowed content types")
-    file_id: Optional[str] = Field(None, description="File ID for file types")
 
 class ToolParameter(BaseModel):
     """Schema for tool parameter definition"""
+    name: str = Field(description="Name of the parameter")
+    description: str = Field(description="Description of the parameter")
     schema: SchemaValue = Field(description="Schema defining the parameter type and structure")
     required: bool = Field(default=True, description="Whether the parameter is required")
     default: Optional[Any] = Field(None, description="Default value for the parameter")
 
 class ToolOutput(BaseModel):
     """Schema for tool output definition"""
+    name: str = Field(description="Name of the output")
+    description: str = Field(description="Description of the output")
     schema: SchemaValue = Field(description="Schema defining the output type and structure")
 
 class ParameterSchema(BaseModel):

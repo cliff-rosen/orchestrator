@@ -96,8 +96,9 @@ def upgrade():
                         'name': 'input',
                         'description': 'The input to echo',
                         'schema': {
-                            'name': 'input',
-                            'type': 'string'
+                            'type': 'string',
+                            'is_array': False,
+                            'description': 'The input to echo'
                         }
                     }
                 ],
@@ -106,8 +107,9 @@ def upgrade():
                         'name': 'output',
                         'description': 'The echoed output',
                         'schema': {
-                            'name': 'output',
-                            'type': 'string'
+                            'type': 'string',
+                            'is_array': False,
+                            'description': 'The echoed output'
                         }
                     }
                 ]
@@ -126,16 +128,18 @@ def upgrade():
                         'name': 'first',
                         'description': 'First string',
                         'schema': {
-                            'name': 'first',
-                            'type': 'string'
+                            'type': 'string',
+                            'is_array': False,
+                            'description': 'First string to concatenate'
                         }
                     },
                     {
                         'name': 'second',
                         'description': 'Second string',
                         'schema': {
-                            'name': 'second',
-                            'type': 'string'
+                            'type': 'string',
+                            'is_array': False,
+                            'description': 'Second string to concatenate'
                         }
                     }
                 ],
@@ -144,8 +148,9 @@ def upgrade():
                         'name': 'result',
                         'description': 'Concatenated result',
                         'schema': {
-                            'name': 'result',
-                            'type': 'string'
+                            'type': 'string',
+                            'is_array': False,
+                            'description': 'The concatenated result'
                         }
                     }
                 ]
@@ -163,21 +168,18 @@ def upgrade():
                     'name': 'query',
                     'description': 'The search query text',
                     'schema': {
-                        'name': 'query',
-                        'type': 'string'
+                        'type': 'string',
+                        'is_array': False,
+                        'description': 'The search query text'
                     }
                 }],
                 'outputs': [{
                     'name': 'results',
                     'description': 'List of search results, each containing title and snippet',
                     'schema': {
-                        'name': 'results',
-                        'type': 'array',
-                        'items': {
-                            'name': 'result',
-                            'type': 'string',
-                            'description': 'Search result with title and snippet text'
-                        }
+                        'type': 'string',
+                        'is_array': True,
+                        'description': 'Search results with title and snippet text'
                     }
                 }]
             },
@@ -195,12 +197,9 @@ def upgrade():
                         'name': 'urls',
                         'description': 'List of URLs to retrieve content from',
                         'schema': {
-                            'name': 'urls',
-                            'type': 'array',
-                            'items': {
-                                'name': 'url',
-                                'type': 'string'
-                            }
+                            'type': 'string',
+                            'is_array': True,
+                            'description': 'URLs to retrieve content from'
                         }
                     }
                 ],
@@ -208,12 +207,9 @@ def upgrade():
                     'name': 'contents',
                     'description': 'Retrieved content from each URL',
                     'schema': {
-                        'name': 'contents',
-                        'type': 'array',
-                        'items': {
-                            'name': 'content',
-                            'type': 'string'
-                        }
+                        'type': 'string',
+                        'is_array': True,
+                        'description': 'Retrieved content from each URL'
                     }
                 }]
             },
