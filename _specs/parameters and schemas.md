@@ -4,7 +4,7 @@ Workflows and tools operate on data through several layers of abstraction:
 
 1. **Schema**: Purely describes structure and constraints
    ```typescript
-   { type: 'string', array_type: false }
+   { type: 'string', is_array: false }
    ```
    Think of schemas like class definitions in object-oriented programming - they define the shape and rules, but don't contain actual data.
 
@@ -40,26 +40,26 @@ Our system uses:
 ```typescript
 const addressSchema: Schema = {     // Nested schema definition
     type: 'object',
-    array_type: false,
+    is_array: false,
     fields: {
-        street: { type: 'string', array_type: false },
-        city: { type: 'string', array_type: false }
+        street: { type: 'string', is_array: false },
+        city: { type: 'string', is_array: false }
     }
 };
 
 const personSchema: Schema = {      // Schema definition
     type: 'object',
-    array_type: false,
+    is_array: false,
     fields: {
-        age: { type: 'number', array_type: false },
-        name: { type: 'string', array_type: false },
+        age: { type: 'number', is_array: false },
+        name: { type: 'string', is_array: false },
         address: addressSchema      // Nested schema
     }
 };
 
 const person: Variable = {          // Variable with value
     variable_id: 'var1',           // System-wide unique ID
-    name: 'bob',                   // Reference identifier (matches class example)
+    name: 'bob' as VariableName,   // Reference identifier (matches class example)
     schema: personSchema,          // Structure definition
     value: {                       // Actual data
         age: 42,
@@ -84,7 +84,7 @@ type ValueType = PrimitiveType | ComplexType;
 // Schema - purely describes structure
 interface Schema {
     type: ValueType;
-    array_type: boolean;  // If true, the value will be an array of the base type
+    is_array: boolean;  // If true, the value will be an array of the base type
     // Only present when type is 'object'
     fields?: Record<string, Schema>;
     // Format constraints
@@ -97,7 +97,7 @@ type SchemaValueType =
     | string
     | number
     | boolean
-    | object
+    | SchemaObjectType
     | FileValue;
 
 // File value type
@@ -111,6 +111,10 @@ interface FileValue {
     extracted_text?: string;
     created_at: string;
     updated_at: string;
+}
+
+interface SchemaObjectType {
+    [key: string]: SchemaValueType;
 }
 ```
 
@@ -126,24 +130,24 @@ For example:
 // A basic schema just describes structure
 const numberSchema: Schema = {
     type: 'number',
-    array_type: false
+    is_array: false
 };
 
 // An object schema has named fields
 const personSchema: Schema = {
     type: 'object',
-    array_type: false,
+    is_array: false,
     fields: {
         // Field names map directly to their schemas
-        age: { type: 'number', array_type: false },
-        first_name: { type: 'string', array_type: false }
+        age: { type: 'number', is_array: false },
+        first_name: { type: 'string', is_array: false }
     }
 };
 
 // A variable combines schema with identifiers and value
-const ageVar = {
+const ageVar: Variable = {
     variable_id: 'var1',          // System-wide unique ID
-    name: 'person_age',           // Reference name in current context
+    name: 'person_age' as VariableName,  // Reference name in current context
     schema: numberSchema,         // Structure definition
     value: 42                     // Actual data
 };
@@ -153,14 +157,16 @@ const ageVar = {
 // Base variable type - combines schema with identifiers and value
 interface Variable {
     variable_id: string;     // System-wide unique ID
-    name: string;           // Reference name in current context
-    schema: Schema;         // Structure definition
+    name: VariableName;      // Reference name in current context
+    schema: Schema;          // Structure definition
     value?: SchemaValueType; // Actual data
     description?: string;    // Human-readable description
 }
 
 // Workflow variable - adds I/O type and required flag
 interface WorkflowVariable extends Variable {
+    variable_id: string;     // System-wide unique ID
+    name: WorkflowVariableName; // Reference name in workflow context
     io_type: 'input' | 'output';
     // Required flag only applies to inputs and defaults to true
     required?: boolean;
@@ -173,6 +179,7 @@ interface JobVariable extends Variable {
 
 // Type-safe variable references
 type VariableName = string & { readonly __brand: unique symbol };
+type WorkflowVariableName = string & { readonly __brand: unique symbol };
 ```
 
 ## 2. Tools and Parameters
@@ -186,28 +193,49 @@ Tools are the processing units in our system. They define:
 ```typescript
 // Tool parameter definition
 interface ToolParameter {
-    schema: Schema;
-    required?: boolean;
-    default?: SchemaValueType;
-    description?: string;    // describes this parameter to tool users
+    name: ToolParameterName;  // Parameter name in the tool's context
+    schema: Schema;           // Structure definition
+    required?: boolean;       // Whether this parameter must be provided
+    default?: SchemaValueType;// Default value if not provided
+    description?: string;     // Describes this parameter to tool users
 }
 
 // Tool output definition
 interface ToolOutput {
-    schema: Schema;
-    description?: string;    // describes this output to tool users
+    name: ToolOutputName;     // Output name in the tool's context
+    schema: Schema;           // Structure definition
+    description?: string;     // Describes this output to tool users
 }
 
 // Complete tool definition
 interface Tool {
     tool_id: string;
-    name: string;
+    name: string;            // Tool display name (not a branded type)
     description: string;
     tool_type: 'llm' | 'search' | 'retrieve' | 'utility';
     signature: {
         parameters: ToolParameter[];
         outputs: ToolOutput[];
     };
+}
+
+// Runtime value types for tools
+
+// Type-safe parameter names and output names
+type ToolParameterName = string & { readonly __brand: unique symbol };
+type ToolOutputName = string & { readonly __brand: unique symbol };
+
+// Resolved parameter values at runtime - maps parameter names to their values
+type ResolvedParameters = Record<ToolParameterName, SchemaValueType>;
+
+// Tool outputs at runtime - maps output names to their values
+type ToolOutputs = Record<ToolOutputName, SchemaValueType>;
+
+// LLM-specific parameter types
+interface LLMParameters extends ResolvedParameters {
+    prompt_template_id: string;
+    regular_variables: Record<VariableName, SchemaValueType>;
+    file_variables: Record<VariableName, string>;
 }
 ```
 
@@ -230,9 +258,13 @@ interface WorkflowStep {
     tool?: Tool;
     tool_id?: string;
     prompt_template?: string;
-    // Maps between tool and workflow variables
-    parameter_mappings: Record<VariableName, VariableName>;
-    output_mappings: Record<VariableName, VariableName>;
+    // Maps tool parameter names to workflow variable names
+    parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
+    // Maps tool output names to workflow variable names
+    output_mappings: Record<ToolOutputName, WorkflowVariableName>;
+    sequence_number: number;
+    created_at: string;
+    updated_at: string;
 }
 
 // Complete workflow definition
@@ -262,9 +294,11 @@ interface JobStep {
     job_id: string;
     sequence_number: number;
     status: 'pending' | 'running' | 'completed' | 'failed';
-    output_data?: Record<VariableName, SchemaValueType>;
-    parameter_mappings: Record<VariableName, VariableName>;
-    output_mappings: Record<VariableName, VariableName>;
+    output_data?: Record<WorkflowVariableName, SchemaValueType>;
+    // Maps tool parameter names to workflow variable names
+    parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
+    // Maps tool output names to workflow variable names
+    output_mappings: Record<ToolOutputName, WorkflowVariableName>;
 }
 
 // Complete job definition
@@ -273,7 +307,7 @@ interface Job {
     workflow_id: string;
     status: 'pending' | 'running' | 'completed' | 'failed';
     input_variables: JobVariable[];
-    output_data?: Record<VariableName, SchemaValueType>;
+    output_data?: Record<WorkflowVariableName, SchemaValueType>;
     steps: JobStep[];
 }
 ```
@@ -297,3 +331,4 @@ interface Job {
    - Workflow defines structure (inputs → steps → outputs)
    - Job provides runtime values and execution state
    - Tools process values according to their signatures
+

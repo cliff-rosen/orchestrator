@@ -1,4 +1,4 @@
-import { Tool } from './tools';
+import { Tool, ToolParameterName, ToolOutputName } from './tools';
 import { Schema, Variable, VariableName, ValueType } from './schema';
 
 export enum WorkflowStatus {
@@ -29,12 +29,14 @@ export interface WorkflowVariable extends Variable {
 // Helper to create a workflow variable
 export const createWorkflowVariable = (
     variable_id: string,
+    name: string,
     schema: Schema,
     io_type: 'input' | 'output',
     // required parameter is only used for inputs and defaults to true
     required: boolean = true
 ): WorkflowVariable => ({
     variable_id,
+    name,
     schema,
     io_type,
     // only set required flag for input variables
@@ -52,9 +54,9 @@ export interface WorkflowStep {
     tool_id?: string;
     prompt_template?: string;
     // Maps tool parameter names to workflow variable names
-    parameter_mappings: Record<VariableName, VariableName>;
+    parameter_mappings: Record<ToolParameterName, VariableName>;
     // Maps tool output names to workflow variable names
-    output_mappings: Record<VariableName, VariableName>;
+    output_mappings: Record<ToolOutputName, VariableName>;
     sequence_number: number;
     created_at: string;
     updated_at: string;
@@ -85,18 +87,16 @@ export const DEFAULT_WORKFLOW: Workflow = {
 };
 
 // Helper function to create an array schema
-export const createArraySchema = (name: string, itemType: ValueType, description?: string): Schema => ({
-    name,
+export const createArraySchema = (itemType: ValueType, description?: string): Schema => ({
     type: itemType,  // The base type of the items
     description,
-    array_type: true  // This indicates it's an array of itemType
+    is_array: true  // This indicates it's an array of itemType
 });
 
 // Helper function to create a basic schema
-export const createBasicSchema = (name: string, type: ValueType, description?: string): Schema => ({
-    name,
+export const createBasicSchema = (type: ValueType, description?: string): Schema => ({
     type,
     description,
-    array_type: false
+    is_array: false
 });
 
