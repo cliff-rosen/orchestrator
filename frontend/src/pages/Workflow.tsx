@@ -237,13 +237,19 @@ const Workflow: React.FC = () => {
     const workflowSteps = useMemo(() => {
         if (!workflow) return [];
 
-        // In edit mode, just return the basic workflow steps
-        if (isEditMode) {
-            return workflow.steps;
-        }
-
-        // Only create runtime steps when not in edit mode
         return workflow.steps.map((step, index) => {
+            // In edit mode, provide dummy runtime properties
+            if (isEditMode) {
+                return {
+                    ...step,
+                    action: async () => ({ success: false, error: 'Not executable in edit mode' }),
+                    actionButtonText: () => 'Edit',
+                    isDisabled: () => true,
+                    getValidationErrors: () => []
+                } as RuntimeWorkflowStep;
+            }
+
+            // In run mode, create full runtime step
             console.log('Converting workflow step to runtime step:', {
                 step_id: step.step_id,
                 tool: step.tool,
@@ -314,25 +320,26 @@ const Workflow: React.FC = () => {
         });
     }, [allSteps, currentStep]);
 
-    const handleStepReorder = (reorderedSteps: (WorkflowStep | RuntimeWorkflowStep)[]) => {
+    const handleStepReorder = (reorderedSteps: RuntimeWorkflowStep[]) => {
         if (!workflow) return;
 
-        // Convert steps back to workflow steps while preserving sequence numbers
-        const updatedSteps: WorkflowStep[] = reorderedSteps.map((step, index) => ({
-            step_id: step.step_id,
-            workflow_id: step.workflow_id,
-            label: step.label,
-            description: step.description,
-            step_type: step.step_type,
-            tool: step.tool,
-            tool_id: step.tool_id,
-            prompt_template_id: step.prompt_template_id,
-            parameter_mappings: step.parameter_mappings,
-            output_mappings: step.output_mappings,
-            sequence_number: index,
-            created_at: step.created_at,
-            updated_at: new Date().toISOString()
-        }));
+        // Convert runtime steps back to workflow steps while preserving sequence numbers
+        const updatedSteps: WorkflowStep[] = reorderedSteps.map((step, index) => {
+            // Extract only the WorkflowStep properties
+            const {
+                action,
+                actionButtonText,
+                isDisabled,
+                getValidationErrors,
+                ...workflowStep
+            } = step;
+
+            return {
+                ...workflowStep,
+                sequence_number: index,
+                updated_at: new Date().toISOString()
+            };
+        });
 
         updateWorkflow({
             steps: updatedSteps
