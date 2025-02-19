@@ -1,5 +1,4 @@
-import { SchemaValue } from './schema';
-export type { SchemaValue } from './schema';
+import { Schema, SchemaValueType } from './schema';
 
 export interface PromptTemplateToken {
     name: string;
@@ -13,7 +12,7 @@ export interface PromptTemplate {
     user_message_template: string;
     system_message_template?: string;
     tokens: PromptTemplateToken[];
-    output_schema: SchemaValue;
+    output_schema: Schema;
     created_at: string;
     updated_at: string;
 }
@@ -24,24 +23,32 @@ export interface PromptTemplateCreate {
     user_message_template: string;
     system_message_template?: string;
     tokens: PromptTemplateToken[];
-    output_schema: SchemaValue;
+    output_schema: Schema;
 }
 
 export interface PromptTemplateUpdate extends PromptTemplateCreate {
     template_id: string;
 }
 
-export interface PromptTemplateTest {
+// Helper type to extract token names from PromptTemplateToken array
+type TokenNames<T extends PromptTemplateToken[]> = T[number]['name'];
+
+// Helper type to create parameter record keyed by token names
+type TokenParameters<T extends PromptTemplateToken[]> = {
+    [K in TokenNames<T>]: T[number] extends { name: K, type: 'string' } ? string : string;  // file tokens also use string (file_id)
+};
+
+export interface PromptTemplateTest<T extends PromptTemplateToken[] = PromptTemplateToken[]> {
     user_message_template: string;
     system_message_template?: string;
-    tokens: PromptTemplateToken[];
-    parameters: Record<string, any>;
-    output_schema: SchemaValue;
+    tokens: T;
+    parameters: TokenParameters<T>;
+    output_schema: Schema;
 }
 
 export interface LLMExecuteRequest {
     prompt_template_id: string;
-    regular_variables: Record<string, any>;
+    regular_variables: Record<string, SchemaValueType>;
     file_variables: Record<string, string>;  // Maps variable name to file ID
     model?: string;
     max_tokens?: number;
@@ -63,7 +70,7 @@ export interface Message {
 export interface LLMExecuteResponse {
     template_id: string;
     messages: Message[];
-    response: any;
+    response: SchemaValueType;
 }
 
 export interface PromptTemplateOutputField {

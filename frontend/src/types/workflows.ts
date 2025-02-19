@@ -1,5 +1,5 @@
 import { Tool, ToolParameterName, ToolOutputName } from './tools';
-import { Schema, Variable, VariableName, ValueType } from './schema';
+import { Schema, Variable, ValueType } from './schema';
 
 export enum WorkflowStatus {
     DRAFT = 'DRAFT',
@@ -12,6 +12,9 @@ export enum WorkflowStepType {
     INPUT = 'INPUT'
 }
 
+// Type-safe workflow variable references
+export type WorkflowVariableName = string & { readonly __brand: unique symbol };
+
 // Runtime step that includes execution functions
 export interface RuntimeWorkflowStep extends WorkflowStep {
     action: () => Promise<void>;
@@ -20,7 +23,8 @@ export interface RuntimeWorkflowStep extends WorkflowStep {
 }
 
 // Workflow variable extends base Variable with I/O type and required flag
-export interface WorkflowVariable extends Variable {
+export interface WorkflowVariable extends Omit<Variable, 'name'> {
+    name: WorkflowVariableName;  // Reference name in workflow context
     io_type: 'input' | 'output';
     // Required flag only applies to inputs and defaults to true
     required?: boolean;
@@ -36,7 +40,7 @@ export const createWorkflowVariable = (
     required: boolean = true
 ): WorkflowVariable => ({
     variable_id,
-    name,
+    name: name as WorkflowVariableName,
     schema,
     io_type,
     // only set required flag for input variables
@@ -54,9 +58,9 @@ export interface WorkflowStep {
     tool_id?: string;
     prompt_template?: string;
     // Maps tool parameter names to workflow variable names
-    parameter_mappings: Record<ToolParameterName, VariableName>;
+    parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
     // Maps tool output names to workflow variable names
-    output_mappings: Record<ToolOutputName, VariableName>;
+    output_mappings: Record<ToolOutputName, WorkflowVariableName>;
     sequence_number: number;
     created_at: string;
     updated_at: string;

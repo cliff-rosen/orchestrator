@@ -28,9 +28,9 @@ export interface FileValue {
     updated_at: string;
 }
 
-// Type helper for object values
+// Type helper for object values - more precise field definitions
 export type SchemaObjectType = {
-    [key: string]: SchemaValueType;
+    [key: string]: SchemaValueType | Array<SchemaValueType>;
 };
 
 // Runtime value type for any schema
@@ -41,32 +41,17 @@ export type SchemaValueType =
     | SchemaObjectType
     | FileValue;
 
+// Branded type for type-safe variable references
+export type VariableName = string & { readonly __brand: unique symbol };
+
 // Base variable type - combines schema with identifiers and value
 export interface Variable {
     variable_id: string;     // System-wide unique ID
-    name: string;           // Reference name in current context
-    schema: Schema;         // Structure definition
+    name: VariableName;      // Reference name in current context
+    schema: Schema;          // Structure definition
     value?: SchemaValueType; // Actual data
     description?: string;    // Human-readable description
 }
-
-// Workflow variable - adds I/O type and required flag
-export interface WorkflowVariable extends Variable {
-    io_type: 'input' | 'output';
-    // Required flag only applies to inputs and defaults to true
-    required?: boolean;
-}
-
-// Job variable - runtime instance with required flag
-export interface JobVariable extends Variable {
-    required: boolean;
-}
-
-// Branded types for type-safe variable references
-export type VariableName = string & { readonly __brand: unique symbol };
-
-// Type-safe mapping types
-export type VariableMappingType = Record<VariableName, VariableName>;
 
 // Schema validation utilities
 export const isArrayValue = (schema: Schema, value: unknown): value is Array<any> => {
