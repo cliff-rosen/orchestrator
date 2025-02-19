@@ -79,7 +79,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         console.log('ActionStepRunner - Current step:', {
             step_id: actionStep.step_id,
             parameter_mappings: actionStep.parameter_mappings,
-            tool: actionStep.tool?.name
+            tool: actionStep.tool?.name,
+            tool_parameters: actionStep.tool?.signature.parameters.map(p => p.schema.name)
         });
         console.log('ActionStepRunner - Current workflow:', {
             workflow_id: workflow?.workflow_id,
@@ -90,7 +91,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         const newInputValues: Record<string, any> = {};
         if (actionStep.parameter_mappings) {
             Object.entries(actionStep.parameter_mappings).forEach(([paramName, varName]) => {
-                console.log(`\nLooking up variable for parameter "${paramName}" -> "${varName}"`);
+                console.log(`\nProcessing parameter mapping: "${paramName}" -> "${varName}"`);
+                console.log('Tool parameter exists:', actionStep.tool?.signature.parameters.some(p => p.schema.name === paramName));
 
                 // First try to find in inputs
                 const inputVar = workflow?.inputs?.find(v => v.schema.name === varName);
@@ -116,7 +118,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                 const variable = inputVar || outputVar;
 
                 if (!variable) {
-                    console.warn(`No variable found with ID "${varName}" in workflow inputs or outputs`);
+                    console.warn(`No variable found with name "${varName}" in workflow inputs or outputs`);
                     newInputValues[paramName] = {
                         value: null,
                         schema: null
@@ -137,6 +139,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                 };
                 console.log(`Set inputValues[${paramName}] to:`, newInputValues[paramName]);
             });
+        } else {
+            console.warn('No parameter mappings found for step:', actionStep.step_id);
         }
         console.log('ActionStepRunner - Final resolved input values:', newInputValues);
         setInputValues(newInputValues);

@@ -1,15 +1,15 @@
-import { SchemaValue, SchemaValueType } from './schema';
+import { Schema, SchemaValueType, VariableName } from './schema';
 
 export type ToolType = 'llm' | 'search' | 'retrieve' | 'utility';
 
 export interface ToolParameter {
-    schema: SchemaValue;
+    schema: Schema;
     required?: boolean;
-    default?: any;
+    default?: SchemaValueType;
 }
 
 export interface ToolOutput {
-    schema: SchemaValue;
+    schema: Schema;
 }
 
 export interface ToolSignature {
@@ -23,14 +23,14 @@ export type ToolOutputName = string & { readonly __brand: unique symbol };
 export type WorkflowVariableName = string & { readonly __brand: unique symbol };
 
 // Mapping types with semantic meaning
-export type ParameterMappingType = Record<ToolParameterName, WorkflowVariableName>;    // from tool parameter -> to workflow variable
-export type OutputMappingType = Record<ToolOutputName, WorkflowVariableName>;          // from tool output -> to workflow variable
+export type ParameterMappingType = Record<VariableName, VariableName>;
+export type OutputMappingType = Record<VariableName, VariableName>;
 
 // Type for LLM parameters
 export interface LLMParameters {
     prompt_template_id: string;
-    regular_variables: Record<string, any>;
-    file_variables: Record<string, string>;
+    regular_variables: Record<VariableName, SchemaValueType>;
+    file_variables: Record<VariableName, string>;
 }
 
 // Type for resolved parameter values
@@ -43,6 +43,6 @@ export interface Tool {
     tool_id: string;
     name: string;
     description: string;
-    tool_type: string;
+    tool_type: 'llm' | 'search' | 'retrieve' | 'utility';
     signature: ToolSignature;
 } 

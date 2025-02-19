@@ -1,4 +1,4 @@
-import { SchemaValue } from './schema';
+import { SchemaValueType, Variable, VariableName } from './schema';
 import { Tool } from './tools';
 
 export enum JobStatus {
@@ -8,28 +8,28 @@ export enum JobStatus {
     FAILED = 'failed'
 }
 
-export interface JobVariable {
-    variable_id: string;
-    schema: SchemaValue;
-    value: any;
+// Job variable extends base Variable with required flag
+export interface JobVariable extends Variable {
     required: boolean;
 }
 
+// Job step definition
 export interface JobStep {
     step_id: string;
     job_id: string;
     sequence_number: number;
     status: JobStatus;
-    output_data?: any;
+    output_data?: Record<VariableName, SchemaValueType>;
     error_message?: string;
     started_at?: string;
     completed_at?: string;
     tool?: Tool;
     prompt_template?: string;
-    parameter_mappings: Record<string, string>;
-    output_mappings: Record<string, string>;
+    parameter_mappings: Record<VariableName, VariableName>;
+    output_mappings: Record<VariableName, VariableName>;
 }
 
+// Complete job definition
 export interface Job {
     job_id: string;
     workflow_id: string;
@@ -47,7 +47,7 @@ export interface Job {
 
     // Data
     input_variables: JobVariable[];
-    output_data?: any;
+    output_data?: Record<VariableName, SchemaValueType>;
     steps: JobStep[];
 
     // Execution state
@@ -58,15 +58,7 @@ export interface Job {
     live_output?: string;
 }
 
-export interface StepExecutionResult {
-    step_id: string;
-    status: JobStatus;
-    output_data?: any;
-    error_message?: string;
-    started_at: string;
-    completed_at?: string;
-}
-
+// Job execution state
 export interface JobExecutionState {
     job_id: string;
     current_step_index: number;
@@ -75,9 +67,20 @@ export interface JobExecutionState {
     live_output: string;
     status: JobStatus;
     step_results: StepExecutionResult[];
-    variables: Record<string, any>;
+    variables: Record<VariableName, SchemaValueType>;
 }
 
+// Step execution result
+export interface StepExecutionResult {
+    step_id: string;
+    status: JobStatus;
+    output_data?: Record<VariableName, SchemaValueType>;
+    error_message?: string;
+    started_at: string;
+    completed_at?: string;
+}
+
+// Create job request
 export interface CreateJobRequest {
     workflow_id: string;
     name: string;
