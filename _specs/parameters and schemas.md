@@ -6,11 +6,71 @@ Workflows and tools operate on data through several layers of abstraction:
    ```typescript
    { type: 'string', array_type: false }
    ```
+   Think of schemas like class definitions in object-oriented programming - they define the shape and rules, but don't contain actual data.
 
 2. **Variable**: A schema plus identifiers and an optional value
    ```typescript
    { variable_id: 'var1', name: 'person_age', schema: { type: 'number' }, value: 42 }
    ```
+   Variables are like instances/objects - they contain actual data that conforms to a schema (similar to how objects conform to their class definition).
+
+For example, just as you might have:
+```typescript
+class Address {             // Nested class definition
+    street: string;
+    city: string;
+}
+
+class Person {              // Class definition (like Schema)
+    age: number;
+    name: string;
+    address: Address;       // Nested object
+}
+
+const bob = new Person();   // Instance with data
+bob.age = 42;
+bob.name = "Bob";
+bob.address = {
+    street: "123 Main St",
+    city: "Springfield"
+};
+```
+
+Our system uses:
+```typescript
+const addressSchema: Schema = {     // Nested schema definition
+    type: 'object',
+    array_type: false,
+    fields: {
+        street: { type: 'string', array_type: false },
+        city: { type: 'string', array_type: false }
+    }
+};
+
+const personSchema: Schema = {      // Schema definition
+    type: 'object',
+    array_type: false,
+    fields: {
+        age: { type: 'number', array_type: false },
+        name: { type: 'string', array_type: false },
+        address: addressSchema      // Nested schema
+    }
+};
+
+const person: Variable = {          // Variable with value
+    variable_id: 'var1',           // System-wide unique ID
+    name: 'bob',                   // Reference identifier (matches class example)
+    schema: personSchema,          // Structure definition
+    value: {                       // Actual data
+        age: 42,
+        name: "Bob",
+        address: {
+            street: "123 Main St",
+            city: "Springfield"
+        }
+    }
+};
+```
 
 ## 1. Core Type System
 
@@ -26,7 +86,7 @@ interface Schema {
     type: ValueType;
     array_type: boolean;  // If true, the value will be an array of the base type
     // Only present when type is 'object'
-    fields?: Record<string, { name: string, schema: Schema }>;
+    fields?: Record<string, Schema>;
     // Format constraints
     format?: string;
     content_types?: string[];
@@ -74,15 +134,9 @@ const personSchema: Schema = {
     type: 'object',
     array_type: false,
     fields: {
-        // Field names are identifiers within the object context
-        age: { 
-            name: 'age',  // Reference name within parent object
-            schema: { type: 'number', array_type: false }
-        },
-        first_name: { 
-            name: 'first_name',  // Reference name within parent object
-            schema: { type: 'string', array_type: false }
-        }
+        // Field names map directly to their schemas
+        age: { type: 'number', array_type: false },
+        first_name: { type: 'string', array_type: false }
     }
 };
 
