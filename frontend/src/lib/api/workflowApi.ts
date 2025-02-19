@@ -40,21 +40,23 @@ export const workflowApi = {
                     description: step.description,
                     step_type: step.step_type,
                     tool_id: step.tool?.tool_id ?? null,
-                    prompt_template: step.prompt_template,
+                    prompt_template_id: step.prompt_template_id,
                     parameter_mappings: step.parameter_mappings,
                     output_mappings: step.output_mappings,
                     sequence_number: step.sequence_number
                 })),
                 inputs: workflow.inputs?.map(input => ({
                     variable_id: input.variable_id,
+                    name: input.name,
                     schema: input.schema,
                     io_type: 'input'
                 })),
                 outputs: workflow.outputs?.map(output => ({
                     variable_id: output.variable_id,
+                    name: output.name,
                     schema: output.schema,
                     io_type: 'output'
-                })),
+                }))
             };
 
             const response = await api.post('/api/workflows', transformedWorkflow);
@@ -76,29 +78,27 @@ export const workflowApi = {
                     description: step.description,
                     step_type: step.step_type,
                     tool_id: step.tool?.tool_id ?? null,
-                    prompt_template: step.prompt_template,
+                    prompt_template_id: step.prompt_template_id,
                     parameter_mappings: step.parameter_mappings,
                     output_mappings: step.output_mappings,
                     sequence_number: step.sequence_number
                 })),
                 inputs: workflow.inputs?.map(input => ({
                     variable_id: input.variable_id,
+                    name: input.name,
                     schema: input.schema,
                     io_type: 'input'
                 })),
                 outputs: workflow.outputs?.map(output => ({
                     variable_id: output.variable_id,
+                    name: output.name,
                     schema: output.schema,
                     io_type: 'output'
-                })),
+                }))
             };
 
             const response = await api.put(`/api/workflows/${workflowId}`, transformedWorkflow);
-            return {
-                ...response.data,
-                inputs: response.data.inputs,
-                outputs: response.data.outputs
-            };
+            return response.data;
         } catch (error) {
             throw handleApiError(error);
         }

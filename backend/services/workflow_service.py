@@ -49,7 +49,7 @@ class WorkflowService:
                     description=step_data.description,
                     step_type=step_data.step_type,
                     tool_id=step_data.tool_id,
-                    prompt_template=step_data.prompt_template,
+                    prompt_template_id=step_data.prompt_template_id,
                     parameter_mappings=step_data.parameter_mappings or {},
                     output_mappings=step_data.output_mappings or {},
                     sequence_number=step_data.sequence_number,
@@ -61,12 +61,12 @@ class WorkflowService:
         # Create input variables if provided
         if workflow_data.inputs:
             for input_data in workflow_data.inputs:
-                schema = input_data.schema.model_dump() if hasattr(input_data.schema, 'model_dump') else input_data.schema
+                schema = input_data.schema.model_dump()
                 input_var = WorkflowVariable(
                     variable_id=input_data.variable_id or str(uuid4()),
                     workflow_id=workflow.workflow_id,
-                    name=schema['name'],
-                    description=schema.get('description', schema['name']),
+                    name=input_data.name,
+                    description=schema.get('description'),
                     type=schema['type'],
                     schema=schema,
                     io_type='input',
@@ -78,12 +78,12 @@ class WorkflowService:
         # Create output variables if provided
         if workflow_data.outputs:
             for output_data in workflow_data.outputs:
-                schema = output_data.schema.model_dump() if hasattr(output_data.schema, 'model_dump') else output_data.schema
+                schema = output_data.schema.model_dump()
                 output_var = WorkflowVariable(
                     variable_id=output_data.variable_id or str(uuid4()),
                     workflow_id=workflow.workflow_id,
-                    name=schema['name'],
-                    description=schema.get('description', schema['name']),
+                    name=output_data.name,
+                    description=schema.get('description'),
                     type=schema['type'],
                     schema=schema,
                     io_type='output',
@@ -122,12 +122,8 @@ class WorkflowService:
                 WorkflowVariableResponse(
                     variable_id=var.variable_id,
                     workflow_id=workflow_id,
-                    schema=VariableSchema(
-                        name=var.name,  # Use the variable's name for the schema
-                        type=var.type,  # Use the variable's type
-                        description=var.description,  # Use the variable's description
-                        **{k: v for k, v in var.schema.items() if k not in ['name', 'type', 'description']}  # Include other schema fields
-                    ),
+                    name=var.name,
+                    schema=var.schema,
                     io_type=var.io_type,
                     created_at=var.created_at,
                     updated_at=var.updated_at
@@ -139,12 +135,8 @@ class WorkflowService:
                 WorkflowVariableResponse(
                     variable_id=var.variable_id,
                     workflow_id=workflow_id,
-                    schema=VariableSchema(
-                        name=var.name,  # Use the variable's name for the schema
-                        type=var.type,  # Use the variable's type
-                        description=var.description,  # Use the variable's description
-                        **{k: v for k, v in var.schema.items() if k not in ['name', 'type', 'description']}  # Include other schema fields
-                    ),
+                    name=var.name,
+                    schema=var.schema,
                     io_type=var.io_type,
                     created_at=var.created_at,
                     updated_at=var.updated_at
@@ -159,32 +151,15 @@ class WorkflowService:
                 if s.tool_id:
                     tool = self.db.query(Tool).filter(Tool.tool_id == s.tool_id).first()
                     if tool:
-                        # For LLM tools, get signature from prompt template if specified
-                        if tool.tool_type == 'llm' and s.prompt_template:
-                            llm_signature = self._get_llm_signature(s.prompt_template)
-                            tool_response = ToolResponse(
-                                tool_id=tool.tool_id,
-                                name=tool.name,
-                                description=tool.description,
-                                tool_type=tool.tool_type,
-                                signature=ToolSignature(
-                                    parameters=llm_signature['parameters'],
-                                    outputs=llm_signature['outputs']
-                                ),
-                                created_at=tool.created_at,
-                                updated_at=tool.updated_at
-                            )
-                        else:
-                            # For non-LLM tools, use the tool's signature directly
-                            tool_response = ToolResponse(
-                                tool_id=tool.tool_id,
-                                name=tool.name,
-                                description=tool.description,
-                                tool_type=tool.tool_type,
-                                signature=tool.signature,
-                                created_at=tool.created_at,
-                                updated_at=tool.updated_at
-                            )
+                        tool_response = ToolResponse(
+                            tool_id=tool.tool_id,
+                            name=tool.name,
+                            description=tool.description,
+                            tool_type=tool.tool_type,
+                            signature=tool.signature,
+                            created_at=tool.created_at,
+                            updated_at=tool.updated_at
+                        )
 
                 steps.append(WorkflowStepResponse(
                     step_id=s.step_id,
@@ -193,7 +168,7 @@ class WorkflowService:
                     description=s.description,
                     step_type=s.step_type,
                     tool_id=s.tool_id,
-                    prompt_template=s.prompt_template,
+                    prompt_template_id=s.prompt_template_id,
                     parameter_mappings=s.parameter_mappings,
                     output_mappings=s.output_mappings,
                     sequence_number=s.sequence_number,
@@ -210,7 +185,7 @@ class WorkflowService:
                 description=workflow.description,
                 status=workflow.status,
                 error=workflow.error,
-                steps=steps,  # Now includes properly populated tool information
+                steps=steps,
                 inputs=inputs,
                 outputs=outputs,
                 created_at=workflow.created_at,
@@ -220,21 +195,13 @@ class WorkflowService:
             print(f"Error converting workflow to response: {str(e)}")
             raise
 
-    def get_workflows(self, user_id: int) -> List[Workflow]:
+    def get_workflows(self, user_id: int) -> List[WorkflowResponse]:
         """List all workflows for a user."""
         print(f"Getting workflows for user {user_id}")
         workflows = self.db.query(Workflow).filter(Workflow.user_id == user_id).all()
         
-        # For each workflow, fetch its steps with proper sequence ordering
-        for workflow in workflows:
-            workflow.steps = (
-                self.db.query(WorkflowStep)
-                .filter(WorkflowStep.workflow_id == workflow.workflow_id)
-                .order_by(WorkflowStep.sequence_number)
-                .all()
-            )
-        
-        return workflows
+        # Convert each workflow to a WorkflowResponse
+        return [self.get_workflow(w.workflow_id, user_id) for w in workflows]
 
     def update_workflow(self, workflow_id: str, workflow_data: WorkflowUpdate, user_id: int) -> WorkflowResponse:
         """Update a workflow."""
@@ -312,8 +279,8 @@ class WorkflowService:
                             variable_id=var_dict.get('variable_id', str(uuid4())),
                             workflow_id=workflow_id,
                             io_type='input',
-                            name=schema['name'],
-                            description=schema.get('description', schema['name']),
+                            name=var_dict['name'],
+                            description=schema.get('description'),
                             type=schema['type'],
                             schema=schema,
                             created_at=datetime.utcnow(),
@@ -331,8 +298,8 @@ class WorkflowService:
                             variable_id=var_dict.get('variable_id', str(uuid4())),
                             workflow_id=workflow_id,
                             io_type='output',
-                            name=schema['name'],
-                            description=schema.get('description', schema['name']),
+                            name=var_dict['name'],
+                            description=schema.get('description'),
                             type=schema['type'],
                             schema=schema,
                             created_at=datetime.utcnow(),
@@ -669,15 +636,15 @@ class WorkflowService:
         """
         Execute a single workflow step
         """
-        if not step.prompt_template:
+        if not step.prompt_template_id:
             raise InvalidStepConfigurationError("No prompt template specified for LLM step")
             
         template = self.db.query(PromptTemplate).filter(
-            PromptTemplate.template_id == step.prompt_template
+            PromptTemplate.template_id == step.prompt_template_id
         ).first()
         
         if not template:
-            raise InvalidStepConfigurationError(f"Prompt template {step.prompt_template} not found")
+            raise InvalidStepConfigurationError(f"Prompt template {step.prompt_template_id} not found")
         
         # Validate step configuration
         errors = self.validate_step_configuration(step, template)

@@ -7,6 +7,8 @@ from database import get_db, init_db
 from models import Base
 from config import settings, setup_logging
 import sys
+from pydantic import ValidationError
+from starlette.responses import JSONResponse
 
 # Setup logging first
 logger = setup_logging()
@@ -97,5 +99,15 @@ async def test_endpoint():
     print("TESTING STDERR", file=sys.stderr, flush=True)
     logger.info("Test endpoint called")
     return {"status": "ok"}
+
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    logger.error(f"Validation error in {request.url.path}:")
+    for error in exc.errors():
+        logger.error(f"  - {error['loc']}: {error['msg']} (type: {error['type']})")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()}
+    )
 
 logger.info("Application startup complete")

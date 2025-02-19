@@ -72,20 +72,18 @@ class WorkflowStep(Base):
     label = Column(String(255), nullable=False)
     description = Column(Text)
     step_type = Column(String(50), nullable=False)  # 'ACTION' or 'INPUT'
-    tool_id = Column(String(36), ForeignKey("tools.tool_id"), nullable=True)
-    prompt_template = Column(String(36), ForeignKey("prompt_templates.template_id"), nullable=True)
-    parameter_mappings = Column(JSON, nullable=False, default=dict)
-    output_mappings = Column(JSON, nullable=False, default=dict)
+    tool_id = Column(String(36), ForeignKey("tools.tool_id"))
+    prompt_template_id = Column(String(36), ForeignKey("prompt_templates.template_id"))
+    parameter_mappings = Column(JSON, default=dict)
+    output_mappings = Column(JSON, default=dict)
+    sequence_number = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    sequence_number = Column(Integer, nullable=False)
 
     # Relationships
     workflow = relationship("Workflow", back_populates="steps")
-    tool = relationship("Tool", back_populates="workflow_steps")
-  
-    class Config:
-        orm_mode = True
+    tool = relationship("Tool")
+    prompt_template = relationship("PromptTemplate")
 
 class WorkflowVariable(Base):
     __tablename__ = "workflow_variables"
@@ -94,9 +92,9 @@ class WorkflowVariable(Base):
     workflow_id = Column(String(36), ForeignKey("workflows.workflow_id"), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    type = Column(String(50), nullable=False)  # 'string', 'number', 'boolean', 'file'
-    schema = Column(JSON, nullable=False)  # JSON Schema of the variable including format and contentTypes
-    io_type = Column(String(50), nullable=False)  # 'input' or 'output'
+    type = Column(String(50), nullable=False)
+    schema = Column(JSON, nullable=False)
+    io_type = Column(String(10), nullable=False)  # 'input' or 'output'
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

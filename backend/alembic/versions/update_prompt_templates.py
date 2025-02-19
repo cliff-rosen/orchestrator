@@ -36,16 +36,18 @@ def upgrade():
         WHERE updated_at IS NULL
     """)
 
+    # Add tokens columns if they don't exist
+    op.execute("""
+        ALTER TABLE prompt_templates
+        ADD COLUMN IF NOT EXISTS tokens JSON NULL DEFAULT '[]',
+        ADD COLUMN IF NOT EXISTS output_schema JSON NULL DEFAULT '{"type": "string"}'
+    """)
+
     # Ensure JSON columns have valid JSON
     op.execute("""
         UPDATE prompt_templates 
-        SET regular_tokens = '[]' 
-        WHERE regular_tokens IS NULL OR NOT JSON_VALID(regular_tokens)
-    """)
-    op.execute("""
-        UPDATE prompt_templates 
-        SET file_tokens = '[]' 
-        WHERE file_tokens IS NULL OR NOT JSON_VALID(file_tokens)
+        SET tokens = '[]' 
+        WHERE tokens IS NULL OR NOT JSON_VALID(tokens)
     """)
     op.execute("""
         UPDATE prompt_templates 
@@ -60,4 +62,11 @@ def downgrade():
                     nullable=True)
     op.alter_column('prompt_templates', 'updated_at',
                     existing_type=mysql.DATETIME(),
-                    nullable=True) 
+                    nullable=True)
+    
+    # Drop tokens columns
+    op.execute("""
+        ALTER TABLE prompt_templates
+        DROP COLUMN IF EXISTS tokens,
+        DROP COLUMN IF EXISTS output_schema
+    """) 

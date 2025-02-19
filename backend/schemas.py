@@ -314,7 +314,7 @@ class VariableType(str, Enum):
 
 class VariableSchema(BaseModel):
     """Schema for variable type and format"""
-    name: str = Field(description="Name of the schema")
+    name: Optional[str] = Field(None, description="Name of the schema")
     type: VariableType = Field(description="Type of the schema")
     description: Optional[str] = Field(None, description="Description of the schema")
     array_type: bool = Field(default=False, description="Whether this is an array type")
@@ -389,12 +389,14 @@ class LLMExecuteResponse(BaseModel):
 
 class WorkflowVariableBase(BaseModel):
     """Base schema for workflow variables"""
+    name: str = Field(description="Name of the variable")
     schema: VariableSchema = Field(description="Schema of the variable")
     io_type: Literal["input", "output"] = Field(description="Whether this is an input or output variable")
 
 class WorkflowVariableCreate(BaseModel):
     """Schema for creating workflow variables"""
     variable_id: str
+    name: str
     schema: VariableSchema
     io_type: Literal["input", "output"]
 
@@ -413,7 +415,7 @@ class WorkflowStepBase(BaseModel):
     description: str = Field(description="Description of the step")
     step_type: str = Field(description="Type of step (ACTION or INPUT)")
     tool_id: Optional[str] = Field(None, description="ID of the tool to use for this step")
-    prompt_template: Optional[str] = Field(None, description="ID of the prompt template to use for LLM tools")
+    prompt_template_id: Optional[str] = Field(None, description="ID of the prompt template to use for LLM tools")
     parameter_mappings: Dict[str, str] = Field(default_factory=dict, description="Maps tool parameters to workflow variables")
     output_mappings: Dict[str, str] = Field(default_factory=dict, description="Maps tool outputs to workflow variables")
 
@@ -423,7 +425,7 @@ class WorkflowStepCreate(BaseModel):
     description: Optional[str] = None
     step_type: str
     tool_id: Optional[str] = None
-    prompt_template: Optional[str] = None
+    prompt_template_id: Optional[str] = None
     parameter_mappings: Optional[dict] = None
     output_mappings: Optional[dict] = None
     sequence_number: int
@@ -436,7 +438,7 @@ class WorkflowStepResponse(WorkflowStepBase):
     description: Optional[str]
     step_type: str
     tool_id: Optional[str]
-    prompt_template: Optional[str]
+    prompt_template_id: Optional[str]
     parameter_mappings: Dict[str, Any]
     output_mappings: Dict[str, Any]
     sequence_number: int

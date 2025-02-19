@@ -177,22 +177,6 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
         }));
     };
 
-    const handleFileSelect = (file: FileInfo, schema: Schema) => {
-        // Create updated schema while preserving array type
-        const updatedSchema = createBasicSchema('file', file.description);
-        updatedSchema.is_array = schema.is_array;
-
-        // Find and update the variable that contains this schema
-        const updatedVariables = variables.map(variable => {
-            if (variable.schema === schema) {
-                return { ...variable, schema: updatedSchema };
-            }
-            return variable;
-        });
-
-        onChange(updatedVariables);
-    };
-
     return (
         <div className="space-y-6">
             {/* Variable Management UI */}
