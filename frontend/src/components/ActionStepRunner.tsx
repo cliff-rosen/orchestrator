@@ -149,7 +149,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         const newOutputValues: Record<string, any> = {};
         if (actionStep.output_mappings) {
             Object.entries(actionStep.output_mappings).forEach(([outputName, varName]) => {
-                const variable = workflow?.outputs?.find(v => v.schema.name === varName);
+                const variable = workflow?.outputs?.find(v => v.name === varName);
                 newOutputValues[outputName] = {
                     value: variable?.value,
                     schema: variable?.schema
@@ -161,11 +161,11 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
 
     // Get the current prompt template if this is an LLM tool
     const currentTemplate = React.useMemo(() => {
-        if (actionStep.tool?.tool_type === 'llm' && actionStep.prompt_template) {
-            return templates.find(t => t.template_id === actionStep.prompt_template);
+        if (actionStep.tool?.tool_type === 'llm' && actionStep.prompt_template_id) {
+            return templates.find(t => t.template_id === actionStep.prompt_template_id);
         }
         return null;
-    }, [actionStep.tool, actionStep.prompt_template, templates]);
+    }, [actionStep.tool, actionStep.prompt_template_id, templates]);
 
     const handleStartEdit = (paramName: string, value: any) => {
         setEditingInput(paramName);
@@ -579,7 +579,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                             {actionStep.tool.signature.parameters.map(param => {
-                                const paramName = param.schema.name;
+                                const paramName = param.name;
                                 const varName = actionStep.parameter_mappings?.[paramName] || '';
                                 return (
                                     <tr key={paramName}>
@@ -643,7 +643,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                 {actionStep.tool.signature.outputs.map(output => {
-                                    const outputName = output.schema.name;
+                                    const outputName = output.name;
                                     return (
                                         <tr key={outputName}>
                                             <td className="px-4 py-2">
@@ -686,8 +686,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                             const updatedInputs = [...(workflow.inputs || [])];
                             const updatedOutputs = [...(workflow.outputs || [])];
 
-                            const inputVar = updatedInputs.find(v => v.schema.name === selectedParam.varName);
-                            const outputVar = updatedOutputs.find(v => v.schema.name === selectedParam.varName);
+                            const inputVar = updatedInputs.find(v => v.name === selectedParam.varName);
+                            const outputVar = updatedOutputs.find(v => v.name === selectedParam.varName);
 
                             if (inputVar) {
                                 inputVar.value = { file_id: fileId };

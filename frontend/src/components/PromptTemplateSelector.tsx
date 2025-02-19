@@ -18,8 +18,8 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
     const [isCreating, setIsCreating] = useState(false);
 
     const currentTemplate = useMemo(() =>
-        templates.find(t => t.template_id === step.prompt_template),
-        [templates, step.prompt_template]
+        templates.find(t => t.template_id === step.prompt_template_id),
+        [templates, step.prompt_template_id]
     );
 
     if (!step.tool || step.tool.tool_type !== 'llm') {
@@ -46,7 +46,7 @@ const PromptTemplateSelector: React.FC<PromptTemplateSelectorProps> = ({
             </label>
             <div className="flex gap-2">
                 <select
-                    value={step.prompt_template || ''}
+                    value={step.prompt_template_id || ''}
                     onChange={(e) => handleTemplateSelect(e.target.value)}
                     className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                              bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"

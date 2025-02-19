@@ -1,22 +1,27 @@
 import React from 'react';
-import { Schema } from '../types/schema';
+import { Schema, SchemaValueType } from '../types/schema';
 import FileLibrary from './FileLibrary';
 
 interface SchemaFormProps {
     schema: Schema;
-    value: any;
-    onChange: (value: any) => void;
+    value: SchemaValueType;
+    onChange: (value: SchemaValueType) => void;
 }
 
 const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
-    if (schema.type === 'object') {
-        const objectValue = value || {};
+    if (schema.type === 'object' && !schema.is_array) {
+        const objectValue = (value as Record<string, SchemaValueType>) || {};
         return (
             <div className="space-y-4">
-                {Object.entries(schema.fields).map(([fieldName, fieldSchema]) => (
+                {Object.entries(schema.fields || {}).map(([fieldName, fieldSchema]) => (
                     <div key={fieldName}>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            {fieldSchema.name}
+                            {fieldName}
+                            {fieldSchema.description && (
+                                <span className="ml-1 text-sm text-gray-500">
+                                    ({fieldSchema.description})
+                                </span>
+                            )}
                         </label>
                         <SchemaForm
                             schema={fieldSchema}
@@ -32,24 +37,25 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
         );
     }
 
-    if (schema.type === 'array') {
-        const arrayValue = Array.isArray(value) ? value : [];
+    if (schema.is_array) {
+        const arrayValue = Array.isArray(value) ? (value as SchemaValueType[]) : [];
+        const itemSchema = { ...schema, is_array: false };
         return (
             <div className="space-y-2">
                 {arrayValue.map((item, index) => (
                     <div key={index} className="flex gap-2 items-start">
                         <SchemaForm
-                            schema={schema.items}
+                            schema={itemSchema}
                             value={item}
                             onChange={newValue => {
                                 const newArray = [...arrayValue];
                                 newArray[index] = newValue;
-                                onChange(newArray);
+                                onChange(newArray as unknown as SchemaValueType);
                             }}
                         />
                         <button
                             onClick={() => {
-                                onChange(arrayValue.filter((_, i) => i !== index));
+                                onChange(arrayValue.filter((_, i) => i !== index) as unknown as SchemaValueType);
                             }}
                             className="text-red-600 dark:text-red-400 hover:text-red-700"
                         >
@@ -58,7 +64,7 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
                     </div>
                 ))}
                 <button
-                    onClick={() => onChange([...arrayValue, null])}
+                    onClick={() => onChange([...arrayValue, getDefaultValue(itemSchema)] as unknown as SchemaValueType)}
                     className="text-blue-600 dark:text-blue-400 hover:text-blue-700"
                 >
                     Add Item
@@ -68,14 +74,15 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
     }
 
     if (schema.type === 'file') {
+        const fileValue = value as { file_id?: string } | undefined;
         return (
             <div className="space-y-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Please select a file from the library below or upload a new one.
+                    {schema.description || 'Please select a file from the library below or upload a new one.'}
                 </p>
                 <FileLibrary
-                    selectedFileId={value?.file_id}
-                    onFileSelect={(fileId) => onChange({ file_id: fileId })}
+                    selectedFileId={fileValue?.file_id}
+                    onFileSelect={(fileId) => onChange({ file_id: fileId } as SchemaValueType)}
                 />
             </div>
         );
@@ -85,7 +92,7 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
         return (
             <input
                 type="text"
-                value={value || ''}
+                value={(value as string) || ''}
                 onChange={e => onChange(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                          bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -97,7 +104,7 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
         return (
             <input
                 type="number"
-                value={value || ''}
+                value={(value as number) || ''}
                 onChange={e => onChange(parseFloat(e.target.value))}
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                          bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -109,7 +116,7 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
         return (
             <input
                 type="checkbox"
-                checked={value || false}
+                checked={Boolean(value)}
                 onChange={e => onChange(e.target.checked)}
                 className="h-4 w-4 text-blue-600 dark:text-blue-400 border-gray-300 dark:border-gray-600 
                          rounded focus:ring-blue-500 dark:focus:ring-blue-400"
@@ -118,6 +125,24 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
     }
 
     return null;
+};
+
+// Helper to get default value for a schema type
+const getDefaultValue = (schema: Schema): SchemaValueType => {
+    if (schema.type === 'string') return '';
+    if (schema.type === 'number') return 0;
+    if (schema.type === 'boolean') return false;
+    if (schema.type === 'file') return { file_id: '' };
+    if (schema.type === 'object') {
+        const result: Record<string, SchemaValueType> = {};
+        if (schema.fields) {
+            for (const [key, fieldSchema] of Object.entries(schema.fields)) {
+                result[key] = getDefaultValue(fieldSchema);
+            }
+        }
+        return result;
+    }
+    return '';
 };
 
 export default SchemaForm; 

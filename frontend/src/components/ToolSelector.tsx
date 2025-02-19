@@ -21,7 +21,10 @@ const ToolSelector: React.FC<ToolSelectorProps> = ({
                 value={selectedTool ? getToolId(selectedTool) : ''}
                 onChange={(e) => {
                     const tool = tools.find(t => getToolId(t) === e.target.value);
-                    if (tool) onSelect(tool);
+                    console.log('Tool selected:', tool);
+                    if (tool) {
+                        onSelect(tool);
+                    }
                 }}
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                          bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"

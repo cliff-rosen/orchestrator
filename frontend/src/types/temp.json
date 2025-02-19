@@ -1,29 +1,24 @@
 {
-    "name": "Untitled Workflow",
-    "description": "A new custom workflow",
-    "status": "DRAFT",
-    "steps": [
+    "parameters": [
         {
-            "label": "Step 1",
-            "description": "First step",
-            "step_type": "ACTION",
-            "tool_id": null,
-            "prompt_template_id": null,
-            "parameter_mappings": {},
-            "output_mappings": {},
-            "sequence_number": 0
-        }
-    ],
-    "inputs": [
-        {
-            "variable_id": "var-1740000413383",
-            "name": "a",
+            "name": "input",
+            "description": "The input to echo",
             "schema": {
-                "type": "string",
-                "is_array": false
-            },
-            "io_type": "input"
+                "name": "input",
+                "is_array": false,
+                "type": "string"
+            }
         }
     ],
-    "outputs": []
+    "outputs": [
+        {
+            "name": "output",
+            "description": "The echoed output",
+            "schema": {
+                "name": "output",
+                "is_array": false,
+                "type": "string"
+            }
+        }
+    ]
 }
