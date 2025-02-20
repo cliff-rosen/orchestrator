@@ -114,10 +114,12 @@ const Workflow: React.FC = () => {
 
         try {
             setIsExecuting(true);
-            const currentStep = workflow.steps[activeStep];
+            // Adjust the index for run mode - subtract 1 to account for input step
+            const stepIndex = !isEditMode ? activeStep - 1 : activeStep;
+            const currentStep = workflow.steps[stepIndex];
             console.log('Executing step:', currentStep);
 
-            const toolId = currentStep.tool?.tool_id;
+            const toolId = currentStep?.tool?.tool_id;
             if (!toolId) {
                 return {
                     success: false,

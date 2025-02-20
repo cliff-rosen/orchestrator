@@ -12,7 +12,7 @@ from schemas import (
     WorkflowVariableCreate, WorkflowExecuteRequest,
     WorkflowResponse, WorkflowStepResponse, WorkflowVariableResponse,
     ToolResponse, ToolSignature, ParameterSchema, OutputSchema, SchemaValue,
-    WorkflowExecuteResponse, Variable, VariableType, VariableSchema
+    WorkflowExecuteResponse, Variable, VariableType
 )
 from exceptions import (
     WorkflowNotFoundError, InvalidWorkflowError, WorkflowExecutionError,

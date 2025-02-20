@@ -95,7 +95,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                 console.log('Tool parameter exists:', actionStep.tool?.signature.parameters.some(p => p.schema.name === paramName));
 
                 // First try to find in inputs
-                const inputVar = workflow?.inputs?.find(v => v.schema.name === varName);
+                const inputVar = workflow?.inputs?.find(v => v.name === varName);
                 if (inputVar) {
                     console.log('Found in workflow inputs:', {
                         variable_id: inputVar.variable_id,
@@ -105,7 +105,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                 }
 
                 // Then try to find in outputs
-                const outputVar = workflow?.outputs?.find(v => v.schema.name === varName);
+                const outputVar = workflow?.outputs?.find(v => v.name === varName);
                 if (outputVar) {
                     console.log('Found in workflow outputs:', {
                         variable_id: outputVar.variable_id,

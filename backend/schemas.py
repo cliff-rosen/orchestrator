@@ -326,14 +326,13 @@ class VariableSchema(BaseModel):
     content_types: Optional[List[str]] = Field(None, description="Allowed content types")
     file_id: Optional[str] = Field(None, description="File ID for file types")
 
-VariableSchema.model_rebuild()  # Required for self-referential model
-
 class Variable(BaseModel):
     """Schema for template variables"""
     name: str = Field(description="Name of the variable")
     type: VariableType = Field(description="Type of the variable")
     description: Optional[str] = Field(None, description="Description of the variable")
     required: bool = Field(default=True, description="Whether the variable is required")
+    schema: SchemaValue = Field(description="Schema defining the variable type and structure")
 
 class PromptTemplateToken(BaseModel):
     """Schema for a prompt template token"""
@@ -392,14 +391,14 @@ class LLMExecuteResponse(BaseModel):
 class WorkflowVariableBase(BaseModel):
     """Base schema for workflow variables"""
     name: str = Field(description="Name of the variable")
-    schema: VariableSchema = Field(description="Schema of the variable")
+    schema: SchemaValue = Field(description="Schema of the variable")
     io_type: Literal["input", "output"] = Field(description="Whether this is an input or output variable")
 
 class WorkflowVariableCreate(BaseModel):
     """Schema for creating workflow variables"""
     variable_id: str
     name: str
-    schema: VariableSchema
+    schema: SchemaValue
     io_type: Literal["input", "output"]
 
 class WorkflowVariableResponse(WorkflowVariableBase):

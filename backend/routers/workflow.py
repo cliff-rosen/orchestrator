@@ -12,8 +12,7 @@ from schemas import (
     WorkflowExecuteRequest,
     WorkflowResponse,
     WorkflowStepResponse,
-    WorkflowVariableResponse,
-    VariableSchema
+    WorkflowVariableResponse
 )
 from models import User, WorkflowVariable
 
