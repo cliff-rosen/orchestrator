@@ -70,7 +70,6 @@ const JobsManager: React.FC = () => {
             setIsCreateDialogOpen(false);
             setSelectedWorkflow(null);
             setJobName('');
-            navigate(`/jobs/${job.job_id}?mode=inputs`);
         } catch (error) {
             console.error('Failed to create job:', error);
         } finally {

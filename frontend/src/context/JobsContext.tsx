@@ -94,7 +94,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadJob = useCallback(async (jobId: string): Promise<void> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            const job = prev.jobs.find(j => j.job_id === jobId);
+            console.log('loadJob', jobId, state.jobs);
+            const job = state.jobs.find(j => j.job_id === jobId);
             if (!job) throw new Error('Job not found');
             setState(prev => ({ ...prev, currentJob: job, isLoading: false }));
         } catch (error) {
@@ -141,11 +142,14 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }))
             };
 
+            console.log('createJob will add new job:', newJob);
             setState(prev => ({
                 ...prev,
                 jobs: [...prev.jobs, newJob],
+                currentJob: newJob,
                 isLoading: false
             }));
+
 
             return newJob;
         } catch (error) {

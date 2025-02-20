@@ -63,7 +63,7 @@ export interface Job {
     execution_progress?: {
         current_step: number;
         total_steps: number;
-        is_paused?: boolean;
+        is_paused?: boolean;  
     };
     live_output?: string;
 }
