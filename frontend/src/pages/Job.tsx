@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useJobs } from '../context/JobsContext';
 import { useWorkflows } from '../context/WorkflowContext';
-import { Button } from '../components/ui/button';
-import { PlayCircle, StopCircle, ArrowLeft } from 'lucide-react';
+
 import { JobStatus, JobVariable } from '../types/jobs';
 import { JobProgress } from '../components/job/JobProgress';
 import { JobStepDetails } from '../components/job/JobStepDetails';
 import { JobLiveOutput } from '../components/job/JobLiveOutput';
 import { JobStepsList } from '../components/job/JobStepsList';
 import { JobInputForm } from '../components/job/JobInputForm';
+import JobMenuBar from '../components/job/JobMenuBar';
 
 const Job: React.FC = () => {
     const { jobId } = useParams<{ jobId: string }>();
@@ -46,6 +46,7 @@ const Job: React.FC = () => {
     // Load job data
     useEffect(() => {
         if (jobId) {
+            console.log('Job.tsx loading job', jobId);
             loadJob(jobId);
         }
     }, [jobId, loadJob]);
@@ -54,7 +55,7 @@ const Job: React.FC = () => {
     useEffect(() => {
         console.log('Initializing input values:', { workflow, workflowInputs });
         // Remove this effect as input initialization is now handled by the context
-    }, [workflow, needsInput]);
+    }, [workflow, currentJob, needsInput]);
 
     // Early return for loading state
     if (!currentJob || !workflow) {
@@ -85,7 +86,7 @@ const Job: React.FC = () => {
     });
 
     const handleStart = async () => {
-        console.log('handleStart called', {
+        console.log('Job.tsx handleStart called', {
             jobId: currentJob.job_id,
             status: currentJob.status,
             needsInput,
@@ -97,18 +98,13 @@ const Job: React.FC = () => {
             if (!validateInputs()) return;
 
             // Convert input values to JobVariables
-            const jobVariables: JobVariable[] = workflowInputs.map(input => {
-                const value = inputValues[input.variable_id];
-
-                // For file inputs, we expect the value to already be a file ID
-                // No need to do any conversion since files should be uploaded beforehand
-                return {
-                    variable_id: input.variable_id,
-                    schema: input.schema,
-                    value: value,
-                    required: true
-                };
-            });
+            const jobVariables: JobVariable[] = workflowInputs.map(input => ({
+                name: input.name,
+                variable_id: input.variable_id,
+                schema: input.schema,
+                value: inputValues[input.variable_id],
+                required: true
+            }));
 
             console.log('Starting job with variables:', jobVariables);
 
@@ -136,8 +132,17 @@ const Job: React.FC = () => {
     };
 
     const handleRestart = async () => {
+        console.log('Job.tsx handleRestart called', {
+            jobId: currentJob.job_id,
+            status: currentJob.status
+        });
         try {
             await resetJob(currentJob.job_id);
+            console.log('back from resetJob', {
+                jobId: currentJob.job_id,
+                status: currentJob.status
+            });
+
         } catch (error) {
             console.error('Failed to restart job:', error);
         }
@@ -145,87 +150,20 @@ const Job: React.FC = () => {
 
     return (
         <div className="container mx-auto px-2 sm:px-3 md:px-4 py-2">
-            {/* Unified Header */}
-            <div className="flex items-center justify-between mb-6">
-                {/* Left side: Back button and Job info */}
-                <div className="flex items-center gap-6">
-                    <Button
-                        variant="ghost"
-                        onClick={() => {
-                            resetCurrentJob();
-                            navigate('/jobs');
-                        }}
-                        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        Back to Jobs
-                    </Button>
-
-                    <div className="flex flex-col gap-2">
-                        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-50">
-                            {currentJob.name}
-                        </h1>
-                        <div className="flex items-center gap-4 text-sm">
-                            <div className="flex items-center gap-2">
-                                <span className="text-gray-500 dark:text-gray-400">Workflow:</span>
-                                <span className="font-medium text-gray-900 dark:text-gray-50">{workflow.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-gray-500 dark:text-gray-400">Status:</span>
-                                <span className={`inline-flex items-center gap-2 ${currentJob.status === JobStatus.RUNNING ? 'text-blue-500 dark:text-blue-400' :
-                                    currentJob.status === JobStatus.COMPLETED ? 'text-green-500 dark:text-green-400' :
-                                        currentJob.status === JobStatus.FAILED ? 'text-red-500 dark:text-red-400' :
-                                            'text-gray-500 dark:text-gray-400'
-                                    }`}>
-                                    <span className={`h-2 w-2 rounded-full ${currentJob.status === JobStatus.RUNNING ? 'bg-blue-500 animate-pulse' :
-                                        currentJob.status === JobStatus.COMPLETED ? 'bg-green-500' :
-                                            currentJob.status === JobStatus.FAILED ? 'bg-red-500' :
-                                                'bg-gray-500'
-                                        }`} />
-                                    {currentJob.status}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right side: Job Controls */}
-                <div className="flex gap-3">
-                    {currentJob.status === JobStatus.PENDING && (
-                        <Button
-                            onClick={handleStart}
-                            disabled={needsInput && !areInputsValid()}
-                            className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium transition-colors
-                                ${needsInput && !areInputsValid()
-                                    ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed'
-                                    : 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700'}`}
-                        >
-                            <PlayCircle className="h-4 w-4 mr-1.5" />
-                            Start Job
-                        </Button>
-                    )}
-                    {currentJob.status === JobStatus.RUNNING && (
-                        <Button
-                            onClick={handleCancel}
-                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium
-                                     bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
-                        >
-                            <StopCircle className="h-4 w-4 mr-1.5" />
-                            Cancel
-                        </Button>
-                    )}
-                    {(currentJob.status === JobStatus.COMPLETED || currentJob.status === JobStatus.FAILED) && (
-                        <Button
-                            onClick={handleRestart}
-                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium
-                                     bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
-                        >
-                            <PlayCircle className="h-4 w-4 mr-1.5" />
-                            Restart
-                        </Button>
-                    )}
-                </div>
-            </div>
+            <JobMenuBar
+                jobName={currentJob.name}
+                workflow={workflow}
+                status={currentJob.status}
+                needsInput={needsInput}
+                areInputsValid={areInputsValid}
+                onBack={() => {
+                    resetCurrentJob();
+                    navigate('/jobs');
+                }}
+                onStart={handleStart}
+                onCancel={handleCancel}
+                onRestart={handleRestart}
+            />
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-12 gap-3 md:gap-6 py-4">

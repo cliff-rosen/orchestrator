@@ -52,7 +52,7 @@ const JobsManager: React.FC = () => {
     }
 
     const handleCreateJob = async () => {
-        console.log('handleCreateJob');
+        console.log('JobsManager.tsx handleCreateJob starting', selectedWorkflow);
         if (!selectedWorkflow || isCreating) return;
 
         const workflow = workflows?.find(w => w.workflow_id === selectedWorkflow);

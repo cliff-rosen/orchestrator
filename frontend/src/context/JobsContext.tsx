@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult } from '../types/jobs';
+import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult, JobId } from '../types/jobs';
 import { WorkflowVariable } from '../types/workflows';
 import { useWorkflows } from './WorkflowContext';
 import { toolApi } from '../lib/api/toolApi';
@@ -121,15 +121,19 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const workflow = workflows?.find(w => w.workflow_id === request.workflow_id);
             if (!workflow) throw new Error('Workflow not found');
 
+            const jobId = `job-${Date.now()}` as JobId;
             const newJob: Job = {
-                job_id: `job-${Date.now()}`,
+                job_id: jobId,
                 workflow_id: request.workflow_id,
                 name: request.name,
                 description: request.description || '',
                 status: JobStatus.PENDING,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
-                input_variables: request.input_variables || [],
+                input_variables: workflow.inputs?.map((i) => ({
+                    ...i,
+                    required: i.required || true,
+                })) || [],
                 steps: workflow.steps.map((step, index) => ({
                     step_id: `step-${Date.now()}-${index}`,
                     job_id: `job-${Date.now()}`,

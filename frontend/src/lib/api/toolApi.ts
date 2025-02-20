@@ -74,7 +74,7 @@ const registerAllTools = () => {
     registerToolExecutor('echo', async (parameters: ResolvedParameters) => {
         const input = (parameters as Record<string, string>)['input'];
         // Add delay for echo tool
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 200));
         return {
             ['output' as ToolOutputName]: `Echo: ${input}`
         };
@@ -84,7 +84,7 @@ const registerAllTools = () => {
         const first = (parameters as Record<string, string>)['first'];
         const second = (parameters as Record<string, string>)['second'];
         // Add delay for cat tool
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 200));
         return {
             ['result' as ToolOutputName]: `${first}${second}`
         };
