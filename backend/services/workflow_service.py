@@ -151,12 +151,19 @@ class WorkflowService:
                 if s.tool_id:
                     tool = self.db.query(Tool).filter(Tool.tool_id == s.tool_id).first()
                     if tool:
+                        # For LLM tools, get signature from prompt template
+                        signature = None
+                        if tool.tool_type == 'llm' and s.prompt_template_id:
+                            signature = self._get_llm_signature(s.prompt_template_id)
+                        else:
+                            signature = tool.signature
+
                         tool_response = ToolResponse(
                             tool_id=tool.tool_id,
                             name=tool.name,
                             description=tool.description,
                             tool_type=tool.tool_type,
-                            signature=tool.signature,
+                            signature=signature,
                             created_at=tool.created_at,
                             updated_at=tool.updated_at
                         )

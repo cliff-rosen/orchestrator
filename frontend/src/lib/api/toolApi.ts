@@ -182,7 +182,7 @@ export const toolApi = {
                 if (key === 'prompt_template_id') return;
 
                 const paramDef = signature.parameters.find(p =>
-                    (p.schema as { name?: string }).name === key
+                    (p as { name?: string }).name === key
                 );
                 if (!paramDef) {
                     console.warn(`Parameter ${key} not found in template signature`);
