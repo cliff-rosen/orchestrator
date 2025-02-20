@@ -31,7 +31,7 @@ export const WorkflowInputs: React.FC<WorkflowInputsProps> = ({ inputs }) => {
                     return (
                         <div key={variable.variable_id} className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
                             <span className="font-medium text-gray-600 dark:text-gray-300">
-                                {variable.schema.name}
+                                {variable.name}
                             </span>
                             <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
                             {isComplexValue ? (

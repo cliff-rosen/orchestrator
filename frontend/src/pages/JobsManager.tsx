@@ -168,6 +168,9 @@ const JobsManager: React.FC = () => {
                     </DialogHeader>
 
                     <div className="space-y-6">
+                        <p className="text-gray-600 dark:text-gray-400">
+                            Select a workflow to create a new job.
+                        </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {workflows?.map(workflow => (
                                 <div

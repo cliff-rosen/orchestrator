@@ -62,7 +62,7 @@ export const JobInputForm: React.FC<JobInputFormProps> = ({
                             htmlFor={input.variable_id}
                             className="block text-sm font-medium text-gray-900 dark:text-gray-50"
                         >
-                            {input.schema.name}
+                            {input.name}
                             {isInputEmpty(input) && (
                                 <span className="text-red-500 dark:text-red-400 ml-1">*</span>
                             )}

@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult } from '../types/jobs';
-import { jobsApi } from '../lib/api/jobsApi';
 import { WorkflowVariable } from '../types/workflows';
 import { useWorkflows } from './WorkflowContext';
+import { toolApi } from '../lib/api/toolApi';
 
 interface JobsContextState {
     jobs: Job[];
@@ -76,17 +76,12 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.removeItem('currentJob');
     }, []);
 
-    // Load jobs on mount
-    useEffect(() => {
-        loadJobs();
-    }, []);
-
     // Job list management
     const loadJobs = useCallback(async () => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            const jobs = await jobsApi.getJobs();
-            setState(prev => ({ ...prev, jobs, isLoading: false }));
+            // Just return the jobs from state
+            setState(prev => ({ ...prev, isLoading: false }));
         } catch (error) {
             setState(prev => ({
                 ...prev,
@@ -99,7 +94,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadJob = useCallback(async (jobId: string): Promise<void> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            const job = await jobsApi.getJob(jobId);
+            const job = prev.jobs.find(j => j.job_id === jobId);
+            if (!job) throw new Error('Job not found');
             setState(prev => ({ ...prev, currentJob: job, isLoading: false }));
         } catch (error) {
             setState(prev => ({
@@ -112,31 +108,46 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const getJob = useCallback(async (jobId: string): Promise<Job> => {
-        setState(prev => ({ ...prev, isLoading: true, error: undefined }));
-        try {
-            const job = await jobsApi.getJob(jobId);
-            setState(prev => ({ ...prev, isLoading: false }));
-            return job;
-        } catch (error) {
-            setState(prev => ({
-                ...prev,
-                isLoading: false,
-                error: error instanceof Error ? error.message : 'Failed to get job'
-            }));
-            throw error;
-        }
-    }, []);
+        const job = state.jobs.find(j => j.job_id === jobId);
+        if (!job) throw new Error('Job not found');
+        return job;
+    }, [state.jobs]);
 
     const createJob = useCallback(async (request: CreateJobRequest): Promise<Job> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            const job = await jobsApi.createJob(request);
+            // Create a new job with initial state
+            const workflow = workflows?.find(w => w.workflow_id === request.workflow_id);
+            if (!workflow) throw new Error('Workflow not found');
+
+            const newJob: Job = {
+                job_id: `job-${Date.now()}`,
+                workflow_id: request.workflow_id,
+                name: request.name,
+                description: request.description || '',
+                status: JobStatus.PENDING,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                input_variables: request.input_variables || [],
+                steps: workflow.steps.map((step, index) => ({
+                    step_id: `step-${Date.now()}-${index}`,
+                    job_id: `job-${Date.now()}`,
+                    sequence_number: index,
+                    status: JobStatus.PENDING,
+                    tool: step.tool,
+                    prompt_template_id: step.prompt_template_id,
+                    parameter_mappings: step.parameter_mappings,
+                    output_mappings: step.output_mappings
+                }))
+            };
+
             setState(prev => ({
                 ...prev,
-                jobs: [...prev.jobs, job],
+                jobs: [...prev.jobs, newJob],
                 isLoading: false
             }));
-            return job;
+
+            return newJob;
         } catch (error) {
             setState(prev => ({
                 ...prev,
@@ -145,197 +156,176 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }));
             throw error;
         }
-    }, []);
+    }, [workflows]);
 
     const deleteJob = useCallback(async (jobId: string): Promise<void> => {
-        setState(prev => ({ ...prev, isLoading: true, error: undefined }));
-        try {
-            await jobsApi.deleteJob(jobId);
-            setState(prev => ({
-                ...prev,
-                jobs: prev.jobs.filter(j => j.job_id !== jobId),
-                currentJob: prev.currentJob?.job_id === jobId ? undefined : prev.currentJob,
-                isLoading: false
-            }));
-        } catch (error) {
-            setState(prev => ({
-                ...prev,
-                isLoading: false,
-                error: error instanceof Error ? error.message : 'Failed to delete job'
-            }));
-            throw error;
-        }
+        setState(prev => ({
+            ...prev,
+            jobs: prev.jobs.filter(j => j.job_id !== jobId),
+            currentJob: prev.currentJob?.job_id === jobId ? undefined : prev.currentJob
+        }));
     }, []);
 
-    // Job execution
     const executeStep = useCallback(async (jobId: string, stepIndex: number): Promise<StepExecutionResult> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            // Execute the step
-            const stepResult = await jobsApi.executeStep(jobId, stepIndex);
+            const job = state.jobs.find(j => j.job_id === jobId);
+            if (!job) throw new Error('Job not found');
 
-            // Get updated execution state
-            const executionState = await jobsApi.getJobExecutionState(jobId);
+            const step = job.steps[stepIndex];
+            if (!step) throw new Error('Step not found');
+            if (!step.tool) throw new Error('No tool configured for step');
 
-            // Get updated job
-            const job = await jobsApi.getJob(jobId);
+            // Execute the tool
+            const result = await toolApi.executeTool(step.tool.tool_id, {
+                ...step.parameter_mappings,
+                prompt_template_id: step.prompt_template_id
+            });
 
-            // Update the step with outputs
+            // Create step result
+            const stepResult: StepExecutionResult = {
+                step_id: step.step_id,
+                success: true,
+                outputs: result,
+                started_at: new Date().toISOString(),
+                completed_at: new Date().toISOString()
+            };
+
+            // Update job state
             const updatedJob = {
                 ...job,
-                steps: job.steps.map((step, idx) => {
+                steps: job.steps.map((s, idx) => {
                     if (idx === stepIndex) {
                         return {
-                            ...step,
-                            status: stepResult.status,
-                            output_data: stepResult.output_data,
-                            error_message: stepResult.error_message,
+                            ...s,
+                            status: JobStatus.COMPLETED,
+                            output_data: result,
                             started_at: stepResult.started_at,
                             completed_at: stepResult.completed_at
                         };
                     }
-                    return step;
+                    return s;
                 })
             };
 
-            // Update state
             setState(prev => ({
                 ...prev,
                 jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
                 currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob,
-                executionState,
                 isLoading: false
             }));
 
             return stepResult;
         } catch (error) {
-            setState(prev => ({
-                ...prev,
-                isLoading: false,
-                error: error instanceof Error ? error.message : 'Failed to execute step'
-            }));
+            const errorMessage = error instanceof Error ? error.message : 'Failed to execute step';
+
+            // Update job state with error
+            setState(prev => {
+                const job = prev.jobs.find(j => j.job_id === jobId);
+                if (!job) return prev;
+
+                const updatedJob = {
+                    ...job,
+                    status: JobStatus.FAILED,
+                    error_message: errorMessage,
+                    steps: job.steps.map((s, idx) => {
+                        if (idx === stepIndex) {
+                            return {
+                                ...s,
+                                status: JobStatus.FAILED,
+                                error_message: errorMessage
+                            };
+                        }
+                        return s;
+                    })
+                };
+
+                return {
+                    ...prev,
+                    jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
+                    currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob,
+                    isLoading: false,
+                    error: errorMessage
+                };
+            });
+
             throw error;
         }
-    }, []);
+    }, [state.jobs]);
 
     const startJob = useCallback(async (jobId: string, inputVariables?: JobVariable[]): Promise<void> => {
-        console.log('JobsContext: Starting job', { jobId, inputVariables });
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            // Initialize job state
-            const job = await jobsApi.startJob(jobId, inputVariables);
-            console.log('JobsContext: Job initialized', job);
+            const job = state.jobs.find(j => j.job_id === jobId);
+            if (!job) throw new Error('Job not found');
 
-            // Get execution state
-            const executionState = await jobsApi.getJobExecutionState(jobId);
-            console.log('JobsContext: Got execution state', executionState);
+            // Update job with input variables and set status to running
+            const updatedJob = {
+                ...job,
+                status: JobStatus.RUNNING,
+                started_at: new Date().toISOString(),
+                input_variables: inputVariables || []
+            };
 
-            // Update UI state with initial state
             setState(prev => ({
                 ...prev,
-                jobs: prev.jobs.map(j => j.job_id === jobId ? job : j),
-                currentJob: prev.currentJob?.job_id === jobId ? job : prev.currentJob,
-                executionState,
-                isLoading: false
+                jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
+                currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob
             }));
 
-            // Start executing steps
+            // Execute steps sequentially
             let currentStep = 0;
             const jobOutputs: Record<string, any> = {};
-            while (currentStep < job.steps.length) {
-                console.log(`JobsContext: Executing step ${currentStep}`);
+
+            while (currentStep < updatedJob.steps.length) {
                 try {
-                    // Execute step
                     const stepResult = await executeStep(jobId, currentStep);
 
-                    // Get updated job state
-                    const updatedJob = await jobsApi.getJob(jobId);
-                    console.log('JobsContext: Updated job state:', updatedJob);
-
-                    // Get updated execution state
-                    const updatedState = await jobsApi.getJobExecutionState(jobId);
-                    console.log('JobsContext: Updated execution state:', updatedState);
-
-                    // Update job outputs with step outputs based on output mappings
-                    if (stepResult.output_data) {
+                    // Update job outputs
+                    if (stepResult.outputs) {
                         const step = updatedJob.steps[currentStep];
                         if (step.output_mappings) {
                             Object.entries(step.output_mappings).forEach(([outputName, variableName]) => {
-                                if (stepResult.output_data && outputName in stepResult.output_data) {
-                                    jobOutputs[variableName] = stepResult.output_data[outputName];
+                                if (stepResult.outputs && outputName in stepResult.outputs) {
+                                    jobOutputs[variableName] = stepResult.outputs[outputName];
                                 }
                             });
                         }
                     }
 
-                    // Update UI with latest state and ensure output_data is properly set
-                    await new Promise<void>(resolve => {
-                        setState(prev => {
-                            // Update the current step with its outputs
-                            const updatedSteps = [...updatedJob.steps];
-                            if (updatedSteps[currentStep]) {
-                                updatedSteps[currentStep] = {
-                                    ...updatedSteps[currentStep],
-                                    output_data: stepResult.output_data
-                                };
-                            }
-
-                            // Create the updated job with both step outputs and job outputs
-                            const jobWithOutputs = {
-                                ...updatedJob,
-                                steps: updatedSteps,
-                                output_data: jobOutputs
-                            };
-
-                            const newState = {
-                                ...prev,
-                                jobs: prev.jobs.map(j => j.job_id === jobId ? jobWithOutputs : j),
-                                currentJob: prev.currentJob?.job_id === jobId ? jobWithOutputs : prev.currentJob,
-                                executionState: updatedState,
-                                isLoading: false
-                            };
-                            resolve();
-                            return newState;
-                        });
-                    });
-
                     // Check if job was cancelled or failed
-                    if (updatedState.status === JobStatus.FAILED) {
-                        console.log('JobsContext: Job failed, breaking execution');
+                    const currentJobState = state.jobs.find(j => j.job_id === jobId);
+                    if (currentJobState?.status === JobStatus.FAILED) {
                         break;
                     }
 
-                    // Add a small delay to ensure UI can update
-                    await new Promise(resolve => setTimeout(resolve, 100));
-
                     currentStep++;
                 } catch (error) {
-                    console.error(`JobsContext: Error executing step ${currentStep}:`, error);
-
-                    // Update UI with error state
-                    const failedJob = await jobsApi.getJob(jobId);
-                    const failedState = await jobsApi.getJobExecutionState(jobId);
-
-                    setState(prev => ({
-                        ...prev,
-                        jobs: prev.jobs.map(j => j.job_id === jobId ? {
-                            ...failedJob,
-                            output_data: jobOutputs
-                        } : j),
-                        currentJob: prev.currentJob?.job_id === jobId ? {
-                            ...failedJob,
-                            output_data: jobOutputs
-                        } : prev.currentJob,
-                        executionState: failedState,
-                        isLoading: false,
-                        error: error instanceof Error ? error.message : 'Failed to execute step'
-                    }));
-
+                    console.error(`Error executing step ${currentStep}:`, error);
                     break;
                 }
             }
+
+            // Update final job state
+            setState(prev => {
+                const finalJob = prev.jobs.find(j => j.job_id === jobId);
+                if (!finalJob) return prev;
+
+                const completedJob = {
+                    ...finalJob,
+                    status: currentStep === updatedJob.steps.length ? JobStatus.COMPLETED : JobStatus.FAILED,
+                    completed_at: new Date().toISOString(),
+                    output_data: jobOutputs
+                };
+
+                return {
+                    ...prev,
+                    jobs: prev.jobs.map(j => j.job_id === jobId ? completedJob : j),
+                    currentJob: prev.currentJob?.job_id === jobId ? completedJob : prev.currentJob,
+                    isLoading: false
+                };
+            });
         } catch (error) {
-            console.error('JobsContext: Error starting job:', error);
             setState(prev => ({
                 ...prev,
                 isLoading: false,
@@ -343,26 +333,57 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }));
             throw error;
         }
-    }, [executeStep]);
+    }, [state.jobs, executeStep]);
 
     const cancelJob = useCallback(async (jobId: string): Promise<void> => {
-        setState(prev => ({ ...prev, isLoading: true, error: undefined }));
-        try {
-            const job = await jobsApi.cancelJob(jobId);
-            setState(prev => ({
+        setState(prev => {
+            const job = prev.jobs.find(j => j.job_id === jobId);
+            if (!job) return prev;
+
+            const cancelledJob = {
+                ...job,
+                status: JobStatus.FAILED,
+                error_message: 'Job cancelled by user',
+                completed_at: new Date().toISOString()
+            };
+
+            return {
                 ...prev,
-                jobs: prev.jobs.map(j => j.job_id === jobId ? job : j),
-                currentJob: prev.currentJob?.job_id === jobId ? job : prev.currentJob,
-                isLoading: false
-            }));
-        } catch (error) {
-            setState(prev => ({
+                jobs: prev.jobs.map(j => j.job_id === jobId ? cancelledJob : j),
+                currentJob: prev.currentJob?.job_id === jobId ? cancelledJob : prev.currentJob
+            };
+        });
+    }, []);
+
+    const resetJob = useCallback(async (jobId: string): Promise<void> => {
+        setState(prev => {
+            const job = prev.jobs.find(j => j.job_id === jobId);
+            if (!job) return prev;
+
+            const resetJob = {
+                ...job,
+                status: JobStatus.PENDING,
+                error_message: undefined,
+                started_at: undefined,
+                completed_at: undefined,
+                steps: job.steps.map(step => ({
+                    ...step,
+                    status: JobStatus.PENDING,
+                    output_data: undefined,
+                    error_message: undefined,
+                    started_at: undefined,
+                    completed_at: undefined
+                }))
+            };
+
+            return {
                 ...prev,
-                isLoading: false,
-                error: error instanceof Error ? error.message : 'Failed to cancel job'
-            }));
-            throw error;
-        }
+                jobs: prev.jobs.map(j => j.job_id === jobId ? resetJob : j),
+                currentJob: prev.currentJob?.job_id === jobId ? resetJob : prev.currentJob,
+                inputValues: {},
+                inputErrors: {}
+            };
+        });
     }, []);
 
     // Input Management
@@ -444,28 +465,6 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return value !== undefined && value !== '';
         });
     }, [state.currentJob, state.inputValues, workflows]);
-
-    const resetJob = useCallback(async (jobId: string): Promise<void> => {
-        setState(prev => ({ ...prev, isLoading: true, error: undefined }));
-        try {
-            const job = await jobsApi.resetJob(jobId);
-            setState(prev => ({
-                ...prev,
-                jobs: prev.jobs.map(j => j.job_id === jobId ? job : j),
-                currentJob: prev.currentJob?.job_id === jobId ? job : prev.currentJob,
-                isLoading: false,
-                inputValues: {},
-                inputErrors: {}
-            }));
-        } catch (error) {
-            setState(prev => ({
-                ...prev,
-                isLoading: false,
-                error: error instanceof Error ? error.message : 'Failed to reset job'
-            }));
-            throw error;
-        }
-    }, []);
 
     // State management helpers
     const setCurrentJob = useCallback((job?: Job) => {
