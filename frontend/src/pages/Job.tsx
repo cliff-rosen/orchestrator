@@ -97,33 +97,18 @@ const Job: React.FC = () => {
             if (!validateInputs()) return;
 
             // Convert input values to JobVariables
-            const jobVariables: JobVariable[] = await Promise.all(workflowInputs.map(async input => {
-                let value = inputValues[input.variable_id];
+            const jobVariables: JobVariable[] = workflowInputs.map(input => {
+                const value = inputValues[input.variable_id];
 
-                // If it's a file input, we need to convert the File to base64
-                if (input.schema.type === 'file' && value instanceof File) {
-                    value = await new Promise((resolve) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const base64 = reader.result?.toString().split(',')[1];
-                            resolve({
-                                name: value.name,
-                                type: value.type,
-                                size: value.size,
-                                content: base64
-                            });
-                        };
-                        reader.readAsDataURL(value);
-                    });
-                }
-
+                // For file inputs, we expect the value to already be a file ID
+                // No need to do any conversion since files should be uploaded beforehand
                 return {
                     variable_id: input.variable_id,
                     schema: input.schema,
                     value: value,
                     required: true
                 };
-            }));
+            });
 
             console.log('Starting job with variables:', jobVariables);
 
