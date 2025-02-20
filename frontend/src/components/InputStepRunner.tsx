@@ -10,6 +10,7 @@ const InputStepRunner: React.FC = () => {
     const inputs = workflow?.inputs || [];
 
     const handleInputChange = (input: string, value: any) => {
+        console.log('handleInputChange', input, value);
         if (!workflow) return;
 
         const updatedInputs = inputs.map(i => {

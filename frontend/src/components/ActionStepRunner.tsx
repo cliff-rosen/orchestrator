@@ -7,10 +7,11 @@ import remarkGfm from 'remark-gfm';
 import { useWorkflows } from '../context/WorkflowContext';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
 import { fileApi } from '../lib/api/fileApi';
-import { RuntimeWorkflowStep } from '../types/workflows';
+import { RuntimeWorkflowStep, WorkflowVariableName } from '../types/workflows';
 import Dialog from './common/Dialog';
 import FileLibrary from './FileLibrary';
 import PromptTemplateEditor from './PromptTemplateEditor';
+import { isFileValue } from '../types/schema';
 
 interface ActionStepRunnerProps {
     actionStep: RuntimeWorkflowStep;
@@ -58,9 +59,9 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         const loadFileNames = async () => {
             const newFileNames: Record<string, string> = {};
             for (const [paramName, varName] of Object.entries(actionStep.parameter_mappings || {})) {
-                const variable = workflow?.inputs?.find(v => v.schema.name === varName) ||
-                    workflow?.outputs?.find(v => v.schema.name === varName);
-                if (variable?.schema.type === 'file' && variable.value?.file_id) {
+                const variable = workflow?.inputs?.find(v => v.name === varName) ||
+                    workflow?.outputs?.find(v => v.name === varName);
+                if (variable?.schema.type === 'file' && variable.value && isFileValue(variable.schema, variable.value)) {
                     try {
                         const fileInfo = await fileApi.getFile(variable.value.file_id);
                         newFileNames[variable.value.file_id] = fileInfo.name;
@@ -80,19 +81,19 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             step_id: actionStep.step_id,
             parameter_mappings: actionStep.parameter_mappings,
             tool: actionStep.tool?.name,
-            tool_parameters: actionStep.tool?.signature.parameters.map(p => p.schema.name)
+            tool_parameters: actionStep.tool?.signature.parameters.map(p => p.name)
         });
         console.log('ActionStepRunner - Current workflow:', {
             workflow_id: workflow?.workflow_id,
-            inputs: workflow?.inputs?.map(v => ({ id: v.variable_id, name: v.schema.name, value: v.value })),
-            outputs: workflow?.outputs?.map(v => ({ id: v.variable_id, name: v.schema.name, value: v.value }))
+            inputs: workflow?.inputs?.map(v => ({ id: v.variable_id, name: v.name, value: v.value })),
+            outputs: workflow?.outputs?.map(v => ({ id: v.variable_id, name: v.name, value: v.value }))
         });
 
         const newInputValues: Record<string, any> = {};
         if (actionStep.parameter_mappings) {
             Object.entries(actionStep.parameter_mappings).forEach(([paramName, varName]) => {
                 console.log(`\nProcessing parameter mapping: "${paramName}" -> "${varName}"`);
-                console.log('Tool parameter exists:', actionStep.tool?.signature.parameters.some(p => p.schema.name === paramName));
+                console.log('Tool parameter exists:', actionStep.tool?.signature.parameters.some(p => p.name === paramName));
 
                 // First try to find in inputs
                 const inputVar = workflow?.inputs?.find(v => v.name === varName);
@@ -172,15 +173,15 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         setEditValue(value === null || value === undefined ? '' : String(value));
     };
 
-    const handleSaveEdit = (paramName: string, varName: string) => {
+    const handleSaveEdit = (paramName: string, varName: WorkflowVariableName) => {
         if (!workflow) return;
 
         // Find and update the variable
         const updatedInputs = [...(workflow.inputs || [])];
         const updatedOutputs = [...(workflow.outputs || [])];
 
-        const inputVar = updatedInputs.find(v => v.variable_id === varName);
-        const outputVar = updatedOutputs.find(v => v.variable_id === varName);
+        const inputVar = updatedInputs.find(v => v.name === varName);
+        const outputVar = updatedOutputs.find(v => v.name === varName);
 
         if (inputVar) {
             inputVar.value = editValue;
@@ -477,7 +478,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                         autoFocus
                     />
                     <button
-                        onClick={() => handleSaveEdit(paramName, varName)}
+                        onClick={() => handleSaveEdit(paramName, varName as WorkflowVariableName)}
                         className="px-2 py-1 text-xs font-medium text-green-600 hover:text-green-700 
                                  dark:text-green-400 dark:hover:text-green-300 bg-green-50 hover:bg-green-100 
                                  dark:bg-green-900/20 dark:hover:bg-green-900/30 rounded-md transition-colors"
