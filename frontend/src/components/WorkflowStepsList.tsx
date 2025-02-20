@@ -24,6 +24,7 @@ interface WorkflowStepsListProps {
     onStepClick: (index: number) => void;
     onAddStep: () => void;
     onReorder?: (steps: RuntimeWorkflowStep[]) => void;
+    onStepDelete: (stepId: string) => void;
     isCollapsed?: boolean;
 }
 
@@ -34,6 +35,7 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
     onStepClick,
     onAddStep,
     onReorder,
+    onStepDelete,
     isCollapsed = false,
 }) => {
     const sensors = useSensors(
@@ -124,6 +126,7 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
                                 isCompleted={index < activeStep && !isEditMode}
                                 isEditMode={isEditMode}
                                 onClick={() => onStepClick(index)}
+                                onDelete={() => onStepDelete(step.step_id)}
                             />
                         ))}
                     </div>

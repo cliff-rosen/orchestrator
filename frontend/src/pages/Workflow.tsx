@@ -364,6 +364,9 @@ const Workflow: React.FC = () => {
             updated_at: new Date().toISOString(),
             parameter_mappings: {},
             output_mappings: {},
+            tool: undefined,
+            tool_id: undefined,
+            prompt_template_id: undefined
         };
 
         const updatedSteps = [...workflow.steps, newStep];
@@ -382,11 +385,16 @@ const Workflow: React.FC = () => {
         const existingStep = workflow.steps.find(s => s.step_id === step.step_id);
         console.log('Existing step:', existingStep);
 
-        // Preserve the tool object and ensure tool_id is set
+        // Create updated step, properly handling tool clearing
         const updatedStep = {
             ...step,
-            tool: step.tool || existingStep?.tool,  // Keep existing tool if not provided in update
-            tool_id: step.tool?.tool_id || existingStep?.tool_id,
+            // Only preserve tool and tool_id if they weren't explicitly set to undefined
+            tool: 'tool' in step ? step.tool : existingStep?.tool,
+            tool_id: 'tool_id' in step ? step.tool_id : existingStep?.tool_id,
+            // Only preserve prompt_template_id if the tool hasn't changed
+            prompt_template_id: step.tool?.tool_id === existingStep?.tool_id ?
+                (step.prompt_template_id ?? existingStep?.prompt_template_id) :
+                step.prompt_template_id,
             parameter_mappings: {
                 ...(existingStep?.parameter_mappings || {}),  // Keep existing mappings as base
                 ...(step.parameter_mappings || {})  // Override with any new mappings
@@ -611,6 +619,7 @@ const Workflow: React.FC = () => {
                             onStepClick={handleStepClick}
                             onAddStep={handleAddStep}
                             onReorder={handleStepReorder}
+                            onStepDelete={handleStepDelete}
                             isCollapsed={isCollapsed}
                         />
                     )}

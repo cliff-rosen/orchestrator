@@ -1,21 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tool } from '../types/tools';
 import { TOOL_TYPES } from '../lib/api/toolApi';
 
 interface ToolSelectorProps {
     tools: Tool[];
     selectedTool: Tool | undefined;
-    onSelect: (tool: Tool) => void;
-    selectedToolType?: string | null;
+    onSelect: (tool: Tool | undefined) => void;
 }
 
 const ToolSelector: React.FC<ToolSelectorProps> = ({
     tools,
     selectedTool,
     onSelect,
-    selectedToolType: externalSelectedToolType
 }) => {
-    const [selectedToolType, setSelectedToolType] = useState<string | null>(externalSelectedToolType || selectedTool?.tool_type || null);
+    const [selectedToolType, setSelectedToolType] = useState<string | null>(selectedTool?.tool_type || null);
 
     // Function to get the tool type config
     const getToolTypeConfig = (typeId: string) => {
@@ -46,21 +44,24 @@ const ToolSelector: React.FC<ToolSelectorProps> = ({
                                 if (type.tool_type_id === 'llm') {
                                     const llmTool = tools.find(t => t.tool_type === 'llm');
                                     if (llmTool) onSelect(llmTool);
+                                } else {
+                                    // For other tool types, clear the selected tool
+                                    onSelect(undefined);
                                 }
                             }}
-                            className={`p-2 rounded-lg border-2 transition-all duration-200 text-left
+                            className={`px-2 py-1.5 rounded-lg border-2 transition-all duration-200 text-left
                                 ${selectedToolType === type.tool_type_id
                                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                     : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
                                 }`}
                         >
-                            <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
                                 <span className="text-xl">{type.icon}</span>
                                 <div>
-                                    <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                                    <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">
                                         {type.name}
                                     </h4>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
                                         {type.description}
                                     </p>
                                 </div>
@@ -87,7 +88,6 @@ const ToolSelector: React.FC<ToolSelectorProps> = ({
                                                 t.tool_id === tool.tool_id ||
                                                 t.name.toLowerCase() === tool.name.toLowerCase()
                                             );
-                                            console.log('Tool selected:', toolToUse);
                                             if (toolToUse) onSelect(toolToUse);
                                         }}
                                         className={`p-3 rounded-lg border text-left transition-colors
@@ -110,8 +110,7 @@ const ToolSelector: React.FC<ToolSelectorProps> = ({
                                 value={selectedTool?.tool_id || ''}
                                 onChange={(e) => {
                                     const tool = tools.find(t => t.tool_id === e.target.value);
-                                    console.log('Tool selected:', tool);
-                                    if (tool) onSelect(tool);
+                                    onSelect(tool);
                                 }}
                                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                                          bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"

@@ -45,14 +45,20 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
     // Update selectedToolType when step changes
     useEffect(() => {
-        setSelectedToolType(step.tool?.tool_type || null);
-    }, [step]);
+        // If step has no tool, it's a new step - reset tool type
+        if (!step.tool) {
+            setSelectedToolType(null);
+        } else {
+            // Existing step - show its tool type
+            setSelectedToolType(step.tool.tool_type);
+        }
+    }, [step.step_id, step.tool]);
 
-    const handleToolSelect = (tool: Tool) => {
+    const handleToolSelect = (tool: Tool | undefined) => {
         onStepUpdate({
             ...step,
             tool,
-            tool_id: tool.tool_id,
+            tool_id: tool?.tool_id,
             parameter_mappings: {},
             output_mappings: {},
             prompt_template_id: undefined
@@ -150,7 +156,6 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     tools={tools}
                     selectedTool={step.tool}
                     onSelect={handleToolSelect}
-                    selectedToolType={selectedToolType}
                 />
             </div>
 
