@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult, JobId } from '../types/jobs';
-import { WorkflowVariable } from '../types/workflows';
+import { WorkflowVariable, WorkflowVariableName } from '../types/workflows';
+import { SchemaValueType } from '../types/schema';
 import { useWorkflows } from './WorkflowContext';
 import { toolApi } from '../lib/api/toolApi';
 
@@ -23,7 +24,7 @@ interface JobsContextValue extends JobsContextState {
     deleteJob: (jobId: string) => Promise<void>;
 
     // Job Execution
-    startJob: (jobId: string, inputVariables?: JobVariable[]) => Promise<void>;
+    startJob: (inputVariables?: JobVariable[]) => Promise<void>;
     executeStep: (jobId: string, stepIndex: number) => Promise<StepExecutionResult>;
     cancelJob: (jobId: string) => Promise<void>;
     resetJob: (jobId: string) => Promise<void>;
@@ -261,11 +262,12 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [state.jobs]);
 
-    const startJob = useCallback(async (jobId: string, inputVariables?: JobVariable[]): Promise<void> => {
+    const startJob = useCallback(async (inputVariables?: JobVariable[]): Promise<void> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            const job = state.jobs.find(j => j.job_id === jobId);
-            if (!job) throw new Error('Job not found');
+            console.log('JobsContext.tsx startJob', inputVariables);
+            const job = state.currentJob;
+            if (!job) throw new Error('No job selected');
 
             // Update job with input variables and set status to running
             const updatedJob = {
@@ -277,32 +279,33 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setState(prev => ({
                 ...prev,
-                jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
-                currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob
+                jobs: prev.jobs.map(j => j.job_id === job.job_id ? updatedJob : j),
+                currentJob: updatedJob
             }));
 
             // Execute steps sequentially
             let currentStep = 0;
-            const jobOutputs: Record<string, any> = {};
+            const jobOutputs: Record<WorkflowVariableName, SchemaValueType> = {};
 
             while (currentStep < updatedJob.steps.length) {
                 try {
-                    const stepResult = await executeStep(jobId, currentStep);
+                    const stepResult = await executeStep(job.job_id, currentStep);
 
                     // Update job outputs
                     if (stepResult.outputs) {
                         const step = updatedJob.steps[currentStep];
-                        if (step.output_mappings) {
+                        if (step?.output_mappings) {
                             Object.entries(step.output_mappings).forEach(([outputName, variableName]) => {
-                                if (stepResult.outputs && outputName in stepResult.outputs) {
-                                    jobOutputs[variableName] = stepResult.outputs[outputName];
+                                const outputs = stepResult.outputs as Record<string, SchemaValueType>;
+                                if (outputs && outputName in outputs) {
+                                    jobOutputs[variableName as WorkflowVariableName] = outputs[outputName];
                                 }
                             });
                         }
                     }
 
                     // Check if job was cancelled or failed
-                    const currentJobState = state.jobs.find(j => j.job_id === jobId);
+                    const currentJobState = state.jobs.find(j => j.job_id === job.job_id);
                     if (currentJobState?.status === JobStatus.FAILED) {
                         break;
                     }
@@ -316,7 +319,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Update final job state
             setState(prev => {
-                const finalJob = prev.jobs.find(j => j.job_id === jobId);
+                const finalJob = prev.jobs.find(j => j.job_id === job.job_id);
                 if (!finalJob) return prev;
 
                 const completedJob = {
@@ -328,8 +331,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 return {
                     ...prev,
-                    jobs: prev.jobs.map(j => j.job_id === jobId ? completedJob : j),
-                    currentJob: prev.currentJob?.job_id === jobId ? completedJob : prev.currentJob,
+                    jobs: prev.jobs.map(j => j.job_id === job.job_id ? completedJob : j),
+                    currentJob: completedJob,
                     isLoading: false
                 };
             });
@@ -341,7 +344,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }));
             throw error;
         }
-    }, [state.jobs, executeStep]);
+    }, [state.currentJob, state.jobs, executeStep]);
 
     const cancelJob = useCallback(async (jobId: string): Promise<void> => {
         setState(prev => {

@@ -106,17 +106,17 @@ const Job: React.FC = () => {
                 required: true
             }));
 
-            console.log('Starting job with variables:', jobVariables);
+            console.log('Starting job with variables:', currentJob.job_id, jobVariables);
 
             try {
-                await startJob(currentJob.job_id, jobVariables);
+                await startJob(jobVariables);
             } catch (error) {
                 console.error('Failed to start job:', error);
             }
         } else {
             console.log('Starting job without variables');
             try {
-                await startJob(currentJob.job_id);
+                await startJob();
             } catch (error) {
                 console.error('Failed to start job:', error);
             }
