@@ -12,6 +12,7 @@ import Dialog from './common/Dialog';
 import FileLibrary from './FileLibrary';
 import PromptTemplateEditor from './PromptTemplateEditor';
 import { isFileValue } from '../types/schema';
+import MarkdownRenderer from './common/MarkdownRenderer';
 
 interface ActionStepRunnerProps {
     actionStep: RuntimeWorkflowStep;
@@ -324,7 +325,8 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         const id = `text-${valueObj.schema.name}-${text.slice(0, 50)}`;
         const isExpanded = expandedValues[id];
 
-        // For output values or text containing markdown, use ReactMarkdown
+        // Use markdown formatting if explicitly requested for output
+        // or if the text contains markdown-like characters
         if (isOutput || text.includes('|') || text.includes('#') || text.includes('*')) {
             const displayText = text.length > MAX_TEXT_LENGTH && !isExpanded
                 ? `${text.substring(0, MAX_TEXT_LENGTH)}...`
@@ -333,101 +335,16 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             return (
                 <div className="space-y-2">
                     <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                        <div className="prose prose-slate dark:prose-invert max-w-none">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                    table: props => (
-                                        <table className="min-w-full border-collapse border border-gray-200 dark:border-gray-700">
-                                            {props.children}
-                                        </table>
-                                    ),
-                                    thead: props => (
-                                        <thead className="bg-gray-50 dark:bg-gray-800">
-                                            {props.children}
-                                        </thead>
-                                    ),
-                                    tbody: props => (
-                                        <tbody className="bg-white dark:bg-gray-900">
-                                            {props.children}
-                                        </tbody>
-                                    ),
-                                    tr: props => (
-                                        <tr className="border-b border-gray-200 dark:border-gray-700">
-                                            {props.children}
-                                        </tr>
-                                    ),
-                                    th: props => (
-                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                                            {props.children}
-                                        </th>
-                                    ),
-                                    td: props => (
-                                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                                            {props.children}
-                                        </td>
-                                    ),
-                                    h1: props => (
-                                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                                            {props.children}
-                                        </h1>
-                                    ),
-                                    h2: props => (
-                                        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-                                            {props.children}
-                                        </h2>
-                                    ),
-                                    h3: props => (
-                                        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-                                            {props.children}
-                                        </h3>
-                                    ),
-                                    p: props => (
-                                        <p className="text-base text-gray-900 dark:text-gray-100 mb-4">
-                                            {props.children}
-                                        </p>
-                                    ),
-                                    ul: props => (
-                                        <ul className="list-disc list-inside space-y-1 text-gray-900 dark:text-gray-100 mb-4">
-                                            {props.children}
-                                        </ul>
-                                    ),
-                                    li: props => (
-                                        <li className="text-base text-gray-900 dark:text-gray-100">
-                                            {props.children}
-                                        </li>
-                                    ),
-                                    code: props => (
-                                        <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono text-gray-900 dark:text-gray-100">
-                                            {props.children}
-                                        </code>
-                                    ),
-                                    pre: props => (
-                                        <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto text-gray-900 dark:text-gray-100">
-                                            {props.children}
-                                        </pre>
-                                    ),
-                                    blockquote: props => (
-                                        <blockquote className="border-l-4 border-gray-200 dark:border-gray-700 pl-4 italic text-gray-600 dark:text-gray-300">
-                                            {props.children}
-                                        </blockquote>
-                                    )
-                                }}
-                            >
-                                {displayText}
-                            </ReactMarkdown>
-                        </div>
+                        <MarkdownRenderer content={displayText} />
                     </div>
-                    {text.length > MAX_TEXT_LENGTH && (
-                        <button
-                            onClick={() => toggleExpand(id)}
-                            className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
-                                     dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
-                                     dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                        >
-                            {isExpanded ? 'Show Less' : 'Show More...'}
-                        </button>
-                    )}
+                    <button
+                        onClick={() => toggleExpand(id)}
+                        className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 
+                                 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                                 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                    >
+                        {isExpanded ? 'Show Less' : 'Show More...'}
+                    </button>
                 </div>
             );
         }

@@ -125,7 +125,7 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) =
                                     <div key={key} className="text-sm">
                                         <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
                                         <span className="text-gray-400 dark:text-gray-500"> = </span>
-                                        <span className="text-gray-700 dark:text-gray-200">
+                                        <span className="text-gray-700 dark:text-gray-100">
                                             {formatValue(value)}
                                         </span>
                                     </div>
@@ -142,7 +142,7 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) =
                     <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
                         Live Output
                     </h4>
-                    <div className="prose prose-slate dark:prose-invert max-w-none">
+                    <div className="prose prose-slate dark:prose-invert max-w-none text-gray-700 dark:text-gray-100">
                         {formatValue(job.live_output, true)}
                     </div>
                 </div>

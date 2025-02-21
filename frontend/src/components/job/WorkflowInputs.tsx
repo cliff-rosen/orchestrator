@@ -35,11 +35,11 @@ export const WorkflowInputs: React.FC<WorkflowInputsProps> = ({ inputs }) => {
                             </span>
                             <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
                             {isComplexValue ? (
-                                <div className="min-w-0">
+                                <div className="min-w-0 text-gray-700 dark:text-gray-100">
                                     {formattedValue}
                                 </div>
                             ) : (
-                                <span className="text-gray-700 dark:text-gray-200">
+                                <span className="text-gray-700 dark:text-gray-100">
                                     {formattedValue}
                                 </span>
                             )}

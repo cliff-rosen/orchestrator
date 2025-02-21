@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownRenderer from '../components/common/MarkdownRenderer';
 
 // Constants for text truncation
 const MAX_TEXT_LENGTH = 200;
@@ -41,11 +40,11 @@ export const useValueFormatter = (): UseValueFormatterReturn => {
             const hasMore = items.length > MAX_ARRAY_LENGTH;
 
             return (
-                <div className="space-y-2 p-2 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+                <div className="space-y-2 p-2 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
                     {displayItems.map((item: any, index: number) => (
                         <div
                             key={index}
-                            className="text-sm font-medium text-gray-700 dark:text-gray-200 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
+                            className="text-sm font-medium text-gray-700 dark:text-gray-100 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
                         >
                             <span className="font-normal text-gray-500 dark:text-gray-400 mr-2">
                                 {index + 1}.
@@ -68,8 +67,8 @@ export const useValueFormatter = (): UseValueFormatterReturn => {
         // Handle objects
         if (typeof value === 'object') {
             return (
-                <div className="p-2 bg-gray-50 dark:bg-gray-900/50 rounded-md">
-                    <pre className="text-sm text-gray-700 dark:text-gray-200">
+                <div className="p-2 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                    <pre className="text-sm text-gray-700 dark:text-gray-100">
                         {JSON.stringify(value, null, 2)}
                     </pre>
                 </div>
@@ -80,68 +79,17 @@ export const useValueFormatter = (): UseValueFormatterReturn => {
         const id = `text-${text.slice(0, 50)}`;
         const isExpanded = expandedValues[id];
 
-        // Only use markdown formatting if explicitly requested for output
-        // and the text is long or contains newlines
-        if (isOutput && (text.length > MAX_TEXT_LENGTH || text.includes('\n'))) {
+        // Use markdown formatting if explicitly requested for output
+        // or if the text contains markdown-like characters
+        if (isOutput || text.includes('|') || text.includes('#') || text.includes('*') || text.includes('\n')) {
             const displayText = text.length > MAX_TEXT_LENGTH && !isExpanded
                 ? `${text.substring(0, MAX_TEXT_LENGTH)}...`
                 : text;
 
             return (
                 <div className="space-y-2">
-                    <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700">
-                        <div className="prose prose-gray dark:prose-invert max-w-none">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                    p: ({ children }) => (
-                                        <p className="text-gray-700 dark:text-gray-200">{children}</p>
-                                    ),
-                                    table: props => (
-                                        <table className="min-w-full border-collapse border border-gray-200 dark:border-gray-700">
-                                            {props.children}
-                                        </table>
-                                    ),
-                                    thead: props => (
-                                        <thead className="bg-gray-50 dark:bg-gray-800">
-                                            {props.children}
-                                        </thead>
-                                    ),
-                                    tbody: props => (
-                                        <tbody className="bg-white dark:bg-gray-900">
-                                            {props.children}
-                                        </tbody>
-                                    ),
-                                    tr: props => (
-                                        <tr className="border-b border-gray-200 dark:border-gray-700">
-                                            {props.children}
-                                        </tr>
-                                    ),
-                                    th: props => (
-                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                                            {props.children}
-                                        </th>
-                                    ),
-                                    td: props => (
-                                        <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                                            {props.children}
-                                        </td>
-                                    ),
-                                    code: props => (
-                                        <code className="bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono text-gray-700 dark:text-gray-200">
-                                            {props.children}
-                                        </code>
-                                    ),
-                                    pre: props => (
-                                        <pre className="bg-gray-100 dark:bg-gray-800 rounded p-4 overflow-x-auto text-gray-700 dark:text-gray-200">
-                                            {props.children}
-                                        </pre>
-                                    )
-                                }}
-                            >
-                                {displayText}
-                            </ReactMarkdown>
-                        </div>
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                        <MarkdownRenderer content={displayText} />
                     </div>
                     {text.length > MAX_TEXT_LENGTH && (
                         <button
