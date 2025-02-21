@@ -25,7 +25,8 @@ const Job: React.FC = () => {
         inputErrors,
         setInputValue,
         validateInputs,
-        areInputsValid
+        areInputsValid,
+        error
     } = useJobs();
     const { workflows } = useWorkflows();
 
@@ -47,6 +48,34 @@ const Job: React.FC = () => {
 
     // Early return for loading state
     if (!currentJob || !workflow) {
+        if (error) {
+            return (
+                <div className="container mx-auto px-4 py-8">
+                    <div className="bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-red-400 dark:text-red-300" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                                    {error.message}
+                                </h3>
+                                <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                                    <button
+                                        onClick={() => navigate('/jobs')}
+                                        className="text-red-800 dark:text-red-200 underline hover:text-red-600 dark:hover:text-red-300"
+                                    >
+                                        Return to Jobs List
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
         return (
             <div className="container mx-auto px-4 py-8">
                 <div className="text-center">
@@ -69,19 +98,10 @@ const Job: React.FC = () => {
         if (needsInput) {
             if (!validateInputs()) return;
 
-            // Convert input values to JobVariables
-            const jobVariables: JobVariable[] = workflowInputs.map(input => ({
-                name: input.name,
-                variable_id: input.variable_id,
-                schema: input.schema,
-                value: inputValues[input.variable_id],
-                required: true
-            }));
-
-            console.log('Starting job with variables:', currentJob.job_id, jobVariables);
+            console.log('Starting job with variables:', currentJob.job_id);
 
             try {
-                await startJob(jobVariables);
+                await startJob();
             } catch (error) {
                 console.error('Failed to start job:', error);
             }

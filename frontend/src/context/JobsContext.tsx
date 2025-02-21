@@ -1,16 +1,23 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult, JobId, JobStepId } from '../types/jobs';
 import { WorkflowVariable, WorkflowVariableName } from '../types/workflows';
 import { SchemaValueType } from '../types/schema';
 import { useWorkflows } from './WorkflowContext';
 import { toolApi } from '../lib/api/toolApi';
 
+interface JobError {
+    message: string;
+    code?: string;
+    details?: string;
+}
+
 interface JobsContextState {
     jobs: Job[];
     currentJob?: Job;
     executionState?: JobExecutionState;
     isLoading: boolean;
-    error?: string;
+    error?: JobError;
     inputValues: Record<string, any>;
     inputErrors: Record<string, string>;
 }
@@ -24,8 +31,8 @@ interface JobsContextValue extends JobsContextState {
     deleteJob: (jobId: string) => Promise<void>;
 
     // Job Execution
-    startJob: (inputVariables?: JobVariable[]) => Promise<void>;
-    executeStep: (stepIndex: number, jobOutputs: Record<WorkflowVariableName, SchemaValueType>) => Promise<StepExecutionResult>;
+    startJob: () => Promise<void>;
+    executeStep: (stepIndex: number, jobOutputs: Record<WorkflowVariableName, SchemaValueType>, inputVariables?: JobVariable[]) => Promise<StepExecutionResult>;
     cancelJob: (jobId: string) => Promise<void>;
     resetJob: (jobId: string) => Promise<void>;
 
@@ -44,6 +51,7 @@ interface JobsContextValue extends JobsContextState {
 const JobsContext = createContext<JobsContextValue | undefined>(undefined);
 
 export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const navigate = useNavigate();
     const [state, setState] = useState<JobsContextState>({
         jobs: [],
         isLoading: false,
@@ -87,31 +95,69 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setState(prev => ({
                 ...prev,
                 isLoading: false,
-                error: error instanceof Error ? error.message : 'Failed to load jobs'
+                error: {
+                    message: error instanceof Error ? error.message : 'Failed to load jobs',
+                    code: 'JOBS_LOAD_ERROR'
+                }
             }));
         }
     }, []);
 
     const loadJob = useCallback(async (jobId: string): Promise<void> => {
+        console.log('loadJob', jobId);
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
             console.log('loadJob', jobId, state.jobs);
             const job = state.jobs.find(j => j.job_id === jobId);
-            if (!job) throw new Error('Job not found');
+            if (!job) {
+                const error: JobError = {
+                    message: 'Job not found',
+                    code: 'JOB_NOT_FOUND',
+                    details: `Could not find job with ID: ${jobId}`
+                };
+                setState(prev => ({
+                    ...prev,
+                    isLoading: false,
+                    error,
+                    currentJob: undefined
+                }));
+                // Redirect to jobs manager after a short delay to show the error
+                console.log('loadJob error', error);
+                throw new Error(error.message);
+            }
+            console.log('loadJob found job', job);
             setState(prev => ({ ...prev, currentJob: job, isLoading: false }));
         } catch (error) {
+            const jobError: JobError = {
+                message: error instanceof Error ? error.message : 'Failed to load job',
+                code: 'JOB_LOAD_ERROR',
+                details: error instanceof Error ? error.stack : undefined
+            };
             setState(prev => ({
                 ...prev,
                 isLoading: false,
-                error: error instanceof Error ? error.message : 'Failed to load job'
+                error: jobError,
+                currentJob: undefined
             }));
+            console.log('loadJob error cought', jobError);
             throw error;
         }
-    }, []);
+    }, [navigate, state.jobs]);
 
     const getJob = useCallback(async (jobId: string): Promise<Job> => {
         const job = state.jobs.find(j => j.job_id === jobId);
-        if (!job) throw new Error('Job not found');
+        if (!job) {
+            const error: JobError = {
+                message: 'Job not found',
+                code: 'JOB_NOT_FOUND',
+                details: `Could not find job with ID: ${jobId}`
+            };
+            setState(prev => ({
+                ...prev,
+                error
+            }));
+            throw new Error(error.message);
+        }
         return job;
     }, [state.jobs]);
 
@@ -120,7 +166,19 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             // Create a new job with initial state
             const workflow = workflows?.find(w => w.workflow_id === request.workflow_id);
-            if (!workflow) throw new Error('Workflow not found');
+            if (!workflow) {
+                const error: JobError = {
+                    message: 'Workflow not found',
+                    code: 'WORKFLOW_NOT_FOUND',
+                    details: `Could not find workflow with ID: ${request.workflow_id}`
+                };
+                setState(prev => ({
+                    ...prev,
+                    isLoading: false,
+                    error
+                }));
+                throw new Error(error.message);
+            }
 
             const jobId = `job-${Date.now()}` as JobId;
             const newJob: Job = {
@@ -156,13 +214,17 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 isLoading: false
             }));
 
-
             return newJob;
         } catch (error) {
+            const jobError: JobError = {
+                message: error instanceof Error ? error.message : 'Failed to create job',
+                code: 'JOB_CREATE_ERROR',
+                details: error instanceof Error ? error.stack : undefined
+            };
             setState(prev => ({
                 ...prev,
                 isLoading: false,
-                error: error instanceof Error ? error.message : 'Failed to create job'
+                error: jobError
             }));
             throw error;
         }
@@ -217,25 +279,16 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
             });
 
-            // Execute the tool 
-            console.log('Executing tool with parameters:', {
-                toolId: step.tool.tool_id,
-                parameter_mappings: step.parameter_mappings,
-                prompt_template_id: step.prompt_template_id,
-                current_output_map: jobOutputs,
-                current_input_list: state.currentJob?.input_variables,
-                inputValues: state.inputValues
-            });
-
             // Resolve parameter values from job outputs and input values
             const resolvedParameters: Record<string, SchemaValueType> = {};
 
-            if (state.currentJob.steps[stepIndex].tool?.tool_type === 'llm' && state.currentJob.steps[stepIndex].prompt_template_id) {
-                resolvedParameters["prompt_template_id"] = state.currentJob.steps[stepIndex].prompt_template_id;
+            // For LLM tools, include the prompt template ID
+            if (step.tool.tool_type === 'llm' && step.prompt_template_id) {
+                resolvedParameters["prompt_template_id"] = step.prompt_template_id;
             }
 
             // For each parameter mapping, resolve the variable reference to its actual value
-            Object.entries(step.parameter_mappings).forEach(([paramName, variableName]) => {
+            Object.entries(step.parameter_mappings || {}).forEach(([paramName, variableName]) => {
                 // All parameter mappings should reference variables by their name
                 if (typeof variableName !== 'string') {
                     console.warn('Invalid parameter mapping - expected variable name:', {
@@ -245,8 +298,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return;
                 }
 
-                // First check job input variables
-                const inputVariable = inputVariables.find(v => v.name === variableName);
+                // First check input variables
+                const inputVariable = inputVariables?.find(v => v.name === variableName);
                 if (inputVariable?.value !== undefined) {
                     resolvedParameters[paramName] = inputVariable.value as SchemaValueType;
                     return;
@@ -261,74 +314,28 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.warn(`Could not resolve variable reference:`, {
                     parameter: paramName,
                     variableName,
-                    availableInputs: state.currentJob?.input_variables,
+                    availableInputs: inputVariables,
                     availableOutputs: Object.keys(jobOutputs)
                 });
             });
 
-            console.log('Resolved parameters:', {
-                original: step.parameter_mappings,
-                resolved: resolvedParameters,
-                jobOutputs,
-                inputVariables: state.currentJob.input_variables,
-                jobOutputData: state.currentJob.output_data
-            });
-
+            // Execute the tool with resolved parameters
             const result = await toolApi.executeTool(step.tool.tool_id, resolvedParameters);
 
-            console.log('Tool execution result:', {
-                toolId: step.tool.tool_id,
-                result
-            });
-
-            // Ensure result is properly structured
-            const normalizedResult = typeof result === 'string' ? { output: result } : result;
-
-            // Create step result
-            const stepResult: StepExecutionResult = {
-                step_id: step.step_id,
-                success: true,
-                outputs: normalizedResult,
-                started_at: new Date().toISOString(),
-                completed_at: new Date().toISOString()
-            };
-
-            // Update both job and execution state
+            // Update job state with success
             setState(prev => {
                 if (!prev.currentJob) return prev;
-
-                const executionState = prev.executionState || {
-                    job_id: prev.currentJob.job_id as JobId,
-                    current_step_index: 0,
-                    total_steps: prev.currentJob.steps.length,
-                    is_paused: false,
-                    live_output: '',
-                    status: JobStatus.RUNNING,
-                    step_results: [],
-                    variables: {}
-                };
-
-                const updatedExecutionState = {
-                    ...executionState,
-                    current_step_index: stepIndex + 1,
-                    step_results: [...executionState.step_results, stepResult]
-                };
 
                 const updatedJob = {
                     ...prev.currentJob,
                     status: JobStatus.RUNNING,
-                    execution_progress: {
-                        current_step: stepIndex + 1,
-                        total_steps: prev.currentJob.steps.length
-                    },
                     steps: prev.currentJob.steps.map((s, idx) => {
                         if (idx === stepIndex) {
                             return {
                                 ...s,
                                 status: JobStatus.COMPLETED,
                                 output_data: result,
-                                started_at: stepResult.started_at,
-                                completed_at: stepResult.completed_at
+                                completed_at: new Date().toISOString()
                             };
                         }
                         return s;
@@ -339,61 +346,49 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...prev,
                     jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
                     currentJob: updatedJob,
-                    executionState: updatedExecutionState,
                     isLoading: false
                 };
             });
 
-            return stepResult;
+            return {
+                step_id: step.step_id,
+                success: true,
+                outputs: result,
+                started_at: new Date().toISOString(),
+                completed_at: new Date().toISOString()
+            };
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Failed to execute step';
+            const jobError: JobError = {
+                message: error instanceof Error ? error.message : 'Failed to execute step',
+                code: 'STEP_EXECUTION_ERROR',
+                details: error instanceof Error ? error.stack : undefined
+            };
 
-            // Update both job and execution state with error
             setState(prev => {
                 if (!prev.currentJob) return prev;
-
-                const step = prev.currentJob.steps[stepIndex];
-                if (!step) return prev;
 
                 const updatedJob = {
                     ...prev.currentJob,
                     status: JobStatus.FAILED,
-                    error_message: errorMessage,
+                    error: jobError,
                     steps: prev.currentJob.steps.map((s, idx) => {
                         if (idx === stepIndex) {
                             return {
                                 ...s,
                                 status: JobStatus.FAILED,
-                                error_message: errorMessage
+                                error: jobError
                             };
                         }
                         return s;
                     })
                 };
 
-                const executionState = prev.executionState;
-                const updatedExecutionState = executionState ? {
-                    ...executionState,
-                    status: JobStatus.FAILED,
-                    step_results: [
-                        ...executionState.step_results,
-                        {
-                            step_id: step.step_id,
-                            success: false,
-                            error: errorMessage,
-                            started_at: new Date().toISOString(),
-                            completed_at: new Date().toISOString()
-                        }
-                    ]
-                } : undefined;
-
                 return {
                     ...prev,
                     jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
                     currentJob: updatedJob,
-                    executionState: updatedExecutionState,
                     isLoading: false,
-                    error: errorMessage
+                    error: jobError
                 };
             });
 
@@ -401,12 +396,29 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [state.currentJob, state.jobs]);
 
-    const startJob = useCallback(async (inputVariables?: JobVariable[]): Promise<void> => {
+    const startJob = useCallback(async (): Promise<void> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            console.log('JobsContext.tsx startJob', inputVariables);
+            console.log('JobsContext.tsx startJob');
             const job = state.currentJob;
-            if (!job) throw new Error('No job selected');
+            if (!job) {
+                const error: JobError = {
+                    message: 'No job selected',
+                    code: 'NO_JOB_SELECTED'
+                };
+                setState(prev => ({
+                    ...prev,
+                    isLoading: false,
+                    error
+                }));
+                throw new Error(error.message);
+            }
+
+            // Prepare input variables from inputValues state
+            const preparedInputVariables = job.input_variables.map(variable => ({
+                ...variable,
+                value: state.inputValues[variable.variable_id]
+            }));
 
             // Reset input values and errors before starting
             setState(prev => ({
@@ -420,7 +432,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 ...job,
                 status: JobStatus.RUNNING,
                 started_at: new Date().toISOString(),
-                input_variables: inputVariables || [],
+                input_variables: preparedInputVariables,
                 execution_progress: {
                     current_step: 0,
                     total_steps: job.steps.length
@@ -459,45 +471,19 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             while (currentStep < updatedJob.steps.length) {
                 try {
                     console.log('******************** EXECUTING STEP ********************');
-                    const stepResult = await executeStep(currentStep, inputVariables, jobOutputs);
+                    const stepResult = await executeStep(currentStep, preparedInputVariables, jobOutputs);
 
                     // Update job outputs
                     if (stepResult.outputs) {
                         const step = updatedJob.steps[currentStep];
-                        console.log('Step output processing:', {
-                            stepIndex: currentStep,
-                            stepId: step.step_id,
-                            toolOutputs: stepResult.outputs,
-                            outputMappings: step?.output_mappings,
-                            currentJobOutputs: jobOutputs
-                        });
-
                         if (step?.output_mappings) {
                             Object.entries(step.output_mappings).forEach(([outputName, variableName]) => {
-                                console.log('Processing output mapping:', {
-                                    outputName,
-                                    variableName,
-                                    availableOutputs: Object.keys(stepResult.outputs || {})
-                                });
-
                                 const outputs = stepResult.outputs as Record<string, SchemaValueType>;
                                 if (outputs && outputName in outputs) {
-                                    console.log('Mapping output to variable:', {
-                                        from: outputName,
-                                        to: variableName,
-                                        value: outputs[outputName]
-                                    });
                                     jobOutputs[variableName as WorkflowVariableName] = outputs[outputName];
-                                } else {
-                                    console.warn('Output not found:', {
-                                        outputName,
-                                        availableOutputs: Object.keys(outputs || {})
-                                    });
                                 }
                             });
                         }
-
-                        console.log('Updated job outputs:', jobOutputs);
                     }
 
                     // Check if job was cancelled or failed
@@ -508,7 +494,15 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                     currentStep++;
                 } catch (error) {
-                    console.error(`Error executing step ${currentStep}:`, error);
+                    const jobError: JobError = {
+                        message: error instanceof Error ? error.message : `Error executing step ${currentStep}`,
+                        code: 'STEP_EXECUTION_ERROR',
+                        details: error instanceof Error ? error.stack : undefined
+                    };
+                    setState(prev => ({
+                        ...prev,
+                        error: jobError
+                    }));
                     break;
                 }
             }
@@ -537,14 +531,19 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
             });
         } catch (error) {
+            const jobError: JobError = {
+                message: error instanceof Error ? error.message : 'Failed to start job',
+                code: 'JOB_START_ERROR',
+                details: error instanceof Error ? error.stack : undefined
+            };
             setState(prev => ({
                 ...prev,
                 isLoading: false,
-                error: error instanceof Error ? error.message : 'Failed to start job'
+                error: jobError
             }));
             throw error;
         }
-    }, [state.currentJob, state.jobs, executeStep]);
+    }, [state.currentJob, state.jobs, state.inputValues, executeStep]);
 
     const cancelJob = useCallback(async (jobId: string): Promise<void> => {
         setState(prev => {
@@ -561,7 +560,11 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return {
                 ...prev,
                 jobs: prev.jobs.map(j => j.job_id === jobId ? cancelledJob : j),
-                currentJob: prev.currentJob?.job_id === jobId ? cancelledJob : prev.currentJob
+                currentJob: prev.currentJob?.job_id === jobId ? cancelledJob : prev.currentJob,
+                error: {
+                    message: 'Job cancelled by user',
+                    code: 'JOB_CANCELLED'
+                }
             };
         });
     }, []);

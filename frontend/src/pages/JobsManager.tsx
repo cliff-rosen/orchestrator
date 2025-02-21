@@ -43,6 +43,7 @@ const JobsManager: React.FC = () => {
 
     useEffect(() => {
         if (currentJob) {
+            console.log('JobsManager.tsx useEffect found currentJob', currentJob);
             navigate(`/jobs/${currentJob.job_id}`);
         }
     }, [currentJob, navigate]);
