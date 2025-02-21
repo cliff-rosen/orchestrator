@@ -25,7 +25,7 @@ interface JobsContextValue extends JobsContextState {
 
     // Job Execution
     startJob: (inputVariables?: JobVariable[]) => Promise<void>;
-    executeStep: (jobId: string, stepIndex: number, jobOutputs: Record<WorkflowVariableName, SchemaValueType>) => Promise<StepExecutionResult>;
+    executeStep: (stepIndex: number, jobOutputs: Record<WorkflowVariableName, SchemaValueType>) => Promise<StepExecutionResult>;
     cancelJob: (jobId: string) => Promise<void>;
     resetJob: (jobId: string) => Promise<void>;
 
@@ -177,28 +177,27 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const executeStep = useCallback(async (
-        jobId: string,
         stepIndex: number,
         jobOutputs: Record<WorkflowVariableName, SchemaValueType>
     ): Promise<StepExecutionResult> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            const job = state.jobs.find(j => j.job_id === jobId);
-            if (!job) throw new Error('Job not found');
+            if (!state.currentJob) {
+                throw new Error('No current job selected');
+            }
 
-            const step = job.steps[stepIndex];
+            const step = state.currentJob.steps[stepIndex];
             if (!step) throw new Error('Step not found');
             if (!step.tool) throw new Error('No tool configured for step');
 
             // Set step to running state first
             setState(prev => {
-                const job = prev.jobs.find(j => j.job_id === jobId);
-                if (!job) return prev;
+                if (!prev.currentJob) return prev;
 
                 const updatedJob = {
-                    ...job,
+                    ...prev.currentJob,
                     status: JobStatus.RUNNING,
-                    steps: job.steps.map((s, idx) => {
+                    steps: prev.currentJob.steps.map((s, idx) => {
                         if (idx === stepIndex) {
                             return {
                                 ...s,
@@ -212,8 +211,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 return {
                     ...prev,
-                    jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
-                    currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob
+                    jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
+                    currentJob: updatedJob
                 };
             });
 
@@ -228,8 +227,9 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Resolve parameter values from job outputs and input values
             const resolvedParameters: Record<string, SchemaValueType> = {};
-            if (job.steps[stepIndex].tool?.tool_type === 'llm' && job.steps[stepIndex].prompt_template_id) {
-                resolvedParameters["prompt_template_id"] = job.steps[stepIndex].prompt_template_id;
+
+            if (state.currentJob.steps[stepIndex].tool?.tool_type === 'llm' && state.currentJob.steps[stepIndex].prompt_template_id) {
+                resolvedParameters["prompt_template_id"] = state.currentJob.steps[stepIndex].prompt_template_id;
             }
 
             // For each parameter mapping, resolve the variable reference to its actual value
@@ -243,24 +243,48 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return;
                 }
 
+                console.log('Resolving parameter mapping:', {
+                    paramName,
+                    variableName,
+                    inputVariables: state.currentJob?.input_variables,
+                    jobOutputs,
+                    jobOutputData: state.currentJob?.output_data
+                });
+
                 // First check job outputs (from previous steps)
                 // jobOutputs are already keyed by variable name
                 if (variableName in jobOutputs) {
                     resolvedParameters[paramName] = jobOutputs[variableName as WorkflowVariableName];
+                    console.log(`Resolved ${paramName} from jobOutputs:`, resolvedParameters[paramName]);
                     return;
                 }
 
-                // Then check job input variables
-                const inputVariable = job.input_variables?.find(v => v.name === variableName);
-                console.log('inputVariable', inputVariable);
+                // Then check job input variables - try both name and variable_id
+                const inputVariable = state.currentJob?.input_variables?.find(v =>
+                    v.name === variableName ||
+                    v.variable_id === variableName
+                );
+
                 if (inputVariable?.value !== undefined) {
                     resolvedParameters[paramName] = inputVariable.value as SchemaValueType;
+                    console.log(`Resolved ${paramName} from input_variables:`, {
+                        variable: inputVariable,
+                        value: resolvedParameters[paramName]
+                    });
+                    return;
+                }
+
+                // Check input values from state
+                if (variableName in state.inputValues) {
+                    resolvedParameters[paramName] = state.inputValues[variableName];
+                    console.log(`Resolved ${paramName} from inputValues:`, resolvedParameters[paramName]);
                     return;
                 }
 
                 // Finally check job output_data
-                if (job.output_data && variableName in job.output_data) {
-                    resolvedParameters[paramName] = job.output_data[variableName] as SchemaValueType;
+                if (state.currentJob?.output_data && variableName in state.currentJob.output_data) {
+                    resolvedParameters[paramName] = state.currentJob.output_data[variableName] as SchemaValueType;
+                    console.log(`Resolved ${paramName} from output_data:`, resolvedParameters[paramName]);
                     return;
                 }
 
@@ -268,8 +292,13 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     parameter: paramName,
                     variableName,
                     availableOutputs: Object.keys(jobOutputs),
-                    availableInputs: job.input_variables?.map(v => v.name),
-                    availableJobOutputs: job.output_data ? Object.keys(job.output_data) : []
+                    availableInputs: state.currentJob?.input_variables?.map(v => ({
+                        name: v.name,
+                        variable_id: v.variable_id,
+                        value: v.value
+                    })),
+                    availableStateInputs: Object.keys(state.inputValues),
+                    availableJobOutputs: state.currentJob?.output_data ? Object.keys(state.currentJob.output_data) : []
                 });
             });
 
@@ -277,8 +306,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 original: step.parameter_mappings,
                 resolved: resolvedParameters,
                 jobOutputs,
-                inputVariables: job.input_variables,
-                jobOutputData: job.output_data
+                inputVariables: state.currentJob.input_variables,
+                jobOutputData: state.currentJob.output_data
             });
 
             const result = await toolApi.executeTool(step.tool.tool_id, resolvedParameters);
@@ -302,12 +331,12 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Update both job and execution state
             setState(prev => {
-                const currentJob = prev.jobs.find(j => j.job_id === jobId) || job;
+                if (!prev.currentJob) return prev;
 
                 const executionState = prev.executionState || {
-                    job_id: jobId as JobId,
+                    job_id: prev.currentJob.job_id as JobId,
                     current_step_index: 0,
-                    total_steps: job.steps.length,
+                    total_steps: prev.currentJob.steps.length,
                     is_paused: false,
                     live_output: '',
                     status: JobStatus.RUNNING,
@@ -322,13 +351,13 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
 
                 const updatedJob = {
-                    ...currentJob,
+                    ...prev.currentJob,
                     status: JobStatus.RUNNING,
                     execution_progress: {
                         current_step: stepIndex + 1,
-                        total_steps: job.steps.length
+                        total_steps: prev.currentJob.steps.length
                     },
-                    steps: currentJob.steps.map((s, idx) => {
+                    steps: prev.currentJob.steps.map((s, idx) => {
                         if (idx === stepIndex) {
                             return {
                                 ...s,
@@ -344,8 +373,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 return {
                     ...prev,
-                    jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
-                    currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob,
+                    jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
+                    currentJob: updatedJob,
                     executionState: updatedExecutionState,
                     isLoading: false
                 };
@@ -357,17 +386,16 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Update both job and execution state with error
             setState(prev => {
-                const job = prev.jobs.find(j => j.job_id === jobId);
-                if (!job) return prev;
+                if (!prev.currentJob) return prev;
 
-                const step = job.steps[stepIndex];
+                const step = prev.currentJob.steps[stepIndex];
                 if (!step) return prev;
 
                 const updatedJob = {
-                    ...job,
+                    ...prev.currentJob,
                     status: JobStatus.FAILED,
                     error_message: errorMessage,
-                    steps: job.steps.map((s, idx) => {
+                    steps: prev.currentJob.steps.map((s, idx) => {
                         if (idx === stepIndex) {
                             return {
                                 ...s,
@@ -397,8 +425,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 return {
                     ...prev,
-                    jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
-                    currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob,
+                    jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
+                    currentJob: updatedJob,
                     executionState: updatedExecutionState,
                     isLoading: false,
                     error: errorMessage
@@ -407,7 +435,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             throw error;
         }
-    }, [state.jobs]);
+    }, [state.currentJob, state.jobs]);
 
     const startJob = useCallback(async (inputVariables?: JobVariable[]): Promise<void> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
@@ -460,7 +488,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             while (currentStep < updatedJob.steps.length) {
                 try {
                     console.log('******************** EXECUTING STEP ********************');
-                    const stepResult = await executeStep(job.job_id, currentStep, jobOutputs);
+                    const stepResult = await executeStep(currentStep, jobOutputs);
 
                     // Update job outputs
                     if (stepResult.outputs) {
