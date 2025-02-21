@@ -243,62 +243,24 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return;
                 }
 
-                console.log('Resolving parameter mapping:', {
-                    paramName,
-                    variableName,
-                    inputVariables: state.currentJob?.input_variables,
-                    jobOutputs,
-                    jobOutputData: state.currentJob?.output_data
-                });
-
-                // First check job outputs (from previous steps)
-                // jobOutputs are already keyed by variable name
-                if (variableName in jobOutputs) {
-                    resolvedParameters[paramName] = jobOutputs[variableName as WorkflowVariableName];
-                    console.log(`Resolved ${paramName} from jobOutputs:`, resolvedParameters[paramName]);
-                    return;
-                }
-
-                // Then check job input variables - try both name and variable_id
-                const inputVariable = state.currentJob?.input_variables?.find(v =>
-                    v.name === variableName ||
-                    v.variable_id === variableName
-                );
-
+                // First check job input variables
+                const inputVariable = state.currentJob?.input_variables?.find(v => v.name === variableName);
                 if (inputVariable?.value !== undefined) {
                     resolvedParameters[paramName] = inputVariable.value as SchemaValueType;
-                    console.log(`Resolved ${paramName} from input_variables:`, {
-                        variable: inputVariable,
-                        value: resolvedParameters[paramName]
-                    });
                     return;
                 }
 
-                // Check input values from state
-                if (variableName in state.inputValues) {
-                    resolvedParameters[paramName] = state.inputValues[variableName];
-                    console.log(`Resolved ${paramName} from inputValues:`, resolvedParameters[paramName]);
+                // Then check job outputs from previous steps
+                if (variableName in jobOutputs) {
+                    resolvedParameters[paramName] = jobOutputs[variableName as WorkflowVariableName];
                     return;
                 }
 
-                // Finally check job output_data
-                if (state.currentJob?.output_data && variableName in state.currentJob.output_data) {
-                    resolvedParameters[paramName] = state.currentJob.output_data[variableName] as SchemaValueType;
-                    console.log(`Resolved ${paramName} from output_data:`, resolvedParameters[paramName]);
-                    return;
-                }
-
-                console.warn('Could not resolve variable reference:', {
+                console.warn(`Could not resolve variable reference:`, {
                     parameter: paramName,
                     variableName,
-                    availableOutputs: Object.keys(jobOutputs),
-                    availableInputs: state.currentJob?.input_variables?.map(v => ({
-                        name: v.name,
-                        variable_id: v.variable_id,
-                        value: v.value
-                    })),
-                    availableStateInputs: Object.keys(state.inputValues),
-                    availableJobOutputs: state.currentJob?.output_data ? Object.keys(state.currentJob.output_data) : []
+                    availableInputs: state.currentJob?.input_variables?.map(v => v.name),
+                    availableOutputs: Object.keys(jobOutputs)
                 });
             });
 
@@ -443,6 +405,13 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('JobsContext.tsx startJob', inputVariables);
             const job = state.currentJob;
             if (!job) throw new Error('No job selected');
+
+            // Reset input values and errors before starting
+            setState(prev => ({
+                ...prev,
+                inputValues: {},
+                inputErrors: {}
+            }));
 
             // Update job with input variables and set initial running state
             const updatedJob = {
