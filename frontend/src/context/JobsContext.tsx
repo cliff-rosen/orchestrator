@@ -228,6 +228,9 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Resolve parameter values from job outputs and input values
             const resolvedParameters: Record<string, SchemaValueType> = {};
+            if (job.steps[stepIndex].tool?.tool_type === 'llm' && job.steps[stepIndex].prompt_template_id) {
+                resolvedParameters["prompt_template_id"] = job.steps[stepIndex].prompt_template_id;
+            }
 
             // For each parameter mapping, resolve the variable reference to its actual value
             Object.entries(step.parameter_mappings).forEach(([paramName, variableName]) => {
