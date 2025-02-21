@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult, JobId } from '../types/jobs';
+import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult, JobId, JobStepId } from '../types/jobs';
 import { WorkflowVariable, WorkflowVariableName } from '../types/workflows';
 import { SchemaValueType } from '../types/schema';
 import { useWorkflows } from './WorkflowContext';
@@ -131,13 +131,14 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 status: JobStatus.PENDING,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
+                user_id: 'default',
                 input_variables: workflow.inputs?.map((i) => ({
                     ...i,
                     required: i.required || true,
                 })) || [],
                 steps: workflow.steps.map((step, index) => ({
-                    step_id: `step-${Date.now()}-${index}`,
-                    job_id: `job-${Date.now()}`,
+                    step_id: `step-${Date.now()}-${index}` as JobStepId,
+                    job_id: `job-${Date.now()}` as JobId,
                     sequence_number: index,
                     status: JobStatus.PENDING,
                     tool: step.tool,

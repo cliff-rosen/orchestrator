@@ -31,7 +31,7 @@ export interface JobStep {
     completed_at?: string;
     tool?: Tool;
     // Only present for LLM tools
-    prompt_template?: string;
+    prompt_template_id?: string;
     // Maps tool parameters to workflow variables
     parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
     // Maps tool outputs to workflow variables
