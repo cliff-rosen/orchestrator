@@ -106,9 +106,20 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) =
                         </h4>
                         <div className="space-y-1">
                             {Object.entries(currentStep.parameter_mappings).map(([key, mapping]) => {
-                                const value = job.input_variables?.find(v =>
-                                    v.variable_id === mapping || v.schema.name === mapping
-                                )?.value || mapping;
+                                console.log('mapping', key, mapping);
+                                // First check input variables
+                                const inputVar = job.input_variables?.find(v => v.name === mapping);
+                                let value = inputVar?.value;
+
+                                // If not found in inputs, check job outputs
+                                if (value === undefined && job.output_data && mapping in job.output_data) {
+                                    value = job.output_data[mapping];
+                                }
+
+                                // If still not found, use mapping as literal value
+                                if (value === undefined) {
+                                    value = mapping;
+                                }
 
                                 return (
                                     <div key={key} className="text-sm">
