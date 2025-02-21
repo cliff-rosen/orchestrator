@@ -6,6 +6,8 @@ interface JobProgressProps {
 }
 
 export const JobProgress: React.FC<JobProgressProps> = ({ job }) => {
+    console.log('JobProgress.tsx', job);
+
     const progress = job.execution_progress;
     if (!progress) return null;
 

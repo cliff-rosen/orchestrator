@@ -200,7 +200,11 @@ export const JobStepDetails: React.FC<JobStepDetailsProps> = ({ job }) => {
     };
 
     // Filter to only show executed steps
-    const executedSteps = job.steps.filter(step => step.status !== JobStatus.PENDING);
+    const executedSteps = job.steps.filter(step =>
+        step.status === JobStatus.COMPLETED ||
+        step.status === JobStatus.RUNNING ||
+        step.status === JobStatus.FAILED
+    );
 
     return (
         <div className="space-y-2">

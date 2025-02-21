@@ -35,13 +35,7 @@ const Job: React.FC = () => {
     // Determine if we need inputs based on job status and workflow inputs
     const needsInput = currentJob?.status === JobStatus.PENDING && workflowInputs.length > 0;
 
-    console.log('Job.tsx', {
-        jobId,
-        currentJob,
-        status: currentJob?.status,
-        needsInput,
-        workflowInputs
-    });
+    console.log('Job.tsx', currentJob);
 
     // Load job data
     useEffect(() => {
@@ -70,20 +64,20 @@ const Job: React.FC = () => {
     }
 
     // Debug logging
-    console.log('Job render:', {
-        needsInput,
-        workflowInputs,
-        inputValues,
-        currentJob,
-        workflow
-    });
+    // console.log('Job render:', {
+    //     needsInput,
+    //     workflowInputs,
+    //     inputValues,
+    //     currentJob,
+    //     workflow
+    // });
 
-    // Add this near the other debug logging
-    console.log('Job controls:', {
-        status: currentJob?.status,
-        isRunning: currentJob?.status === JobStatus.RUNNING,
-        JobStatus: JobStatus
-    });
+    // // Add this near the other debug logging
+    // console.log('Job controls:', {
+    //     status: currentJob?.status,
+    //     isRunning: currentJob?.status === JobStatus.RUNNING,
+    //     JobStatus: JobStatus
+    // });
 
     const handleStart = async () => {
         console.log('Job.tsx handleStart called', {

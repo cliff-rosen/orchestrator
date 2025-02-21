@@ -186,6 +186,33 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!step) throw new Error('Step not found');
             if (!step.tool) throw new Error('No tool configured for step');
 
+            // Set step to running state first
+            setState(prev => {
+                const job = prev.jobs.find(j => j.job_id === jobId);
+                if (!job) return prev;
+
+                const updatedJob = {
+                    ...job,
+                    status: JobStatus.RUNNING,
+                    steps: job.steps.map((s, idx) => {
+                        if (idx === stepIndex) {
+                            return {
+                                ...s,
+                                status: JobStatus.RUNNING,
+                                started_at: new Date().toISOString()
+                            };
+                        }
+                        return s;
+                    })
+                };
+
+                return {
+                    ...prev,
+                    jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
+                    currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob
+                };
+            });
+
             // Execute the tool
             const result = await toolApi.executeTool(step.tool.tool_id, {
                 ...step.parameter_mappings,
@@ -201,38 +228,68 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 completed_at: new Date().toISOString()
             };
 
-            // Update job state
-            const updatedJob = {
-                ...job,
-                steps: job.steps.map((s, idx) => {
-                    if (idx === stepIndex) {
-                        return {
-                            ...s,
-                            status: JobStatus.COMPLETED,
-                            output_data: result,
-                            started_at: stepResult.started_at,
-                            completed_at: stepResult.completed_at
-                        };
-                    }
-                    return s;
-                })
-            };
+            // Update both job and execution state
+            setState(prev => {
+                const currentJob = prev.jobs.find(j => j.job_id === jobId) || job;
 
-            setState(prev => ({
-                ...prev,
-                jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
-                currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob,
-                isLoading: false
-            }));
+                const executionState = prev.executionState || {
+                    job_id: jobId as JobId,
+                    current_step_index: 0,
+                    total_steps: job.steps.length,
+                    is_paused: false,
+                    live_output: '',
+                    status: JobStatus.RUNNING,
+                    step_results: [],
+                    variables: {}
+                };
+
+                const updatedExecutionState = {
+                    ...executionState,
+                    current_step_index: stepIndex + 1,
+                    step_results: [...executionState.step_results, stepResult]
+                };
+
+                const updatedJob = {
+                    ...currentJob,
+                    status: JobStatus.RUNNING,
+                    execution_progress: {
+                        current_step: stepIndex + 1,
+                        total_steps: job.steps.length
+                    },
+                    steps: currentJob.steps.map((s, idx) => {
+                        if (idx === stepIndex) {
+                            return {
+                                ...s,
+                                status: JobStatus.COMPLETED,
+                                output_data: result,
+                                started_at: stepResult.started_at,
+                                completed_at: stepResult.completed_at
+                            };
+                        }
+                        return s;
+                    })
+                };
+
+                return {
+                    ...prev,
+                    jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
+                    currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob,
+                    executionState: updatedExecutionState,
+                    isLoading: false
+                };
+            });
 
             return stepResult;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to execute step';
 
-            // Update job state with error
+            // Update both job and execution state with error
             setState(prev => {
                 const job = prev.jobs.find(j => j.job_id === jobId);
                 if (!job) return prev;
+
+                const step = job.steps[stepIndex];
+                if (!step) return prev;
 
                 const updatedJob = {
                     ...job,
@@ -250,10 +307,27 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     })
                 };
 
+                const executionState = prev.executionState;
+                const updatedExecutionState = executionState ? {
+                    ...executionState,
+                    status: JobStatus.FAILED,
+                    step_results: [
+                        ...executionState.step_results,
+                        {
+                            step_id: step.step_id,
+                            success: false,
+                            error: errorMessage,
+                            started_at: new Date().toISOString(),
+                            completed_at: new Date().toISOString()
+                        }
+                    ]
+                } : undefined;
+
                 return {
                     ...prev,
                     jobs: prev.jobs.map(j => j.job_id === jobId ? updatedJob : j),
                     currentJob: prev.currentJob?.job_id === jobId ? updatedJob : prev.currentJob,
+                    executionState: updatedExecutionState,
                     isLoading: false,
                     error: errorMessage
                 };
@@ -270,26 +344,50 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const job = state.currentJob;
             if (!job) throw new Error('No job selected');
 
-            // Update job with input variables and set status to running
+            // Update job with input variables and set initial running state
             const updatedJob = {
                 ...job,
                 status: JobStatus.RUNNING,
                 started_at: new Date().toISOString(),
-                input_variables: inputVariables || []
+                input_variables: inputVariables || [],
+                execution_progress: {
+                    current_step: 0,
+                    total_steps: job.steps.length
+                },
+                steps: job.steps.map(step => ({
+                    ...step,
+                    status: step.status === JobStatus.COMPLETED ? JobStatus.COMPLETED : JobStatus.PENDING,
+                    output_data: step.status === JobStatus.COMPLETED ? step.output_data : undefined
+                }))
+            };
+
+            // Initialize execution state
+            const initialExecutionState: JobExecutionState = {
+                job_id: job.job_id as JobId,
+                current_step_index: 0,
+                total_steps: job.steps.length,
+                is_paused: false,
+                live_output: '',
+                status: JobStatus.RUNNING,
+                step_results: [],
+                variables: {}
             };
 
             setState(prev => ({
                 ...prev,
                 jobs: prev.jobs.map(j => j.job_id === job.job_id ? updatedJob : j),
-                currentJob: updatedJob
+                currentJob: updatedJob,
+                executionState: initialExecutionState
             }));
 
             // Execute steps sequentially
             let currentStep = 0;
             const jobOutputs: Record<WorkflowVariableName, SchemaValueType> = {};
 
+            console.log('******************** ENTERING WHILE LOOP ********************');
             while (currentStep < updatedJob.steps.length) {
                 try {
+                    console.log('******************** EXECUTING STEP ********************');
                     const stepResult = await executeStep(job.job_id, currentStep);
 
                     // Update job outputs
@@ -327,7 +425,11 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...finalJob,
                     status: currentStep === updatedJob.steps.length ? JobStatus.COMPLETED : JobStatus.FAILED,
                     completed_at: new Date().toISOString(),
-                    output_data: jobOutputs
+                    output_data: jobOutputs,
+                    execution_progress: {
+                        current_step: currentStep,
+                        total_steps: updatedJob.steps.length
+                    }
                 };
 
                 return {
