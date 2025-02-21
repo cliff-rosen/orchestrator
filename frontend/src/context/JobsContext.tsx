@@ -25,7 +25,7 @@ interface JobsContextValue extends JobsContextState {
 
     // Job Execution
     startJob: (inputVariables?: JobVariable[]) => Promise<void>;
-    executeStep: (jobId: string, stepIndex: number) => Promise<StepExecutionResult>;
+    executeStep: (jobId: string, stepIndex: number, jobOutputs: Record<WorkflowVariableName, SchemaValueType>) => Promise<StepExecutionResult>;
     cancelJob: (jobId: string) => Promise<void>;
     resetJob: (jobId: string) => Promise<void>;
 
@@ -176,7 +176,11 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
     }, []);
 
-    const executeStep = useCallback(async (jobId: string, stepIndex: number): Promise<StepExecutionResult> => {
+    const executeStep = useCallback(async (
+        jobId: string,
+        stepIndex: number,
+        jobOutputs: Record<WorkflowVariableName, SchemaValueType>
+    ): Promise<StepExecutionResult> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
             const job = state.jobs.find(j => j.job_id === jobId);
@@ -214,16 +218,80 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
 
             // Execute the tool
-            const result = await toolApi.executeTool(step.tool.tool_id, {
-                ...step.parameter_mappings,
-                prompt_template_id: step.prompt_template_id
+            console.log('Executing tool with parameters:', {
+                toolId: step.tool.tool_id,
+                parameterMappings: step.parameter_mappings,
+                promptTemplateId: step.prompt_template_id,
+                currentOutputs: jobOutputs,
+                currentInputs: state.inputValues
             });
+
+            // Resolve parameter values from job outputs and input values
+            const resolvedParameters: Record<string, SchemaValueType> = {};
+
+            // For each parameter mapping, resolve the variable reference to its actual value
+            Object.entries(step.parameter_mappings).forEach(([paramName, variableName]) => {
+                // All parameter mappings should reference variables by their name
+                if (typeof variableName !== 'string') {
+                    console.warn('Invalid parameter mapping - expected variable name:', {
+                        parameter: paramName,
+                        value: variableName
+                    });
+                    return;
+                }
+
+                // First check job outputs (from previous steps)
+                // jobOutputs are already keyed by variable name
+                if (variableName in jobOutputs) {
+                    resolvedParameters[paramName] = jobOutputs[variableName as WorkflowVariableName];
+                    return;
+                }
+
+                // Then check job input variables
+                const inputVariable = job.input_variables?.find(v => v.name === variableName);
+                if (inputVariable?.value !== undefined) {
+                    resolvedParameters[paramName] = inputVariable.value as SchemaValueType;
+                    return;
+                }
+
+                // Finally check job output_data
+                if (job.output_data && variableName in job.output_data) {
+                    resolvedParameters[paramName] = job.output_data[variableName] as SchemaValueType;
+                    return;
+                }
+
+                console.warn('Could not resolve variable reference:', {
+                    parameter: paramName,
+                    variableName,
+                    availableOutputs: Object.keys(jobOutputs),
+                    availableInputs: job.input_variables?.map(v => v.name),
+                    availableJobOutputs: job.output_data ? Object.keys(job.output_data) : []
+                });
+            });
+
+            console.log('Resolved parameters:', {
+                original: step.parameter_mappings,
+                resolved: resolvedParameters,
+                jobOutputs,
+                inputVariables: job.input_variables,
+                jobOutputData: job.output_data
+            });
+
+            const result = await toolApi.executeTool(step.tool.tool_id, resolvedParameters);
+
+            console.log('Tool execution result:', {
+                toolId: step.tool.tool_id,
+                result
+            });
+
+            // Ensure result is properly structured
+            const normalizedResult = typeof result === 'string' ? { output: result } : result;
 
             // Create step result
             const stepResult: StepExecutionResult = {
                 step_id: step.step_id,
                 success: true,
-                outputs: result,
+                outputs: normalizedResult,
                 started_at: new Date().toISOString(),
                 completed_at: new Date().toISOString()
             };
@@ -388,19 +456,45 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             while (currentStep < updatedJob.steps.length) {
                 try {
                     console.log('******************** EXECUTING STEP ********************');
-                    const stepResult = await executeStep(job.job_id, currentStep);
+                    const stepResult = await executeStep(job.job_id, currentStep, jobOutputs);
 
                     // Update job outputs
                     if (stepResult.outputs) {
                         const step = updatedJob.steps[currentStep];
+                        console.log('Step output processing:', {
+                            stepIndex: currentStep,
+                            stepId: step.step_id,
+                            toolOutputs: stepResult.outputs,
+                            outputMappings: step?.output_mappings,
+                            currentJobOutputs: jobOutputs
+                        });
+
                         if (step?.output_mappings) {
                             Object.entries(step.output_mappings).forEach(([outputName, variableName]) => {
+                                console.log('Processing output mapping:', {
+                                    outputName,
+                                    variableName,
+                                    availableOutputs: Object.keys(stepResult.outputs || {})
+                                });
+
                                 const outputs = stepResult.outputs as Record<string, SchemaValueType>;
                                 if (outputs && outputName in outputs) {
+                                    console.log('Mapping output to variable:', {
+                                        from: outputName,
+                                        to: variableName,
+                                        value: outputs[outputName]
+                                    });
                                     jobOutputs[variableName as WorkflowVariableName] = outputs[outputName];
+                                } else {
+                                    console.warn('Output not found:', {
+                                        outputName,
+                                        availableOutputs: Object.keys(outputs || {})
+                                    });
                                 }
                             });
                         }
+
+                        console.log('Updated job outputs:', jobOutputs);
                     }
 
                     // Check if job was cancelled or failed

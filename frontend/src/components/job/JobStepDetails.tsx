@@ -81,9 +81,9 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 {step.tool?.name}
                             </p>
-                            {step.tool?.tool_type === 'llm' && step.prompt_template && (
+                            {step.tool?.tool_type === 'llm' && step.prompt_template_id && (
                                 <div className="text-xs">
-                                    <PromptTemplateLink templateId={step.prompt_template} />
+                                    <PromptTemplateLink templateId={step.prompt_template_id} />
                                 </div>
                             )}
                         </div>
@@ -202,7 +202,6 @@ export const JobStepDetails: React.FC<JobStepDetailsProps> = ({ job }) => {
     // Filter to only show executed steps
     const executedSteps = job.steps.filter(step =>
         step.status === JobStatus.COMPLETED ||
-        step.status === JobStatus.RUNNING ||
         step.status === JobStatus.FAILED
     );
 
