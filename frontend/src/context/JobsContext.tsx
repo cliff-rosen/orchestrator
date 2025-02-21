@@ -178,6 +178,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const executeStep = useCallback(async (
         stepIndex: number,
+        inputVariables: JobVariable[],
         jobOutputs: Record<WorkflowVariableName, SchemaValueType>
     ): Promise<StepExecutionResult> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
@@ -216,13 +217,14 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
             });
 
-            // Execute the tool
+            // Execute the tool 
             console.log('Executing tool with parameters:', {
                 toolId: step.tool.tool_id,
-                parameterMappings: step.parameter_mappings,
-                promptTemplateId: step.prompt_template_id,
-                currentOutputs: jobOutputs,
-                currentInputs: state.inputValues
+                parameter_mappings: step.parameter_mappings,
+                prompt_template_id: step.prompt_template_id,
+                current_output_map: jobOutputs,
+                current_input_list: state.currentJob?.input_variables,
+                inputValues: state.inputValues
             });
 
             // Resolve parameter values from job outputs and input values
@@ -244,7 +246,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
 
                 // First check job input variables
-                const inputVariable = state.currentJob?.input_variables?.find(v => v.name === variableName);
+                const inputVariable = inputVariables.find(v => v.name === variableName);
                 if (inputVariable?.value !== undefined) {
                     resolvedParameters[paramName] = inputVariable.value as SchemaValueType;
                     return;
@@ -259,7 +261,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.warn(`Could not resolve variable reference:`, {
                     parameter: paramName,
                     variableName,
-                    availableInputs: state.currentJob?.input_variables?.map(v => v.name),
+                    availableInputs: state.currentJob?.input_variables,
                     availableOutputs: Object.keys(jobOutputs)
                 });
             });
@@ -457,7 +459,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             while (currentStep < updatedJob.steps.length) {
                 try {
                     console.log('******************** EXECUTING STEP ********************');
-                    const stepResult = await executeStep(currentStep, jobOutputs);
+                    const stepResult = await executeStep(currentStep, inputVariables, jobOutputs);
 
                     // Update job outputs
                     if (stepResult.outputs) {

@@ -45,12 +45,6 @@ const Job: React.FC = () => {
         }
     }, [jobId, loadJob]);
 
-    // Initialize input values when workflow inputs change
-    useEffect(() => {
-        console.log('Initializing input values:', { workflow, workflowInputs });
-        // Remove this effect as input initialization is now handled by the context
-    }, [workflow, currentJob, needsInput]);
-
     // Early return for loading state
     if (!currentJob || !workflow) {
         return (
@@ -62,22 +56,6 @@ const Job: React.FC = () => {
             </div>
         );
     }
-
-    // Debug logging
-    // console.log('Job render:', {
-    //     needsInput,
-    //     workflowInputs,
-    //     inputValues,
-    //     currentJob,
-    //     workflow
-    // });
-
-    // // Add this near the other debug logging
-    // console.log('Job controls:', {
-    //     status: currentJob?.status,
-    //     isRunning: currentJob?.status === JobStatus.RUNNING,
-    //     JobStatus: JobStatus
-    // });
 
     const handleStart = async () => {
         console.log('Job.tsx handleStart called', {
