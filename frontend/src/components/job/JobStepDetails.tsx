@@ -25,19 +25,18 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
     const getInputValue = (mapping: string) => {
         if (!job.input_variables) return mapping;
 
-        // First try to find by variable_id
-        const variable = job.input_variables.find(v => v.variable_id === mapping);
-        if (variable) {
-            return variable.value;
-        }
-
-        // Then try to find by schema name
-        const variableByName = job.input_variables.find(v => v.schema.name === mapping);
+        const variableByName = job.input_variables.find(v => v.name === mapping);
         if (variableByName) {
             return variableByName.value;
         }
 
-        // If not found in variables, return the mapping itself as it might be a direct value
+        // If not found in input variables then check output variables
+        const variableByOutputName = job.output_data?.[mapping as keyof typeof job.output_data];
+        if (variableByOutputName) {
+            return variableByOutputName;
+        }
+
+        // If not found in input or output variables then return the mapping itself
         return mapping;
     };
 
