@@ -249,6 +249,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Then check job input variables
                 const inputVariable = job.input_variables?.find(v => v.name === variableName);
+                console.log('inputVariable', inputVariable);
                 if (inputVariable?.value !== undefined) {
                     resolvedParameters[paramName] = inputVariable.value as SchemaValueType;
                     return;
