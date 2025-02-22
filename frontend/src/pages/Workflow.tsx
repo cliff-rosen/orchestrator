@@ -146,6 +146,7 @@ const Workflow: React.FC = () => {
                 parameters['prompt_template_id' as ToolParameterName] = currentStep.prompt_template_id as SchemaValueType;
             }
 
+            // execute the tool with the resolved parameters
             const outputs = await toolApi.executeTool(toolId, parameters);
 
             // Store outputs in workflow variables
