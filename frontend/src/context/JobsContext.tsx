@@ -256,6 +256,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Set step to running state first
             setState(prev => {
                 if (!prev.currentJob) return prev;
+                if (!step.tool) return prev;
 
                 const updatedJob = {
                     ...prev.currentJob,
@@ -283,7 +284,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     executionState: {
                         ...prev.executionState!,
                         current_step_index: stepIndex,
-                        status: JobStatus.RUNNING
+                        status: JobStatus.RUNNING,
+                        live_output: `Preparing to execute ${step.tool.name}...`
                     }
                 };
             });
@@ -327,6 +329,18 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     availableOutputs: Object.keys(jobOutputs)
                 });
             });
+
+            // Update live output to show we're executing
+            setState(prev => ({
+                ...prev,
+                executionState: {
+                    ...prev.executionState!,
+                    live_output: step.tool ? `Executing ${step.tool.name} with resolved parameters...\n${Object.entries(resolvedParameters)
+                        .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+                        .join('\n')
+                        }` : 'Executing step...'
+                }
+            }));
 
             // Execute the tool with resolved parameters
             const result = await toolApi.executeTool(step.tool.tool_id, resolvedParameters);
@@ -501,7 +515,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 current_step_index: 0,
                 total_steps: job.steps.length,
                 is_paused: false,
-                live_output: '',
+                live_output: 'Initializing job execution...',
                 status: JobStatus.RUNNING,
                 step_results: [],
                 variables: {}
@@ -521,6 +535,15 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('******************** ENTERING WHILE LOOP ********************');
             while (currentStep < updatedJob.steps.length) {
                 try {
+                    // Update live output to show progress
+                    setState(prev => ({
+                        ...prev,
+                        executionState: {
+                            ...prev.executionState!,
+                            live_output: `Starting step ${currentStep + 1} of ${updatedJob.steps.length}...`
+                        }
+                    }));
+
                     console.log('******************** EXECUTING STEP ********************');
                     const stepResult = await executeStep(currentStep, jobOutputs, preparedInputVariables);
 
@@ -534,12 +557,31 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                     jobOutputs[variableName as WorkflowVariableName] = outputs[outputName];
                                 }
                             });
+
+                            // Update live output to show output mappings
+                            setState(prev => ({
+                                ...prev,
+                                executionState: {
+                                    ...prev.executionState!,
+                                    live_output: `Step ${currentStep + 1} completed. Mapped outputs:\n${Object.entries(jobOutputs)
+                                        .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+                                        .join('\n')
+                                        }`
+                                }
+                            }));
                         }
                     }
 
                     // Check if job was cancelled or failed
                     const currentJobState = state.jobs.find(j => j.job_id === job.job_id);
                     if (currentJobState?.status === JobStatus.FAILED) {
+                        setState(prev => ({
+                            ...prev,
+                            executionState: {
+                                ...prev.executionState!,
+                                live_output: 'Job execution cancelled or failed.'
+                            }
+                        }));
                         break;
                     }
 
@@ -553,7 +595,11 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     };
                     setState(prev => ({
                         ...prev,
-                        error: jobError
+                        error: jobError,
+                        executionState: {
+                            ...prev.executionState!,
+                            live_output: `Error in step ${currentStep + 1}: ${jobError.message}`
+                        }
                     }));
                     break;
                 }
@@ -564,9 +610,10 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const finalJob = prev.jobs.find(j => j.job_id === job.job_id);
                 if (!finalJob) return prev;
 
+                const isCompleted = currentStep === updatedJob.steps.length;
                 const completedJob = {
                     ...finalJob,
-                    status: currentStep === updatedJob.steps.length ? JobStatus.COMPLETED : JobStatus.FAILED,
+                    status: isCompleted ? JobStatus.COMPLETED : JobStatus.FAILED,
                     completed_at: new Date().toISOString(),
                     output_data: jobOutputs,
                     execution_progress: {
@@ -579,6 +626,11 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...prev,
                     jobs: prev.jobs.map(j => j.job_id === job.job_id ? completedJob : j),
                     currentJob: completedJob,
+                    executionState: {
+                        ...prev.executionState!,
+                        live_output: isCompleted ? 'Job completed successfully.' : 'Job failed to complete.',
+                        status: isCompleted ? JobStatus.COMPLETED : JobStatus.FAILED
+                    },
                     isLoading: false
                 };
             });

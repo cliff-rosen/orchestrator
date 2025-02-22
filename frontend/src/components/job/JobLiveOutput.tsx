@@ -140,6 +140,9 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) =
                 )}
 
                 {/* Live Output */}
+                <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Live Output Area
+                </h4>
                 {executionState?.job_id === job.job_id && executionState.live_output && (
                     <div className="mt-4 bg-gray-100 dark:bg-gray-800 rounded p-3">
                         <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
