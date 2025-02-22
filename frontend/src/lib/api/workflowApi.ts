@@ -1,5 +1,5 @@
 import { api, handleApiError } from './index';
-import { Workflow } from '../../types/workflows';
+import { Workflow, WorkflowStepType } from '../../types/workflows';
 
 export interface WorkflowExecutionState {
     workflowId: string;
@@ -43,7 +43,17 @@ export const workflowApi = {
                     prompt_template_id: step.prompt_template_id,
                     parameter_mappings: step.parameter_mappings,
                     output_mappings: step.output_mappings,
-                    sequence_number: step.sequence_number
+                    sequence_number: step.sequence_number,
+                    // Include evaluation_config for evaluation steps
+                    ...(step.step_type === WorkflowStepType.EVALUATION ? {
+                        evaluation_config: {
+                            conditions: (step.evaluation_config?.conditions || []).map(condition => ({
+                                ...condition,
+                                condition_id: condition.condition_id || crypto.randomUUID()
+                            })),
+                            default_action: step.evaluation_config?.default_action || 'continue'
+                        }
+                    } : {})
                 })),
                 inputs: workflow.inputs?.map(input => ({
                     variable_id: input.variable_id,
@@ -81,7 +91,17 @@ export const workflowApi = {
                     prompt_template_id: step.prompt_template_id,
                     parameter_mappings: step.parameter_mappings,
                     output_mappings: step.output_mappings,
-                    sequence_number: step.sequence_number
+                    sequence_number: step.sequence_number,
+                    // Include evaluation_config for evaluation steps
+                    ...(step.step_type === WorkflowStepType.EVALUATION ? {
+                        evaluation_config: {
+                            conditions: (step.evaluation_config?.conditions || []).map(condition => ({
+                                ...condition,
+                                condition_id: condition.condition_id || crypto.randomUUID()
+                            })),
+                            default_action: step.evaluation_config?.default_action || 'continue'
+                        }
+                    } : {})
                 })),
                 inputs: workflow.inputs?.map(input => ({
                     variable_id: input.variable_id,
@@ -97,6 +117,7 @@ export const workflowApi = {
                 }))
             };
 
+            console.log('transformedWorkflow', transformedWorkflow);
             const response = await api.put(`/api/workflows/${workflowId}`, transformedWorkflow);
             return response.data;
         } catch (error) {

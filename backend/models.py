@@ -71,11 +71,12 @@ class WorkflowStep(Base):
     workflow_id = Column(String(36), ForeignKey("workflows.workflow_id"), nullable=False)
     label = Column(String(255), nullable=False)
     description = Column(Text)
-    step_type = Column(String(50), nullable=False)  # 'ACTION' or 'INPUT'
+    step_type = Column(String(50), nullable=False)  # 'ACTION', 'INPUT', or 'EVALUATION'
     tool_id = Column(String(36), ForeignKey("tools.tool_id"))
     prompt_template_id = Column(String(36), ForeignKey("prompt_templates.template_id"))
     parameter_mappings = Column(JSON, default=dict)
     output_mappings = Column(JSON, default=dict)
+    evaluation_config = Column(JSON, default=dict)  # Added evaluation config
     sequence_number = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

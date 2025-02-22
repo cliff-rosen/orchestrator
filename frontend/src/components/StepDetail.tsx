@@ -3,6 +3,7 @@ import { RuntimeWorkflowStep, WorkflowStepType, WorkflowStep } from '../types/wo
 import ActionStepEditor from './ActionStepEditor';
 import InputStepRunner from './InputStepRunner';
 import ActionStepRunner from './ActionStepRunner';
+import EvaluationStepRunner from './EvaluationStepRunner';
 
 interface StepDetailProps {
     step: RuntimeWorkflowStep;
@@ -26,13 +27,14 @@ const StepDetail: React.FC<StepDetailProps> = ({
     }
 
     const isInputStep = step.step_type === WorkflowStepType.INPUT;
+    const isEvaluationStep = step.step_type === WorkflowStepType.EVALUATION;
 
     // In edit mode, input steps are configured in WorkflowConfig
     if (isEditMode && isInputStep) {
         return <div className="text-red-600">Input steps cannot be edited here. Please use the Schema configuration.</div>;
     }
 
-    // In edit mode, action steps use the editor
+    // In edit mode, action and evaluation steps use the editor
     if (isEditMode) {
         // Convert RuntimeWorkflowStep to WorkflowStep for ActionStepEditor
         const {
@@ -64,6 +66,16 @@ const StepDetail: React.FC<StepDetailProps> = ({
     // In run mode, show appropriate runner based on step type
     if (isInputStep) {
         return <InputStepRunner />;
+    }
+
+    if (isEvaluationStep) {
+        return (
+            <EvaluationStepRunner
+                step={step}
+                isExecuted={stepExecuted}
+                isExecuting={isExecuting}
+            />
+        );
     }
 
     return (

@@ -225,7 +225,16 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 savedWorkflow = await workflowApi.createWorkflow(workflowData);
                 setWorkflows(prev => [...prev, savedWorkflow]);
             } else {
-                savedWorkflow = await workflowApi.updateWorkflow(workflow.workflow_id, workflow);
+                // Only send updatable fields
+                const updateData = {
+                    name: workflow.name,
+                    description: workflow.description,
+                    status: workflow.status,
+                    steps: workflow.steps,
+                    inputs: workflow.inputs,
+                    outputs: workflow.outputs
+                };
+                savedWorkflow = await workflowApi.updateWorkflow(workflow.workflow_id, updateData);
                 setWorkflows(prev =>
                     prev.map(w => w.workflow_id === savedWorkflow.workflow_id ? savedWorkflow : w)
                 );

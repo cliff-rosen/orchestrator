@@ -30,6 +30,30 @@ export interface EvaluationResult extends StepExecutionResult {
     reason?: string;  // Optional explanation for the decision
 }
 
+// Evaluation condition operators
+export type EvaluationOperator =
+    | 'equals'
+    | 'not_equals'
+    | 'greater_than'
+    | 'less_than'
+    | 'contains'
+    | 'not_contains';
+
+// Evaluation condition configuration
+export interface EvaluationCondition {
+    condition_id: string;
+    variable: WorkflowVariableName;
+    operator: EvaluationOperator;
+    value: any;
+    target_step_index?: number;  // Step to jump to if condition is met
+}
+
+// Evaluation configuration for workflow steps
+export interface EvaluationConfig {
+    conditions: EvaluationCondition[];
+    default_action: 'continue' | 'end';  // What to do if no conditions match
+}
+
 // Runtime step that includes execution functions
 export interface RuntimeWorkflowStep extends WorkflowStep {
     // Execute the step and return its results
@@ -69,15 +93,7 @@ export interface WorkflowStep {
     // Maps tool output names to workflow variable names
     output_mappings: Record<ToolOutputName, WorkflowVariableName>;
     // Only for EVALUATION steps
-    evaluation_config?: {
-        conditions: Array<{
-            variable: WorkflowVariableName;
-            operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'not_contains';
-            value: any;
-            target_step_index?: number;  // Step to jump to if condition is met
-        }>;
-        default_action: 'continue' | 'end';  // What to do if no conditions match
-    };
+    evaluation_config?: EvaluationConfig;
     sequence_number: number;
     created_at: string;
     updated_at: string;

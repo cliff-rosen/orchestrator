@@ -410,15 +410,29 @@ class WorkflowVariableResponse(WorkflowVariableBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class EvaluationCondition(BaseModel):
+    """Schema for evaluation conditions"""
+    condition_id: str = Field(description="Unique identifier for the condition")
+    variable: str = Field(description="Name of the variable to evaluate")
+    operator: Literal['equals', 'not_equals', 'greater_than', 'less_than', 'contains', 'not_contains'] = Field(description="Comparison operator")
+    value: Any = Field(description="Value to compare against")
+    target_step_index: Optional[int] = Field(None, description="Step to jump to if condition is met")
+
+class EvaluationConfig(BaseModel):
+    """Schema for evaluation configuration"""
+    conditions: List[EvaluationCondition] = Field(description="List of conditions to evaluate")
+    default_action: Literal['continue', 'end'] = Field(description="What to do if no conditions match")
+
 class WorkflowStepBase(BaseModel):
     """Base schema for workflow steps"""
     label: str = Field(description="Label for the step")
     description: str = Field(description="Description of the step")
-    step_type: str = Field(description="Type of step (ACTION or INPUT)")
+    step_type: str = Field(description="Type of step (ACTION, INPUT, or EVALUATION)")
     tool_id: Optional[str] = Field(None, description="ID of the tool to use for this step")
     prompt_template_id: Optional[str] = Field(None, description="ID of the prompt template to use for LLM tools")
     parameter_mappings: Dict[str, str] = Field(default_factory=dict, description="Maps tool parameters to workflow variables")
     output_mappings: Dict[str, str] = Field(default_factory=dict, description="Maps tool outputs to workflow variables")
+    evaluation_config: Optional[EvaluationConfig] = Field(None, description="Configuration for evaluation steps")
 
 class WorkflowStepCreate(BaseModel):
     """Schema for creating workflow steps"""
@@ -429,19 +443,13 @@ class WorkflowStepCreate(BaseModel):
     prompt_template_id: Optional[str] = None
     parameter_mappings: Optional[dict] = None
     output_mappings: Optional[dict] = None
+    evaluation_config: Optional[EvaluationConfig] = None
     sequence_number: int
 
 class WorkflowStepResponse(WorkflowStepBase):
     """Schema for workflow step responses"""
     step_id: str
     workflow_id: str
-    label: str
-    description: Optional[str]
-    step_type: str
-    tool_id: Optional[str]
-    prompt_template_id: Optional[str]
-    parameter_mappings: Dict[str, Any]
-    output_mappings: Dict[str, Any]
     sequence_number: int
     created_at: datetime
     updated_at: datetime

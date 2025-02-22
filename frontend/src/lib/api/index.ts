@@ -12,6 +12,8 @@ export const api = axios.create({
   baseURL: settings.apiUrl,
   headers: {
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
   },
 });
 

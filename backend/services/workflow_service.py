@@ -42,6 +42,11 @@ class WorkflowService:
         # Create steps if provided
         if workflow_data.steps:
             for step_data in workflow_data.steps:
+                # Convert evaluation config to dict if present
+                evaluation_config = None
+                if step_data.evaluation_config:
+                    evaluation_config = step_data.evaluation_config.model_dump()
+
                 step = WorkflowStep(
                     step_id=str(uuid4()),
                     workflow_id=workflow.workflow_id,
@@ -52,6 +57,7 @@ class WorkflowService:
                     prompt_template_id=step_data.prompt_template_id,
                     parameter_mappings=step_data.parameter_mappings or {},
                     output_mappings=step_data.output_mappings or {},
+                    evaluation_config=evaluation_config,
                     sequence_number=step_data.sequence_number,
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
@@ -178,6 +184,7 @@ class WorkflowService:
                     prompt_template_id=s.prompt_template_id,
                     parameter_mappings=s.parameter_mappings,
                     output_mappings=s.output_mappings,
+                    evaluation_config=s.evaluation_config,
                     sequence_number=s.sequence_number,
                     created_at=s.created_at,
                     updated_at=s.updated_at,
@@ -260,6 +267,11 @@ class WorkflowService:
                         print(f"Tool found in step_dict: {step_dict['tool']}")
                         step_dict['tool_id'] = step_dict['tool']['tool_id']
                     step_dict.pop('tool', None)  # Remove the tool object as it's not in the model
+
+                    # Handle evaluation config
+                    if 'evaluation_config' in step_dict and step_dict['evaluation_config']:
+                        if hasattr(step_dict['evaluation_config'], 'model_dump'):
+                            step_dict['evaluation_config'] = step_dict['evaluation_config'].model_dump()
                     
                     # Create the step
                     step = WorkflowStep(
@@ -352,10 +364,15 @@ class WorkflowService:
             if not tool:
                 raise ToolNotFoundError(step_data.tool_id)
         
+        # Convert step data to dict and handle evaluation config
+        step_dict = step_data.model_dump()
+        if step_data.evaluation_config:
+            step_dict['evaluation_config'] = step_data.evaluation_config.model_dump()
+        
         step = WorkflowStep(
             step_id=str(uuid4()),
             workflow_id=workflow_id,
-            **step_data.dict()
+            **step_dict
         )
         
         try:

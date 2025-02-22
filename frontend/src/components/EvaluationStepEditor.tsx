@@ -27,6 +27,7 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
                 conditions: [
                     ...evaluation_config.conditions,
                     {
+                        condition_id: crypto.randomUUID(),
                         variable: '' as WorkflowVariableName,
                         operator: 'equals' as const,
                         value: '',
@@ -195,8 +196,12 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
                                         >
                                             <option value="">Continue to next step</option>
                                             {workflow?.steps.map((s, i) => (
-                                                <option key={s.step_id} value={i}>
-                                                    {s.label} {i === step.sequence_number ? '(current step)' : ''}
+                                                <option
+                                                    key={s.step_id}
+                                                    value={i}
+                                                    disabled={i === step.sequence_number}
+                                                >
+                                                    {s.label} {i === step.sequence_number ? '(current step - not allowed)' : ''}
                                                 </option>
                                             ))}
                                         </select>

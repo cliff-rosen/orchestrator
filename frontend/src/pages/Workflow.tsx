@@ -386,7 +386,7 @@ const Workflow: React.FC = () => {
         const existingStep = workflow.steps.find(s => s.step_id === step.step_id);
         console.log('Existing step:', existingStep);
 
-        // Create updated step, properly handling tool clearing
+        // Create updated step, properly handling tool clearing and evaluation config
         const updatedStep = {
             ...step,
             // Only preserve tool and tool_id if they weren't explicitly set to undefined
