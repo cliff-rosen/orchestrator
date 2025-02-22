@@ -145,18 +145,22 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) =
                 </h4>
                 {executionState?.job_id === job.job_id && executionState.live_output && (
                     <div className="mt-4 bg-gray-100 dark:bg-gray-800 rounded p-3">
-                        <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                            {executionState.live_output}
-                        </pre>
+                        <div className="h-[200px] overflow-y-auto" style={{ scrollBehavior: 'smooth' }}>
+                            <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                {executionState.live_output}
+                            </pre>
+                        </div>
                     </div>
                 )}
 
                 {/* Error Message */}
                 {currentStep.status === JobStatus.FAILED && currentStep.error_message && (
                     <div className="mt-4 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 rounded p-3">
-                        <pre className="text-sm whitespace-pre-wrap">
-                            {currentStep.error_message}
-                        </pre>
+                        <div className="max-h-[200px] overflow-y-auto" style={{ scrollBehavior: 'smooth' }}>
+                            <pre className="text-sm whitespace-pre-wrap">
+                                {currentStep.error_message}
+                            </pre>
+                        </div>
                     </div>
                 )}
             </div>
