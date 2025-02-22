@@ -9,7 +9,8 @@ export enum WorkflowStatus {
 
 export enum WorkflowStepType {
     ACTION = 'ACTION',
-    INPUT = 'INPUT'
+    INPUT = 'INPUT',
+    EVALUATION = 'EVALUATION'
 }
 
 // Type-safe workflow variable references
@@ -20,6 +21,13 @@ export interface StepExecutionResult {
     success: boolean;
     error?: string;
     outputs?: Record<WorkflowVariableName, SchemaValueType>;
+}
+
+// Evaluation result that determines the next step in workflow
+export interface EvaluationResult extends StepExecutionResult {
+    next_action: 'continue' | 'jump' | 'end';
+    target_step_index?: number;  // Only required when next_action is 'jump'
+    reason?: string;  // Optional explanation for the decision
 }
 
 // Runtime step that includes execution functions
@@ -60,6 +68,16 @@ export interface WorkflowStep {
     parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
     // Maps tool output names to workflow variable names
     output_mappings: Record<ToolOutputName, WorkflowVariableName>;
+    // Only for EVALUATION steps
+    evaluation_config?: {
+        conditions: Array<{
+            variable: WorkflowVariableName;
+            operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'not_contains';
+            value: any;
+            target_step_index?: number;  // Step to jump to if condition is met
+        }>;
+        default_action: 'continue' | 'end';  // What to do if no conditions match
+    };
     sequence_number: number;
     created_at: string;
     updated_at: string;

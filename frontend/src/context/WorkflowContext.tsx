@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId, WorkflowStep, WorkflowVariable, ToolParameterName, ToolOutputName, WorkflowVariableName } from '../types';
+import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId, WorkflowStep, WorkflowVariable, ToolParameterName, ToolOutputName, WorkflowVariableName, Tool } from '../types';
 import { workflowApi } from '../lib/api';
 
 interface WorkflowContextType {
@@ -21,10 +21,11 @@ interface WorkflowContextType {
     exitWorkflow(): void
     // New granular update method
     updateWorkflowState(action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS',
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL',
         payload: {
             stepId: string,
-            mappings: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>
+            mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
+            tool?: Tool
         }
     }): void
 }
@@ -254,10 +255,11 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, []);
 
     const updateWorkflowState = useCallback((action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS',
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL',
         payload: {
             stepId: string,
-            mappings: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>
+            mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
+            tool?: Tool
         }
     }) => {
         setWorkflow(currentWorkflow => {
@@ -277,6 +279,17 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                                 return {
                                     ...step,
                                     output_mappings: action.payload.mappings as Record<ToolOutputName, WorkflowVariableName>
+                                };
+                            case 'UPDATE_STEP_TOOL':
+                                return {
+                                    ...step,
+                                    tool: action.payload.tool,
+                                    tool_id: action.payload.tool?.tool_id,
+                                    // Clear mappings when tool changes
+                                    parameter_mappings: {},
+                                    output_mappings: {},
+                                    // Clear prompt template when tool changes
+                                    prompt_template_id: undefined
                                 };
                             default:
                                 return step;

@@ -2,13 +2,11 @@
 // This is for editing action steps in edit mode 
 
 import React, { useEffect, useState } from 'react';
-import { WorkflowStep, WorkflowVariableName, WorkflowVariable } from '../types/workflows';
-import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
-import { toolApi, TOOL_TYPES } from '../lib/api/toolApi';
-import PromptTemplateSelector from './PromptTemplateSelector';
-import DataFlowMapper2 from './DataFlowMapper2';
-import { useWorkflows } from '../context/WorkflowContext';
-import ToolSelector from './ToolSelector';
+import { WorkflowStep, WorkflowStepType } from '../types/workflows';
+import { Tool } from '../types/tools';
+import { toolApi } from '../lib/api/toolApi';
+import EvaluationStepEditor from './EvaluationStepEditor';
+import ToolActionEditor from './ToolActionEditor';
 
 interface ActionStepEditorProps {
     step: WorkflowStep;
@@ -21,11 +19,9 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     onStepUpdate,
     onDeleteRequest
 }) => {
-    const { workflow, updateWorkflow, updateWorkflowState } = useWorkflows();
     const [tools, setTools] = useState<Tool[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedToolType, setSelectedToolType] = useState<string | null>(step.tool?.tool_type || null);
 
     useEffect(() => {
         const loadTools = async () => {
@@ -43,87 +39,25 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         loadTools();
     }, []);
 
-    // Update selectedToolType when step changes
-    useEffect(() => {
-        // If step has no tool, it's a new step - reset tool type
-        if (!step.tool) {
-            setSelectedToolType(null);
-        } else {
-            // Existing step - show its tool type
-            setSelectedToolType(step.tool.tool_type);
-        }
-    }, [step.step_id, step.tool]);
-
-    const handleToolSelect = (tool: Tool | undefined) => {
+    const handleStepTypeChange = () => {
         onStepUpdate({
             ...step,
-            tool,
-            tool_id: tool?.tool_id,
-            parameter_mappings: {},
-            output_mappings: {},
-            prompt_template_id: undefined
+            step_type: step.step_type === WorkflowStepType.ACTION ? WorkflowStepType.EVALUATION : WorkflowStepType.ACTION,
+            // Clear tool-specific data when switching to evaluation
+            ...(step.step_type === WorkflowStepType.ACTION ? {
+                tool: undefined,
+                tool_id: undefined,
+                parameter_mappings: {},
+                output_mappings: {},
+                prompt_template_id: undefined,
+                evaluation_config: {
+                    conditions: [],
+                    default_action: 'continue'
+                }
+            } : {})
         });
     };
 
-    const handleTemplateChange = async (templateId: string) => {
-        console.log('handleTemplateChange', templateId);
-        if (!step.tool) return;
-
-        try {
-            const updatedStep = await toolApi.updateWorkflowStepWithTemplate(step, templateId);
-            onStepUpdate(updatedStep);
-        } catch (err) {
-            console.error('Error updating step with template:', err);
-        }
-    };
-
-    const handleParameterMappingChange = (mappings: Record<string, string>) => {
-        console.log('handleParameterMappingChange', mappings);
-        updateWorkflowState({
-            type: 'UPDATE_PARAMETER_MAPPINGS',
-            payload: {
-                stepId: step.step_id,
-                mappings: mappings as Record<ToolParameterName, WorkflowVariableName>
-            }
-        });
-    };
-
-    const handleOutputMappingChange = (mappings: Record<string, string>) => {
-        updateWorkflowState({
-            type: 'UPDATE_OUTPUT_MAPPINGS',
-            payload: {
-                stepId: step.step_id,
-                mappings: mappings as Record<ToolOutputName, WorkflowVariableName>
-            }
-        });
-    };
-
-    const handleVariableCreate = (newVariable: WorkflowVariable) => {
-        console.log('handleVariableCreate', newVariable);
-        if (!workflow) return;
-
-        // Just pass the changes we want to make to updateWorkflow
-        updateWorkflow({
-            inputs: newVariable.io_type === 'input'
-                ? [...(workflow.inputs || []), newVariable]
-                : workflow.inputs,
-            outputs: newVariable.io_type === 'output'
-                ? [...(workflow.outputs || []), newVariable]
-                : workflow.outputs
-        });
-    };
-
-    // Function to get the tool type config
-    const getToolTypeConfig = (typeId: string) => {
-        return TOOL_TYPES.find(type => type.tool_type_id === typeId);
-    };
-
-    // Function to check if a tool belongs to a type
-    const isToolOfType = (tool: Tool, typeId: string) => {
-        const config = getToolTypeConfig(typeId);
-        if (!config) return false;
-        return tool.tool_type === typeId;
-    };
 
     if (loading) {
         return (
@@ -169,47 +103,33 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                         />
                     </div>
                 </div>
+
+                {/* Subtle type switcher */}
+                <div className="mt-4 flex items-center justify-end">
+                    <button
+                        onClick={handleStepTypeChange}
+                        className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-2"
+                    >
+                        <span>Switch to {step.step_type === WorkflowStepType.ACTION ? 'Evaluation' : 'Action'} Step</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
-            {/* Step 2: Tool Selection */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-                <ToolSelector
+            {/* Step Configuration */}
+            {step.step_type === WorkflowStepType.ACTION ? (
+                <ToolActionEditor
+                    step={step}
                     tools={tools}
-                    selectedTool={step.tool}
-                    onSelect={handleToolSelect}
+                    onStepUpdate={onStepUpdate}
                 />
-            </div>
-
-            {/* Step 3: Prompt Template Selection (for LLM tools) */}
-            {step.tool?.tool_type === 'llm' && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
-                        Select Prompt Template
-                    </h3>
-                    <PromptTemplateSelector
-                        step={step}
-                        onTemplateChange={handleTemplateChange}
-                    />
-                </div>
-            )}
-
-            {/* Step 4: Parameter and Output Mapping */}
-            {(step.tool && (step.tool.tool_type != 'llm' || step.prompt_template_id)) && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
-                        Data Flow Configuration
-                    </h3>
-                    <DataFlowMapper2
-                        tool={step.tool}
-                        parameter_mappings={step.parameter_mappings || {}}
-                        output_mappings={step.output_mappings || {}}
-                        inputs={workflow?.inputs || []}
-                        outputs={workflow?.outputs || []}
-                        onParameterMappingChange={handleParameterMappingChange}
-                        onOutputMappingChange={handleOutputMappingChange}
-                        onVariableCreate={handleVariableCreate}
-                    />
-                </div>
+            ) : (
+                <EvaluationStepEditor
+                    step={step}
+                    onStepUpdate={onStepUpdate}
+                />
             )}
         </div>
     );

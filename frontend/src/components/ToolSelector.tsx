@@ -11,8 +11,9 @@ interface ToolSelectorProps {
 const ToolSelector: React.FC<ToolSelectorProps> = ({
     tools,
     selectedTool,
-    onSelect,
+    onSelect
 }) => {
+
     const [selectedToolType, setSelectedToolType] = useState<string | null>(selectedTool?.tool_type || null);
 
     // Function to get the tool type config
