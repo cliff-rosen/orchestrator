@@ -163,6 +163,28 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             ...updates,
         };
 
+        // Validate variable name uniqueness
+        const validateVariableNames = (variables: WorkflowVariable[] | undefined): string | null => {
+            if (!variables) return null;
+            const names = new Set<string>();
+            for (const variable of variables) {
+                if (names.has(variable.name)) {
+                    return `Duplicate variable name found: ${variable.name}`;
+                }
+                names.add(variable.name);
+            }
+            return null;
+        };
+
+        // Check for duplicate names in inputs and outputs separately
+        const inputError = validateVariableNames(updates.inputs);
+        const outputError = validateVariableNames(updates.outputs);
+        if (inputError || outputError) {
+            console.error('Variable name validation failed:', inputError || outputError);
+            setError(inputError || outputError);
+            return;
+        }
+
         // Then, handle inputs and outputs separately to ensure we don't lose data
         const updatedWorkflow = {
             ...baseWorkflow,

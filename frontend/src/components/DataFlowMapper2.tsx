@@ -39,6 +39,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
     const [newVarName, setNewVarName] = useState('');
     const [newVarDescription, setNewVarDescription] = useState('');
     const [newVarSchema, setNewVarSchema] = useState<Schema | null>(null);
+    const [nameError, setNameError] = useState<string | null>(null);
 
     // Compatibility check from original DataFlowMapper
     const isCompatibleType = (paramSchema: Schema, varSchema: Schema): boolean => {
@@ -113,6 +114,15 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
 
         if (!paramOrOutput || !newVarSchema) return;
 
+        // Check for duplicate names
+        const existingVariables = creatingForOutput ? outputs : inputs;
+        const isDuplicateName = existingVariables.some(v => v.name === newVarName);
+        if (isDuplicateName) {
+            setNameError(`A ${creatingForOutput ? 'output' : 'input'} variable with name "${newVarName}" already exists`);
+            return;
+        }
+
+        setNameError(null);
         const newVariable: WorkflowVariable = {
             variable_id: `new_${Date.now()}`, // Temporary ID, backend will assign real one
             name: newVarName as WorkflowVariableName,
@@ -540,12 +550,20 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                                     <input
                                         type="text"
                                         value={newVarName}
-                                        onChange={(e) => setNewVarName(e.target.value)}
-                                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 
-                                                 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                        onChange={(e) => {
+                                            setNewVarName(e.target.value);
+                                            setNameError(null); // Clear error when user types
+                                        }}
+                                        className={`w-full px-3 py-2 text-sm border ${nameError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                                            } rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
                                         placeholder="Enter variable name"
                                         autoFocus
                                     />
+                                    {nameError && (
+                                        <p className="mt-1 text-sm text-red-500">
+                                            {nameError}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>
