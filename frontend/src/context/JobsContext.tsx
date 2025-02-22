@@ -123,7 +123,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }));
                 // Redirect to jobs manager after a short delay to show the error
                 console.log('loadJob error', error);
-                throw new Error(error.message);
+                //throw new Error(error.message);
             }
             console.log('loadJob found job', job);
             setState(prev => ({ ...prev, currentJob: job, isLoading: false }));
@@ -140,7 +140,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 currentJob: undefined
             }));
             console.log('loadJob error cought', jobError);
-            throw error;
+            //throw error;
         }
     }, [navigate, state.jobs]);
 
