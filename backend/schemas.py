@@ -457,6 +457,33 @@ class WorkflowStepResponse(WorkflowStepBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class WorkflowStepSimpleResponse(BaseModel):
+    """Schema for simplified workflow step responses that only includes basic step fields"""
+    step_id: str = Field(description="Unique identifier for the step")
+    workflow_id: str = Field(description="ID of the workflow this step belongs to")
+    label: str = Field(description="Label for the step")
+    description: str = Field(description="Description of the step")
+    step_type: str = Field(description="Type of step (ACTION, INPUT, or EVALUATION)")
+    sequence_number: int = Field(description="Order of the step in the workflow")
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class WorkflowSimpleResponse(BaseModel):
+    """Schema for simplified workflow responses that includes basic workflow fields and steps"""
+    workflow_id: str = Field(description="Unique identifier for the workflow")
+    user_id: int = Field(description="ID of the user who owns this workflow")
+    name: str = Field(description="Name of the workflow")
+    description: Optional[str] = Field(None, description="Description of the workflow")
+    status: str = Field(description="Current status of the workflow")
+    error: Optional[str] = Field(None, description="Error message if workflow failed")
+    created_at: datetime
+    updated_at: datetime
+    steps: List[WorkflowStepSimpleResponse] = Field(default_factory=list, description="Steps in the workflow")
+
+    model_config = ConfigDict(from_attributes=True)
+
 class WorkflowBase(BaseModel):
     """Base schema for workflows"""
     name: str = Field(description="Name of the workflow")

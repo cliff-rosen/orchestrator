@@ -12,7 +12,8 @@ from schemas import (
     WorkflowExecuteRequest,
     WorkflowResponse,
     WorkflowStepResponse,
-    WorkflowVariableResponse
+    WorkflowVariableResponse,
+    WorkflowSimpleResponse
 )
 from models import User, WorkflowVariable
 
@@ -60,6 +61,25 @@ async def get_workflow(
         # Log the actual error for debugging
         print(f"Error getting workflow: {str(e)}")
         # Convert WorkflowNotFoundError to HTTPException
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.get("/{workflow_id}/simple", response_model=WorkflowSimpleResponse)
+async def get_workflow_simple(
+    workflow_id: str,
+    current_user: User = Depends(validate_token),
+    db: Session = Depends(get_db)
+):
+    """Get basic workflow information by ID without related data."""
+    workflow_service = WorkflowService(db)
+    try:
+        workflow = workflow_service.get_workflow_simple(workflow_id, current_user.user_id)
+        if not workflow:
+            raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+        return workflow
+    except Exception as e:
+        # Log the actual error for debugging
+        print(f"Error getting workflow: {str(e)}")
+        # Convert error to HTTPException
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.put("/{workflow_id}", response_model=WorkflowResponse)

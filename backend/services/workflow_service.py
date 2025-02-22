@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from uuid import uuid4
+import json
 
 from database import get_db
 from sqlalchemy.orm import Session, joinedload
@@ -12,7 +13,8 @@ from schemas import (
     WorkflowVariableCreate, WorkflowExecuteRequest,
     WorkflowResponse, WorkflowStepResponse, WorkflowVariableResponse,
     ToolResponse, ToolSignature, ParameterSchema, OutputSchema, SchemaValue,
-    WorkflowExecuteResponse, Variable, VariableType
+    WorkflowExecuteResponse, Variable, VariableType, EvaluationConfig,
+    WorkflowSimpleResponse, WorkflowStepSimpleResponse
 )
 from exceptions import (
     WorkflowNotFoundError, InvalidWorkflowError, WorkflowExecutionError,
@@ -108,90 +110,244 @@ class WorkflowService:
             self.db.rollback()
             raise e
 
+
     def get_workflow(self, workflow_id: str, user_id: int) -> WorkflowResponse:
-        """Get a workflow by ID."""
-        workflow = self.db.query(Workflow).filter(
-            (Workflow.workflow_id == workflow_id) & (Workflow.user_id == user_id)
-        ).first()
+        """
+        Retrieve a workflow by ID and user ID.
         
-        if not workflow:
-            raise WorkflowNotFoundError(workflow_id)
-        
+        Args:
+            workflow_id (str): The ID of the workflow to retrieve
+            user_id (int): The ID of the user requesting the workflow
+            
+        Returns:
+            WorkflowResponse: The workflow data with all related information
+            
+        Raises:
+            HTTPException: If workflow is not found or user doesn't have access
+        """
         try:
-            # Fetch workflow variables
-            workflow_variables = self.db.query(WorkflowVariable).filter(
-                WorkflowVariable.workflow_id == workflow_id
-            ).all()
-            
-            # Split into inputs and outputs
-            inputs = [
-                WorkflowVariableResponse(
-                    variable_id=var.variable_id,
-                    workflow_id=workflow_id,
-                    name=var.name,
-                    schema=var.schema,
-                    io_type=var.io_type,
-                    created_at=var.created_at,
-                    updated_at=var.updated_at
+            # Query the workflow with related data in a single query
+            workflow = (
+                self.db.query(Workflow)
+                .filter(
+                    Workflow.workflow_id == workflow_id,
+                    Workflow.user_id == user_id
                 )
-                for var in workflow_variables if var.io_type == "input"
-            ]
-            
-            outputs = [
-                WorkflowVariableResponse(
-                    variable_id=var.variable_id,
-                    workflow_id=workflow_id,
-                    name=var.name,
-                    schema=var.schema,
-                    io_type=var.io_type,
-                    created_at=var.created_at,
-                    updated_at=var.updated_at
-                )
-                for var in workflow_variables if var.io_type == "output"
-            ]
+                .first()
+            )
 
-            # Process steps and their tools
+            if not workflow:
+                raise Exception(f"Workflow {workflow_id} not found or access denied")
+
+            # Convert to response model
+            response = WorkflowResponse(
+                workflow_id=workflow.workflow_id,
+                user_id=workflow.user_id,
+                name=workflow.name,
+                description=workflow.description,
+                status=workflow.status,
+                error=workflow.error,
+                created_at=workflow.created_at,
+                updated_at=workflow.updated_at,
+                steps=[],
+                inputs=[],
+                outputs=[]
+            )
+
+            # Add workflow steps with tool information
+            for step in workflow.steps:
+                step_response = WorkflowStepResponse(
+                    step_id=step.step_id,
+                    workflow_id=step.workflow_id,
+                    label=step.label,
+                    description=step.description,
+                    step_type=step.step_type,
+                    tool_id=step.tool_id,
+                    prompt_template_id=step.prompt_template_id,
+                    parameter_mappings=step.parameter_mappings,
+                    output_mappings=step.output_mappings,
+                    evaluation_config=EvaluationConfig(
+                        conditions=step.evaluation_config.get("conditions", []),
+                        default_action=step.evaluation_config.get("default_action", "continue")
+                    ) if step.evaluation_config else None,
+                    sequence_number=step.sequence_number,
+                    created_at=step.created_at,
+                    updated_at=step.updated_at,
+                    tool=ToolResponse(
+                        tool_id=step.tool.tool_id,
+                        name=step.tool.name,
+                        description=step.tool.description,
+                        tool_type=step.tool.tool_type,
+                        signature=step.tool.signature,
+                        created_at=step.tool.created_at,
+                        updated_at=step.tool.updated_at
+                    ) if step.tool else None
+                )
+                response.steps.append(step_response)
+
+            # Add workflow variables
+            for variable in workflow.variables:
+                variable_response = WorkflowVariableResponse(
+                    variable_id=variable.variable_id,
+                    workflow_id=variable.workflow_id,
+                    name=variable.name,
+                    description=variable.description,
+                    schema=variable.schema,
+                    io_type=variable.io_type,
+                    created_at=variable.created_at,
+                    updated_at=variable.updated_at
+                )
+                
+                # Sort variables into inputs and outputs
+                if variable.io_type == "input":
+                    response.inputs.append(variable_response)
+                else:
+                    response.outputs.append(variable_response)
+
+            return response
+
+        except Exception as e:
+            raise Exception(f"Error retrieving workflow: {str(e)}")
+
+    def get_workflow_simple(self, workflow_id: str, user_id: int) -> WorkflowSimpleResponse:
+        """
+        Retrieve basic workflow information by ID and user ID.
+        This is a simplified version that only returns the workflow table columns
+        and basic step information without any related data (tools, variables, etc).
+        
+        Args:
+            workflow_id (str): The ID of the workflow to retrieve
+            user_id (int): The ID of the user requesting the workflow
+            
+        Returns:
+            WorkflowSimpleResponse: The basic workflow data with steps
+            
+        Raises:
+            Exception: If workflow is not found or user doesn't have access
+        """
+        try:
+            # Query the workflow with steps ordered by sequence number
+            workflow = (
+                self.db.query(Workflow)
+                .options(joinedload(Workflow.steps))
+                .filter(
+                    Workflow.workflow_id == workflow_id,
+                    Workflow.user_id == user_id
+                )
+                .first()
+            )
+
+            if not workflow:
+                raise Exception(f"Workflow {workflow_id} not found or access denied")
+
+            # Convert steps to simple response format
             steps = []
-            for s in workflow.steps:
-                tool_response = None
-                if s.tool_id:
-                    tool = self.db.query(Tool).filter(Tool.tool_id == s.tool_id).first()
-                    if tool:
-                        # For LLM tools, get signature from prompt template
-                        signature = None
-                        if tool.tool_type == 'llm' and s.prompt_template_id:
-                            signature = self._get_llm_signature(s.prompt_template_id)
-                        else:
-                            signature = tool.signature
-
-                        tool_response = ToolResponse(
-                            tool_id=tool.tool_id,
-                            name=tool.name,
-                            description=tool.description,
-                            tool_type=tool.tool_type,
-                            signature=signature,
-                            created_at=tool.created_at,
-                            updated_at=tool.updated_at
-                        )
-
-                steps.append(WorkflowStepResponse(
-                    step_id=s.step_id,
-                    workflow_id=s.workflow_id,
-                    label=s.label,
-                    description=s.description,
-                    step_type=s.step_type,
-                    tool_id=s.tool_id,
-                    prompt_template_id=s.prompt_template_id,
-                    parameter_mappings=s.parameter_mappings,
-                    output_mappings=s.output_mappings,
-                    evaluation_config=s.evaluation_config,
-                    sequence_number=s.sequence_number,
-                    created_at=s.created_at,
-                    updated_at=s.updated_at,
-                    tool=tool_response
+            for step in sorted(workflow.steps, key=lambda x: x.sequence_number):
+                steps.append(WorkflowStepSimpleResponse(
+                    step_id=step.step_id,
+                    workflow_id=step.workflow_id,
+                    label=step.label,
+                    description=step.description,
+                    step_type=step.step_type,
+                    sequence_number=step.sequence_number,
+                    created_at=step.created_at,
+                    updated_at=step.updated_at
                 ))
 
-            # Convert to WorkflowResponse
+            # Convert to simple response model with steps
+            return WorkflowSimpleResponse(
+                workflow_id=workflow.workflow_id,
+                user_id=workflow.user_id,
+                name=workflow.name,
+                description=workflow.description,
+                status=workflow.status,
+                error=workflow.error,
+                created_at=workflow.created_at,
+                updated_at=workflow.updated_at,
+                steps=steps
+            )
+
+        except Exception as e:
+            raise Exception(f"Error retrieving workflow: {str(e)}")
+
+    def get_workflow2(self, workflow_id: str, user_id: int) -> WorkflowResponse:
+        """
+        Get a workflow by ID and user ID.
+        
+        Args:
+            workflow_id: The ID of the workflow to retrieve
+            user_id: The ID of the user who owns the workflow
+            
+        Returns:
+            WorkflowResponse: The complete workflow with steps and variables
+            
+        Raises:
+            ValueError: If workflow not found or user doesn't have access
+        """
+        try:
+            print(f"Getting workflow {workflow_id} for user {user_id}")
+            # Get the workflow with relationships eagerly loaded
+            workflow = (
+                self.db.query(Workflow)
+                .options(
+                    joinedload(Workflow.steps).joinedload(WorkflowStep.tool),
+                    joinedload(Workflow.variables)
+                )
+                .filter(
+                    Workflow.workflow_id == workflow_id,
+                    Workflow.user_id == user_id
+                )
+                .first()
+            )
+
+            if not workflow:
+                raise ValueError(f"Workflow {workflow_id} not found")
+
+            # Sort steps by sequence number
+            workflow.steps.sort(key=lambda x: x.sequence_number)
+
+            # Process steps to ensure JSON fields are valid
+            processed_steps = []
+            for step in workflow.steps:
+                # Convert step to dict for easier manipulation
+                step_dict = step.to_dict()
+                
+                # Ensure JSON fields have proper defaults
+                step_dict["parameter_mappings"] = step.parameter_mappings or {}
+                step_dict["output_mappings"] = step.output_mappings or {}
+                
+                if step.step_type == "EVALUATION":
+                    step_dict["evaluation_config"] = step.evaluation_config or {
+                        "conditions": [],
+                        "default_action": "continue"
+                    }
+                
+                # Include tool data if present
+                if step.tool:
+                    step_dict["tool"] = ToolResponse.model_validate(step.tool)
+                
+                processed_steps.append(WorkflowStepResponse(**step_dict))
+
+            # Split variables into inputs and outputs
+            inputs = []
+            outputs = []
+            for var in workflow.variables:
+                var_dict = {
+                    "variable_id": var.variable_id,
+                    "workflow_id": var.workflow_id,
+                    "name": var.name,
+                    "schema": var.schema,
+                    "io_type": var.io_type,
+                    "created_at": var.created_at,
+                    "updated_at": var.updated_at
+                }
+                
+                if var.io_type == "input":
+                    inputs.append(WorkflowVariableResponse(**var_dict))
+                else:
+                    outputs.append(WorkflowVariableResponse(**var_dict))
+
+            # Construct the final response
             return WorkflowResponse(
                 workflow_id=workflow.workflow_id,
                 user_id=workflow.user_id,
@@ -199,15 +355,16 @@ class WorkflowService:
                 description=workflow.description,
                 status=workflow.status,
                 error=workflow.error,
-                steps=steps,
-                inputs=inputs,
-                outputs=outputs,
                 created_at=workflow.created_at,
-                updated_at=workflow.updated_at
+                updated_at=workflow.updated_at,
+                steps=processed_steps,
+                inputs=inputs,
+                outputs=outputs
             )
+
         except Exception as e:
-            print(f"Error converting workflow to response: {str(e)}")
-            raise
+            self.db.rollback()
+            raise ValueError(f"Error retrieving workflow: {str(e)}")
 
     def get_workflows(self, user_id: int) -> List[WorkflowResponse]:
         """List all workflows for a user."""

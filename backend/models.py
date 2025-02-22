@@ -1,11 +1,12 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Enum, TIMESTAMP, JSON, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, foreign, remote
+from sqlalchemy.orm import relationship, foreign, remote, validates
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 from sqlalchemy.sql import text
 from sqlalchemy.sql.schema import CheckConstraint, ForeignKeyConstraint
 from uuid import uuid4
+import json
 
 Base = declarative_base()
 
@@ -43,12 +44,29 @@ class Tool(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text)
     tool_type = Column(String(50), nullable=False)  # 'llm', 'search', 'retrieve', 'utility'
-    signature = Column(JSON, nullable=False)  # Contains parameters and outputs schema
+    signature = Column(JSON, nullable=False, default=lambda: {"parameters": [], "outputs": []})
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     workflow_steps = relationship("WorkflowStep", back_populates="tool")
+
+    @validates('signature')
+    def validate_signature(self, key: str, value: Any) -> Dict:
+        """Validate signature field to ensure it's a proper dictionary."""
+        if value is None:
+            return {"parameters": [], "outputs": []}
+            
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return {"parameters": [], "outputs": []}
+                
+        if not isinstance(value, dict):
+            return {"parameters": [], "outputs": []}
+            
+        return value
 
 class PromptTemplate(Base):
     """Model for storing prompt templates"""
@@ -64,8 +82,45 @@ class PromptTemplate(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    @validates('tokens')
+    def validate_tokens(self, key: str, value: Any) -> list:
+        """Validate tokens field to ensure it's a proper list."""
+        if value is None:
+            return []
+            
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return []
+                
+        if not isinstance(value, list):
+            return []
+            
+        return value
+
+    @validates('output_schema')
+    def validate_output_schema(self, key: str, value: Any) -> Dict:
+        """Validate output_schema field to ensure it's a proper dictionary."""
+        if value is None:
+            return {}
+            
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+                
+        if not isinstance(value, dict):
+            return {}
+            
+        return value
+
 class WorkflowStep(Base):
+    """Model for workflow steps"""
     __tablename__ = "workflow_steps"
+
+    STEP_TYPES = ['ACTION', 'INPUT', 'EVALUATION']
 
     step_id = Column(String(36), primary_key=True)
     workflow_id = Column(String(36), ForeignKey("workflows.workflow_id"), nullable=False)
@@ -74,9 +129,9 @@ class WorkflowStep(Base):
     step_type = Column(String(50), nullable=False)  # 'ACTION', 'INPUT', or 'EVALUATION'
     tool_id = Column(String(36), ForeignKey("tools.tool_id"))
     prompt_template_id = Column(String(36), ForeignKey("prompt_templates.template_id"))
-    parameter_mappings = Column(JSON, default=dict)
-    output_mappings = Column(JSON, default=dict)
-    evaluation_config = Column(JSON, default=dict)  # Added evaluation config
+    parameter_mappings = Column(JSON, default=lambda: {}, nullable=False)
+    output_mappings = Column(JSON, default=lambda: {}, nullable=False)
+    evaluation_config = Column(JSON, default=lambda: {"conditions": [], "default_action": "continue"}, nullable=False)
     sequence_number = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -85,6 +140,119 @@ class WorkflowStep(Base):
     workflow = relationship("Workflow", back_populates="steps")
     tool = relationship("Tool")
     prompt_template = relationship("PromptTemplate")
+
+    def __init__(self, **kwargs):
+        # Ensure JSON fields have proper defaults and are dicts
+        kwargs['parameter_mappings'] = self._ensure_dict(kwargs.get('parameter_mappings')) or {}
+        kwargs['output_mappings'] = self._ensure_dict(kwargs.get('output_mappings')) or {}
+        kwargs['evaluation_config'] = self._ensure_dict(kwargs.get('evaluation_config')) or {"conditions": [], "default_action": "continue"}
+        
+        # Ensure step_type is valid
+        if 'step_type' in kwargs:
+            if kwargs['step_type'] not in self.STEP_TYPES:
+                raise ValueError(f"Invalid step_type. Must be one of: {', '.join(self.STEP_TYPES)}")
+        
+        super().__init__(**kwargs)
+
+    def _ensure_dict(self, value: Any) -> Dict:
+        """Helper method to ensure a value is a dictionary."""
+        if value is None:
+            return {}
+        
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+        
+        return value if isinstance(value, dict) else {}
+
+    @validates('step_type')
+    def validate_step_type(self, key: str, value: str) -> str:
+        """Validate step_type field to ensure it's a valid type."""
+        if value not in self.STEP_TYPES:
+            raise ValueError(f"Invalid step_type. Must be one of: {', '.join(self.STEP_TYPES)}")
+        return value
+
+    @validates('parameter_mappings', 'output_mappings')
+    def validate_mappings(self, key: str, value: Any) -> Dict:
+        """Validate mapping fields to ensure they are proper dictionaries."""
+        if value is None:
+            return {}
+            
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+                
+        if not isinstance(value, dict):
+            return {}
+            
+        # Ensure all values are strings
+        return {str(k): str(v) if v is not None else "" for k, v in value.items()}
+
+    @validates('evaluation_config')
+    def validate_evaluation_config(self, key: str, value: Any) -> Dict:
+        """Validate evaluation_config field to ensure it's a proper dictionary."""
+        if value is None:
+            return {"conditions": [], "default_action": "continue"}
+            
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return {"conditions": [], "default_action": "continue"}
+                
+        if not isinstance(value, dict):
+            return {"conditions": [], "default_action": "continue"}
+            
+        # Ensure required fields exist with proper types
+        conditions = value.get("conditions", [])
+        if not isinstance(conditions, list):
+            conditions = []
+            
+        # Validate each condition
+        valid_conditions = []
+        for condition in conditions:
+            if isinstance(condition, dict):
+                valid_condition = {
+                    "condition_id": condition.get("condition_id", str(uuid4())),
+                    "variable": str(condition.get("variable", "")),
+                    "operator": str(condition.get("operator", "equals")),
+                    "value": condition.get("value", ""),
+                    "target_step_index": condition.get("target_step_index")
+                }
+                if valid_condition["operator"] not in ["equals", "not_equals", "greater_than", "less_than", "contains", "not_contains"]:
+                    valid_condition["operator"] = "equals"
+                valid_conditions.append(valid_condition)
+                
+        default_action = value.get("default_action", "continue")
+        if default_action not in ["continue", "end"]:
+            default_action = "continue"
+            
+        return {
+            "conditions": valid_conditions,
+            "default_action": default_action
+        }
+
+    def to_dict(self) -> Dict:
+        """Convert the model to a dictionary with properly handled JSON fields."""
+        return {
+            "step_id": self.step_id,
+            "workflow_id": self.workflow_id,
+            "label": self.label,
+            "description": self.description,
+            "step_type": self.step_type,
+            "tool_id": self.tool_id,
+            "prompt_template_id": self.prompt_template_id,
+            "parameter_mappings": self.parameter_mappings,
+            "output_mappings": self.output_mappings,
+            "evaluation_config": self.evaluation_config,
+            "sequence_number": self.sequence_number,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
 
 class WorkflowVariable(Base):
     __tablename__ = "workflow_variables"
@@ -101,6 +269,30 @@ class WorkflowVariable(Base):
 
     # Relationships
     workflow = relationship("Workflow", back_populates="variables")
+
+    @validates('schema')
+    def validate_schema(self, key: str, value: Any) -> Dict:
+        """Validate schema field to ensure it's a proper dictionary."""
+        if value is None:
+            return {}
+            
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+                
+        if not isinstance(value, dict):
+            return {}
+            
+        return value
+
+    @validates('io_type')
+    def validate_io_type(self, key: str, value: str) -> str:
+        """Validate io_type field to ensure it's either 'input' or 'output'."""
+        if value not in ['input', 'output']:
+            raise ValueError("io_type must be either 'input' or 'output'")
+        return value
 
 class Workflow(Base):
     __tablename__ = "workflows"
