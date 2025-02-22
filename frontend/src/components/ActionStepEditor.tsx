@@ -73,8 +73,38 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
     return (
         <div className="space-y-6">
-            {/* Step 1: Basic Information */}
+            {/* Step Basic Information */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+                <div className="flex justify-between items-start mb-6">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                        Basic Step Information
+                    </h3>
+                    {/* Step Type Selection */}
+                    <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 p-1 bg-gray-50 dark:bg-gray-900">
+                        <button
+                            onClick={handleStepTypeChange}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+                                ${step.step_type === WorkflowStepType.ACTION
+                                    ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                }`}
+                        >
+                            Action
+                        </button>
+                        <button
+                            onClick={handleStepTypeChange}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+                                ${step.step_type === WorkflowStepType.EVALUATION
+                                    ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                }`}
+                        >
+                            Evaluation
+                        </button>
+                    </div>
+                </div>
+
+                {/* Label and Description */}
                 <div className="grid grid-cols-5 gap-4">
                     <div className="col-span-2">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -102,19 +132,6 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                             placeholder="Describe what this step does"
                         />
                     </div>
-                </div>
-
-                {/* Subtle type switcher */}
-                <div className="mt-4 flex items-center justify-end">
-                    <button
-                        onClick={handleStepTypeChange}
-                        className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-2"
-                    >
-                        <span>Switch to {step.step_type === WorkflowStepType.ACTION ? 'Evaluation' : 'Action'} Step</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                        </svg>
-                    </button>
                 </div>
             </div>
 
