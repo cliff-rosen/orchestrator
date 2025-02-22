@@ -21,7 +21,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     onStepUpdate,
     onDeleteRequest
 }) => {
-    const { workflow, updateWorkflow } = useWorkflows();
+    const { workflow, updateWorkflow, updateWorkflowState } = useWorkflows();
     const [tools, setTools] = useState<Tool[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -79,16 +79,22 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
     const handleParameterMappingChange = (mappings: Record<string, string>) => {
         console.log('handleParameterMappingChange', mappings);
-        onStepUpdate((currentStep: WorkflowStep): WorkflowStep => ({
-            ...currentStep,
-            parameter_mappings: mappings as Record<ToolParameterName, WorkflowVariableName>
-        }));
+        updateWorkflowState({
+            type: 'UPDATE_PARAMETER_MAPPINGS',
+            payload: {
+                stepId: step.step_id,
+                mappings: mappings as Record<ToolParameterName, WorkflowVariableName>
+            }
+        });
     };
 
     const handleOutputMappingChange = (mappings: Record<string, string>) => {
-        onStepUpdate({
-            ...step,
-            output_mappings: mappings as Record<ToolOutputName, WorkflowVariableName>
+        updateWorkflowState({
+            type: 'UPDATE_OUTPUT_MAPPINGS',
+            payload: {
+                stepId: step.step_id,
+                mappings: mappings as Record<ToolOutputName, WorkflowVariableName>
+            }
         });
     };
 

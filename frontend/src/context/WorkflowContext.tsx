@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId } from '../types';
+import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId, WorkflowStep, WorkflowVariable, ToolParameterName, ToolOutputName, WorkflowVariableName } from '../types';
 import { workflowApi } from '../lib/api';
 
 interface WorkflowContextType {
@@ -19,6 +19,14 @@ interface WorkflowContextType {
     updateWorkflow(updates: Partial<Workflow>): void
     saveWorkflow(): Promise<void>
     exitWorkflow(): void
+    // New granular update method
+    updateWorkflowState(action: {
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS',
+        payload: {
+            stepId: string,
+            mappings: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>
+        }
+    }): void
 }
 
 const WorkflowContext = createContext<WorkflowContextType | undefined>(undefined);
@@ -223,6 +231,51 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         sessionStorage.removeItem('originalWorkflow');
     }, []);
 
+    const updateWorkflowState = useCallback((action: {
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS',
+        payload: {
+            stepId: string,
+            mappings: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>
+        }
+    }) => {
+        setWorkflow(currentWorkflow => {
+            if (!currentWorkflow) return null;
+
+            const newWorkflow = {
+                ...currentWorkflow,
+                steps: currentWorkflow.steps.map(step => {
+                    if (step.step_id === action.payload.stepId) {
+                        switch (action.type) {
+                            case 'UPDATE_PARAMETER_MAPPINGS':
+                                return {
+                                    ...step,
+                                    parameter_mappings: action.payload.mappings as Record<ToolParameterName, WorkflowVariableName>
+                                };
+                            case 'UPDATE_OUTPUT_MAPPINGS':
+                                return {
+                                    ...step,
+                                    output_mappings: action.payload.mappings as Record<ToolOutputName, WorkflowVariableName>
+                                };
+                            default:
+                                return step;
+                        }
+                    }
+                    return step;
+                })
+            };
+
+            // Compare with original workflow to determine if there are unsaved changes
+            if (originalWorkflow) {
+                const hasChanges = JSON.stringify(newWorkflow) !== JSON.stringify(originalWorkflow);
+                setHasUnsavedChanges(hasChanges);
+            } else {
+                setHasUnsavedChanges(true);
+            }
+
+            return newWorkflow;
+        });
+    }, [originalWorkflow]); // Now we only depend on originalWorkflow
+
     // Initial load
     useEffect(() => {
         loadWorkflows();
@@ -244,7 +297,8 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         loadWorkflows,
         updateWorkflow,
         saveWorkflow,
-        exitWorkflow
+        exitWorkflow,
+        updateWorkflowState
     };
 
     return (

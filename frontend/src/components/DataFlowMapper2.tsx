@@ -86,6 +86,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
         const param = tool.signature.parameters.find(p => p.name === paramName);
         setCreatingForParameter(paramName);
         setNewVarSchema(param?.schema || null);
+        setNewVarName(paramName);
         setShowVariableCreation(true);
     };
 
@@ -101,6 +102,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
         const output = tool.signature.outputs.find(o => o.name === outputName);
         setCreatingForOutput(outputName);
         setNewVarSchema(output?.schema || null);
+        setNewVarName(outputName);
         setShowVariableCreation(true);
     };
 
@@ -122,12 +124,12 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
         // Notify parent about new variable
         onVariableCreate?.(newVariable);
 
-        // // Add to appropriate list and update mapping
-        // if (creatingForParameter) {
-        //     handleParameterMappingChange(creatingForParameter, newVariable.name);
-        // } else if (creatingForOutput) {
-        //     handleOutputMappingChange(creatingForOutput, newVariable.name);
-        // }
+        // Add to appropriate list and update mapping
+        if (creatingForParameter) {
+            handleParameterMappingChange(creatingForParameter, newVariable.name);
+        } else if (creatingForOutput) {
+            handleOutputMappingChange(creatingForOutput, newVariable.name);
+        }
 
         // Reset form and close modal
         setNewVarName('');
