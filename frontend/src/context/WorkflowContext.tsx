@@ -146,26 +146,35 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, [createWorkflow, isLoading, workflow?.workflow_id]);
 
     const updateWorkflow = useCallback((updates: Partial<Workflow>) => {
+        console.log('updateWorkflow called with updates:', updates);
         if (!workflow) return;
 
-        const updatedWorkflow = {
+        // First, create the base updated workflow
+        const baseWorkflow = {
             ...workflow,
             ...updates,
-            inputs: updates.inputs?.map(input => ({
-                ...input,
-                variable_id: input.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-            })) || workflow.inputs,
-            outputs: updates.outputs?.map(output => ({
-                ...output,
-                variable_id: output.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-            })) || workflow.outputs
         };
 
+        // Then, handle inputs and outputs separately to ensure we don't lose data
+        const updatedWorkflow = {
+            ...baseWorkflow,
+            inputs: updates.inputs ? updates.inputs.map(input => ({
+                ...input,
+                variable_id: input.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            })) : baseWorkflow.inputs || [],
+            outputs: updates.outputs ? updates.outputs.map(output => ({
+                ...output,
+                variable_id: output.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            })) : baseWorkflow.outputs || []
+        };
+
+        console.log('Setting workflow to:', updatedWorkflow);
         setWorkflow(updatedWorkflow);
 
         // Compare with original workflow to determine if there are unsaved changes
         if (originalWorkflow) {
             const hasChanges = JSON.stringify(updatedWorkflow) !== JSON.stringify(originalWorkflow);
+            console.log('Setting hasUnsavedChanges to:', hasChanges);
             setHasUnsavedChanges(hasChanges);
         } else {
             setHasUnsavedChanges(true);

@@ -2,11 +2,11 @@
 // This is for editing action steps in edit mode 
 
 import React, { useEffect, useState } from 'react';
-import { WorkflowStep, WorkflowVariableName } from '../types/workflows';
+import { WorkflowStep, WorkflowVariableName, WorkflowVariable } from '../types/workflows';
 import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
 import { toolApi, TOOL_TYPES } from '../lib/api/toolApi';
 import PromptTemplateSelector from './PromptTemplateSelector';
-import DataFlowMapper from './DataFlowMapper';
+import DataFlowMapper2 from './DataFlowMapper2';
 import { useWorkflows } from '../context/WorkflowContext';
 import ToolSelector from './ToolSelector';
 
@@ -21,7 +21,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     onStepUpdate,
     onDeleteRequest
 }) => {
-    const { workflow } = useWorkflows();
+    const { workflow, updateWorkflow } = useWorkflows();
     const [tools, setTools] = useState<Tool[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -79,16 +79,31 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
 
     const handleParameterMappingChange = (mappings: Record<string, string>) => {
         console.log('handleParameterMappingChange', mappings);
-        onStepUpdate({
-            ...step,
+        onStepUpdate((currentStep: WorkflowStep): WorkflowStep => ({
+            ...currentStep,
             parameter_mappings: mappings as Record<ToolParameterName, WorkflowVariableName>
-        });
+        }));
     };
 
     const handleOutputMappingChange = (mappings: Record<string, string>) => {
         onStepUpdate({
             ...step,
             output_mappings: mappings as Record<ToolOutputName, WorkflowVariableName>
+        });
+    };
+
+    const handleVariableCreate = (newVariable: WorkflowVariable) => {
+        console.log('handleVariableCreate', newVariable);
+        if (!workflow) return;
+
+        // Just pass the changes we want to make to updateWorkflow
+        updateWorkflow({
+            inputs: newVariable.io_type === 'input'
+                ? [...(workflow.inputs || []), newVariable]
+                : workflow.inputs,
+            outputs: newVariable.io_type === 'output'
+                ? [...(workflow.outputs || []), newVariable]
+                : workflow.outputs
         });
     };
 
@@ -178,7 +193,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
                         Data Flow Configuration
                     </h3>
-                    <DataFlowMapper
+                    <DataFlowMapper2
                         tool={step.tool}
                         parameter_mappings={step.parameter_mappings || {}}
                         output_mappings={step.output_mappings || {}}
@@ -186,6 +201,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                         outputs={workflow?.outputs || []}
                         onParameterMappingChange={handleParameterMappingChange}
                         onOutputMappingChange={handleOutputMappingChange}
+                        onVariableCreate={handleVariableCreate}
                     />
                 </div>
             )}
