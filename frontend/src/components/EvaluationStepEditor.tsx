@@ -195,8 +195,8 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
                                         >
                                             <option value="">Continue to next step</option>
                                             {workflow?.steps.map((s, i) => (
-                                                <option key={s.step_id} value={i} disabled={i <= step.sequence_number}>
-                                                    {s.label} {i <= step.sequence_number ? '(not allowed)' : ''}
+                                                <option key={s.step_id} value={i}>
+                                                    {s.label} {i === step.sequence_number ? '(current step)' : ''}
                                                 </option>
                                             ))}
                                         </select>
