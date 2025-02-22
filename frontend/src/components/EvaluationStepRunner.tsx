@@ -1,5 +1,5 @@
 import React from 'react';
-import { RuntimeWorkflowStep } from '../types/workflows';
+import { RuntimeWorkflowStep, WorkflowVariableName } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
 
 interface EvaluationStepRunnerProps {
@@ -18,17 +18,14 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
     // Get all available variables for condition evaluation
     const availableVariables = [
         ...(workflow?.inputs || []),
-        ...(workflow?.outputs || []),
-        // Add variables from previous steps
-        ...workflow?.steps
-            .filter(s => s.sequence_number < step.sequence_number)
-            .flatMap(s => Object.entries(s.output_mappings || {})
-                .map(([_, varName]) => ({
-                    name: varName,
-                    description: `Output from step ${s.label}`
-                }))
-            ) || []
+        ...(workflow?.outputs || [])
     ];
+
+    // Get the evaluation result if executed
+    const evaluationResult = React.useMemo(() => {
+        if (!isExecuted || !workflow?.outputs) return null;
+        return workflow.outputs.find(o => o.name === `${step.step_id}_result`)?.value as Record<string, string> | undefined;
+    }, [isExecuted, workflow?.outputs, step.step_id]);
 
     if (!step.evaluation_config) {
         return (
@@ -40,6 +37,7 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
 
     return (
         <div className="space-y-4">
+            {/* Conditions Panel */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
                     Evaluation Conditions
@@ -47,45 +45,58 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
 
                 {/* Display conditions */}
                 <div className="space-y-4">
-                    {step.evaluation_config.conditions.map((condition, index) => (
-                        <div key={index} className="border dark:border-gray-700 rounded-lg p-4">
-                            <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] gap-2 items-center">
-                                <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    {condition.variable}
-                                </div>
-                                <div className="text-gray-500 dark:text-gray-500">
-                                    {condition.operator}
-                                </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    {condition.value}
-                                </div>
-                                <div className="text-gray-500 dark:text-gray-500">
-                                    →
-                                </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    {condition.target_step_index !== undefined
-                                        ? `Jump to step ${condition.target_step_index + 1}`
-                                        : 'Continue to next step'
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                    {step.evaluation_config.conditions.map((condition, index) => {
+                        const variableValue = availableVariables.find(v => v.name === condition.variable)?.value;
+                        const isConditionMet = evaluationResult?.condition_met === condition.condition_id;
 
-                {/* Display default action */}
-                <div className="mt-4 pt-4 border-t dark:border-gray-700">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Default Action:
-                        </span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {step.evaluation_config.default_action === 'continue'
-                                ? 'Continue to next step'
-                                : 'End workflow'
-                            }
-                        </span>
-                    </div>
+                        return (
+                            <div
+                                key={index}
+                                className={`border rounded-lg p-4 transition-colors ${isExecuted ? (
+                                    isConditionMet
+                                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                                        : 'border-gray-200 dark:border-gray-700'
+                                ) : 'border-gray-200 dark:border-gray-700'
+                                    }`}
+                            >
+                                <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] gap-2 items-center">
+                                    <div className="text-sm">
+                                        <div className="font-medium text-gray-700 dark:text-gray-300">
+                                            {condition.variable}
+                                        </div>
+                                        {isExecuted && (
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                Current value: {variableValue !== undefined ? String(variableValue) : 'undefined'}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="text-gray-500 dark:text-gray-400 font-medium">
+                                        {condition.operator}
+                                    </div>
+                                    <div className="text-sm text-gray-700 dark:text-gray-300">
+                                        {condition.value}
+                                    </div>
+                                    <div className="text-gray-500 dark:text-gray-400">
+                                        →
+                                    </div>
+                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        {condition.target_step_index !== undefined
+                                            ? `Jump to step ${condition.target_step_index + 1}`
+                                            : 'Next step'
+                                        }
+                                    </div>
+                                </div>
+                                {isExecuted && isConditionMet && (
+                                    <div className="mt-2 text-sm text-green-600 dark:text-green-400 flex items-center">
+                                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Condition met
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {/* Execution status */}
@@ -95,9 +106,38 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
                         Evaluating conditions...
                     </div>
                 )}
-                {isExecuted && (
-                    <div className="mt-4 text-green-600 dark:text-green-400">
-                        Evaluation complete
+
+                {isExecuted && evaluationResult && (
+                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                            Evaluation Result
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 dark:text-gray-400">Result:</span>
+                                <span className="text-gray-900 dark:text-gray-100">
+                                    {evaluationResult.condition_met === 'none' ? 'No conditions met' : 'Condition met'}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 dark:text-gray-400">Next Action:</span>
+                                <span className="text-gray-900 dark:text-gray-100">
+                                    {evaluationResult.action === 'jump' ? 'Jump to step' : 'Continue'}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 dark:text-gray-400">Target Step:</span>
+                                <span className="text-gray-900 dark:text-gray-100">
+                                    {evaluationResult.target_step_index ? `Step ${parseInt(evaluationResult.target_step_index) + 1}` : 'Next step'}
+                                </span>
+                            </div>
+                            {evaluationResult.reason && (
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500 dark:text-gray-400">Reason:</span>
+                                    <span className="text-gray-900 dark:text-gray-100">{evaluationResult.reason}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
