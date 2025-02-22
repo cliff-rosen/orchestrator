@@ -5,29 +5,30 @@ import { Workflow } from '../../types/workflows';
 import { useValueFormatter } from '../../hooks/useValueFormatter.tsx';
 import { WorkflowInputs } from './WorkflowInputs';
 import { WorkflowOutputs } from './WorkflowOutputs';
+import { useJobs } from '../../context/JobsContext';
 
 interface JobLiveOutputProps {
     job: Job;
-    workflow?: Workflow;
+    workflow: Workflow;
 }
 
 export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) => {
+    const { executionState } = useJobs();
     const isComplete = job.status === JobStatus.COMPLETED;
     const isFailed = job.status === JobStatus.FAILED;
     const { formatValue } = useValueFormatter();
 
+    // For completed jobs, show final outputs
     if (isComplete) {
         // Get the final step's output
         const finalStep = job.steps[job.steps.length - 1];
         const finalStepOutput = finalStep?.output_data || {};
 
-        // Get all other outputs from job.output_data that aren't in the final step
-        const otherOutputs = Object.entries(job.output_data || {}).reduce((acc, [key, value]) => {
-            if (!(key in finalStepOutput)) {
-                acc[key] = value;
-            }
-            return acc;
-        }, {} as Record<string, any>);
+        // Get outputs from other steps
+        const otherOutputs = job.steps
+            .slice(0, -1)
+            .map(step => step.output_data || {})
+            .filter(output => Object.keys(output).length > 0);
 
         return (
             <div className="space-y-6">
@@ -67,8 +68,11 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) =
         );
     }
 
-    // For running or failed jobs, show current step info
-    const currentStepIndex = job.execution_progress?.current_step || 0;
+    // For running or failed jobs, show current step info using executionState if available
+    const currentStepIndex = executionState?.job_id === job.job_id
+        ? executionState.current_step_index
+        : job.execution_progress?.current_step || 0;
+
     const currentStep = job.steps[currentStepIndex];
 
     if (!currentStep) return null;
@@ -134,31 +138,25 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) =
                         </div>
                     </div>
                 )}
-            </div>
 
-            {/* Live Output */}
-            {job.live_output && currentStep.status === JobStatus.RUNNING && (
-                <div className="bg-gray-50/50 dark:bg-gray-900/30 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
-                        Live Output
-                    </h4>
-                    <div className="prose prose-slate dark:prose-invert max-w-none text-gray-700 dark:text-gray-100">
-                        {formatValue(job.live_output, true)}
+                {/* Live Output */}
+                {executionState?.job_id === job.job_id && executionState.live_output && (
+                    <div className="mt-4 bg-gray-100 dark:bg-gray-800 rounded p-3">
+                        <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                            {executionState.live_output}
+                        </pre>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Error Message */}
-            {isFailed && currentStep.error_message && (
-                <div className="border border-rose-200 dark:border-rose-900 bg-rose-50/30 dark:bg-rose-900/10 rounded-lg p-4">
-                    <h4 className="text-xs uppercase font-medium text-rose-600 dark:text-rose-400 mb-2">
-                        Error
-                    </h4>
-                    <p className="text-sm text-rose-600 dark:text-rose-300">
-                        {currentStep.error_message}
-                    </p>
-                </div>
-            )}
+                {/* Error Message */}
+                {currentStep.status === JobStatus.FAILED && currentStep.error_message && (
+                    <div className="mt-4 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 rounded p-3">
+                        <pre className="text-sm whitespace-pre-wrap">
+                            {currentStep.error_message}
+                        </pre>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }; 

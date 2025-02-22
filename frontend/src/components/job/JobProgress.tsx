@@ -1,14 +1,21 @@
 import React from 'react';
 import { Job, JobStatus } from '../../types/jobs';
+import { useJobs } from '../../context/JobsContext';
 
 interface JobProgressProps {
     job: Job;
 }
 
 export const JobProgress: React.FC<JobProgressProps> = ({ job }) => {
-    console.log('JobProgress.tsx', job);
+    const { executionState } = useJobs();
+    console.log('JobProgress.tsx', { job, executionState });
 
-    const progress = job.execution_progress;
+    // If we have executionState and it matches our job, use it
+    // Otherwise fall back to job.execution_progress
+    const progress = (executionState?.job_id === job.job_id)
+        ? { current_step: executionState.current_step_index, total_steps: executionState.total_steps }
+        : job.execution_progress;
+
     if (!progress) return null;
 
     const percentage = Math.round((progress.current_step / progress.total_steps) * 100);

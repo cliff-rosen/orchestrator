@@ -240,8 +240,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const executeStep = useCallback(async (
         stepIndex: number,
-        inputVariables: JobVariable[],
-        jobOutputs: Record<WorkflowVariableName, SchemaValueType>
+        jobOutputs: Record<WorkflowVariableName, SchemaValueType>,
+        inputVariables?: JobVariable[]
     ): Promise<StepExecutionResult> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
@@ -260,6 +260,10 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const updatedJob = {
                     ...prev.currentJob,
                     status: JobStatus.RUNNING,
+                    execution_progress: {
+                        current_step: stepIndex,
+                        total_steps: prev.currentJob.steps.length
+                    },
                     steps: prev.currentJob.steps.map((s, idx) => {
                         if (idx === stepIndex) {
                             return {
@@ -275,7 +279,12 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return {
                     ...prev,
                     jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
-                    currentJob: updatedJob
+                    currentJob: updatedJob,
+                    executionState: {
+                        ...prev.executionState!,
+                        current_step_index: stepIndex,
+                        status: JobStatus.RUNNING
+                    }
                 };
             });
 
@@ -329,6 +338,10 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const updatedJob = {
                     ...prev.currentJob,
                     status: JobStatus.RUNNING,
+                    execution_progress: {
+                        current_step: stepIndex + 1,
+                        total_steps: prev.currentJob.steps.length
+                    },
                     steps: prev.currentJob.steps.map((s, idx) => {
                         if (idx === stepIndex) {
                             return {
@@ -346,6 +359,21 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...prev,
                     jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
                     currentJob: updatedJob,
+                    executionState: {
+                        ...prev.executionState!,
+                        current_step_index: stepIndex + 1,
+                        status: JobStatus.RUNNING,
+                        step_results: [
+                            ...prev.executionState!.step_results,
+                            {
+                                step_id: step.step_id,
+                                success: true,
+                                outputs: result,
+                                started_at: new Date().toISOString(),
+                                completed_at: new Date().toISOString()
+                            }
+                        ]
+                    },
                     isLoading: false
                 };
             });
@@ -364,6 +392,12 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 details: error instanceof Error ? error.stack : undefined
             };
 
+            // Get the step again since we're in a new scope
+            const failedStep = state.currentJob?.steps[stepIndex];
+            if (!failedStep) {
+                throw new Error('Step not found during error handling');
+            }
+
             setState(prev => {
                 if (!prev.currentJob) return prev;
 
@@ -371,12 +405,16 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...prev.currentJob,
                     status: JobStatus.FAILED,
                     error: jobError,
+                    execution_progress: {
+                        current_step: stepIndex,
+                        total_steps: prev.currentJob.steps.length
+                    },
                     steps: prev.currentJob.steps.map((s, idx) => {
                         if (idx === stepIndex) {
                             return {
                                 ...s,
                                 status: JobStatus.FAILED,
-                                error: jobError
+                                error_message: jobError.message
                             };
                         }
                         return s;
@@ -387,6 +425,19 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...prev,
                     jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
                     currentJob: updatedJob,
+                    executionState: {
+                        ...prev.executionState!,
+                        status: JobStatus.FAILED,
+                        step_results: [
+                            ...prev.executionState!.step_results,
+                            {
+                                step_id: failedStep.step_id,
+                                success: false,
+                                error: jobError.message,
+                                started_at: new Date().toISOString()
+                            }
+                        ]
+                    },
                     isLoading: false,
                     error: jobError
                 };
@@ -471,7 +522,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             while (currentStep < updatedJob.steps.length) {
                 try {
                     console.log('******************** EXECUTING STEP ********************');
-                    const stepResult = await executeStep(currentStep, preparedInputVariables, jobOutputs);
+                    const stepResult = await executeStep(currentStep, jobOutputs, preparedInputVariables);
 
                     // Update job outputs
                     if (stepResult.outputs) {
@@ -493,6 +544,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
 
                     currentStep++;
+
                 } catch (error) {
                     const jobError: JobError = {
                         message: error instanceof Error ? error.message : `Error executing step ${currentStep}`,
