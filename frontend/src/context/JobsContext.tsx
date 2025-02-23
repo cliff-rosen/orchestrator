@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult, JobId, JobStepId } from '../types/jobs';
-import { WorkflowVariable, WorkflowVariableName } from '../types/workflows';
+import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult, JobId, JobStepId, JobStep } from '../types/jobs';
+import { WorkflowVariable, WorkflowVariableName, WorkflowStepType } from '../types/workflows';
 import { SchemaValueType } from '../types/schema';
 import { useWorkflows } from './WorkflowContext';
 import { toolApi } from '../lib/api/toolApi';
@@ -181,6 +181,22 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             const jobId = `job-${Date.now()}` as JobId;
+            const jobSteps: JobStep[] = workflow.steps.map((step, index) => ({
+                step_id: `${jobId}_step_${index}` as JobStepId,
+                job_id: jobId as JobId,
+                label: step.label,
+                description: step.description,
+                step_type: step.step_type,
+                sequence_number: index,
+                status: JobStatus.PENDING,
+                tool: step.tool,
+                tool_id: step.tool_id,
+                prompt_template_id: step.prompt_template_id,
+                parameter_mappings: step.parameter_mappings,
+                output_mappings: step.output_mappings,
+                evaluation_config: step.evaluation_config
+            }));
+
             const newJob: Job = {
                 job_id: jobId,
                 workflow_id: request.workflow_id,
@@ -194,16 +210,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...i,
                     required: i.required || true,
                 })) || [],
-                steps: workflow.steps.map((step, index) => ({
-                    step_id: `step-${Date.now()}-${index}` as JobStepId,
-                    job_id: `job-${Date.now()}` as JobId,
-                    sequence_number: index,
-                    status: JobStatus.PENDING,
-                    tool: step.tool,
-                    prompt_template_id: step.prompt_template_id,
-                    parameter_mappings: step.parameter_mappings,
-                    output_mappings: step.output_mappings
-                }))
+                steps: jobSteps
             };
 
             console.log('createJob will add new job:', newJob);
@@ -251,12 +258,10 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             const step = state.currentJob.steps[stepIndex];
             if (!step) throw new Error('Step not found');
-            if (!step.tool) throw new Error('No tool configured for step');
 
             // Set step to running state first
             setState(prev => {
                 if (!prev.currentJob) return prev;
-                if (!step.tool) return prev;
 
                 const updatedJob = {
                     ...prev.currentJob,
@@ -285,65 +290,164 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         ...prev.executionState!,
                         current_step_index: stepIndex,
                         status: JobStatus.RUNNING,
-                        live_output: `Preparing to execute ${step.tool.name}...`
+                        live_output: `Preparing to execute ${step.step_type === 'EVALUATION' ? 'evaluation' : step.tool?.name || 'step'}...`
                     }
                 };
             });
 
-            // Resolve parameter values from job outputs and input values
-            const resolvedParameters: Record<string, SchemaValueType> = {};
+            let result: StepExecutionResult;
 
-            // For LLM tools, include the prompt template ID
-            if (step.tool.tool_type === 'llm' && step.prompt_template_id) {
-                resolvedParameters["prompt_template_id"] = step.prompt_template_id;
-            }
-
-            // For each parameter mapping, resolve the variable reference to its actual value
-            Object.entries(step.parameter_mappings || {}).forEach(([paramName, variableName]) => {
-                // All parameter mappings should reference variables by their name
-                if (typeof variableName !== 'string') {
-                    console.warn('Invalid parameter mapping - expected variable name:', {
-                        parameter: paramName,
-                        value: variableName
-                    });
-                    return;
+            if (step.step_type === 'EVALUATION') {
+                if (!step.evaluation_config) {
+                    throw new Error('No evaluation configuration found');
                 }
 
-                // First check input variables
-                const inputVariable = inputVariables?.find(v => v.name === variableName);
-                if (inputVariable?.value !== undefined) {
-                    resolvedParameters[paramName] = inputVariable.value as SchemaValueType;
-                    return;
-                }
+                // 1. Get all available variables for condition evaluation
+                const variables = new Map<string, any>();
 
-                // Then check job outputs from previous steps
-                if (variableName in jobOutputs) {
-                    resolvedParameters[paramName] = jobOutputs[variableName as WorkflowVariableName];
-                    return;
-                }
-
-                console.warn(`Could not resolve variable reference:`, {
-                    parameter: paramName,
-                    variableName,
-                    availableInputs: inputVariables,
-                    availableOutputs: Object.keys(jobOutputs)
+                // Add input variables
+                inputVariables?.forEach(input => {
+                    variables.set(input.name, input.value);
                 });
-            });
 
-            // Update live output to show we're executing
-            setState(prev => ({
-                ...prev,
-                executionState: {
-                    ...prev.executionState!,
-                    live_output: step.tool ? `Executing ${step.tool.name} with resolved parameters...\n${Object.entries(resolvedParameters)
-                        .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
-                        .join('\n')
-                        }` : 'Executing step...'
+                // Add job outputs from previous steps
+                Object.entries(jobOutputs).forEach(([name, value]) => {
+                    variables.set(name, value);
+                });
+
+                // 2. Evaluate conditions in order until one is met
+                let metCondition = null;
+                for (const condition of step.evaluation_config.conditions) {
+                    const variableValue = variables.get(condition.variable);
+                    if (variableValue === undefined) continue;
+
+                    let conditionMet = false;
+                    switch (condition.operator) {
+                        case 'equals':
+                            conditionMet = variableValue === condition.value;
+                            break;
+                        case 'not_equals':
+                            conditionMet = variableValue !== condition.value;
+                            break;
+                        case 'greater_than':
+                            conditionMet = variableValue > condition.value;
+                            break;
+                        case 'less_than':
+                            conditionMet = variableValue < condition.value;
+                            break;
+                        case 'contains':
+                            conditionMet = String(variableValue).includes(String(condition.value));
+                            break;
+                        case 'not_contains':
+                            conditionMet = !String(variableValue).includes(String(condition.value));
+                            break;
+                    }
+
+                    if (conditionMet) {
+                        metCondition = {
+                            condition,
+                            value: variableValue
+                        };
+                        break;
+                    }
                 }
-            }));
 
-            // Execute the tool with resolved parameters
-            const result = await toolApi.executeTool(step.tool.tool_id, resolvedParameters);
+                // 3. Determine final result based on evaluation
+                result = metCondition ? {
+                    step_id: step.step_id,
+                    success: true,
+                    outputs: {
+                        condition_met: metCondition.condition.condition_id,
+                        variable_name: metCondition.condition.variable,
+                        variable_value: String(metCondition.value),
+                        operator: metCondition.condition.operator,
+                        comparison_value: String(metCondition.condition.value),
+                        target_step_index: String(metCondition.condition.target_step_index),
+                        next_step: String(metCondition.condition.target_step_index),
+                        action: 'jump'
+                    } as Record<string, string>,
+                    started_at: new Date().toISOString(),
+                    completed_at: new Date().toISOString()
+                } : {
+                    step_id: step.step_id,
+                    success: true,
+                    outputs: {
+                        condition_met: 'none',
+                        reason: 'No conditions met - continuing to next step',
+                        target_step_index: '',  // Empty when continuing to next step
+                        next_step: String(stepIndex + 1),  // Still track the next step for display
+                        action: 'continue'  // Use continue action instead of jump
+                    } as Record<string, string>,
+                    started_at: new Date().toISOString(),
+                    completed_at: new Date().toISOString()
+                };
+            } else {
+                // Handle tool execution
+                if (!step.tool) throw new Error('No tool configured for step');
+
+                // Resolve parameter values from job outputs and input values
+                const resolvedParameters: Record<string, SchemaValueType> = {};
+
+                // For LLM tools, include the prompt template ID
+                if (step.tool.tool_type === 'llm' && step.prompt_template_id) {
+                    resolvedParameters["prompt_template_id"] = step.prompt_template_id;
+                }
+
+                // For each parameter mapping, resolve the variable reference to its actual value
+                Object.entries(step.parameter_mappings || {}).forEach(([paramName, variableName]) => {
+                    // All parameter mappings should reference variables by their name
+                    if (typeof variableName !== 'string') {
+                        console.warn('Invalid parameter mapping - expected variable name:', {
+                            parameter: paramName,
+                            value: variableName
+                        });
+                        return;
+                    }
+
+                    // First check input variables
+                    const inputVariable = inputVariables?.find(v => v.name === variableName);
+                    if (inputVariable?.value !== undefined) {
+                        resolvedParameters[paramName] = inputVariable.value as SchemaValueType;
+                        return;
+                    }
+
+                    // Then check job outputs from previous steps
+                    if (variableName in jobOutputs) {
+                        resolvedParameters[paramName] = jobOutputs[variableName as WorkflowVariableName];
+                        return;
+                    }
+
+                    console.warn(`Could not resolve variable reference:`, {
+                        parameter: paramName,
+                        variableName,
+                        availableInputs: inputVariables,
+                        availableOutputs: Object.keys(jobOutputs)
+                    });
+                });
+
+                // Update live output to show we're executing
+                setState(prev => ({
+                    ...prev,
+                    executionState: {
+                        ...prev.executionState!,
+                        live_output: `Executing ${step.tool?.name || 'step'} with resolved parameters...\n${Object.entries(resolvedParameters)
+                            .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+                            .join('\n')
+                            }`
+                    }
+                }));
+
+                // Execute the tool with resolved parameters
+                const toolResult = await toolApi.executeTool(step.tool.tool_id, resolvedParameters);
+
+                result = {
+                    step_id: step.step_id,
+                    success: true,
+                    outputs: toolResult,
+                    started_at: new Date().toISOString(),
+                    completed_at: new Date().toISOString()
+                };
+            }
 
             // Update job state with success
             setState(prev => {
@@ -361,7 +465,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             return {
                                 ...s,
                                 status: JobStatus.COMPLETED,
-                                output_data: result,
+                                output_data: result.outputs,
                                 completed_at: new Date().toISOString()
                             };
                         }
@@ -379,26 +483,14 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         status: JobStatus.RUNNING,
                         step_results: [
                             ...prev.executionState!.step_results,
-                            {
-                                step_id: step.step_id,
-                                success: true,
-                                outputs: result,
-                                started_at: new Date().toISOString(),
-                                completed_at: new Date().toISOString()
-                            }
+                            result
                         ]
                     },
                     isLoading: false
                 };
             });
 
-            return {
-                step_id: step.step_id,
-                success: true,
-                outputs: result,
-                started_at: new Date().toISOString(),
-                completed_at: new Date().toISOString()
-            };
+            return result;
         } catch (error) {
             const jobError: JobError = {
                 message: error instanceof Error ? error.message : 'Failed to execute step',
@@ -585,6 +677,39 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         break;
                     }
 
+                    // Handle step result and determine next step
+                    const step = updatedJob.steps[currentStep];
+                    if (step.step_type === WorkflowStepType.EVALUATION && stepResult.outputs) {
+                        const evalResult = stepResult.outputs as Record<string, string>;
+
+                        if (evalResult.action === 'jump' && evalResult.target_step_index) {
+                            // Convert target_step_index from string to number
+                            const targetStep = parseInt(evalResult.target_step_index);
+                            if (!isNaN(targetStep) && targetStep >= 0 && targetStep < updatedJob.steps.length) {
+                                currentStep = targetStep;
+                                setState(prev => ({
+                                    ...prev,
+                                    executionState: {
+                                        ...prev.executionState!,
+                                        live_output: `Evaluation condition met: Jumping to step ${targetStep + 1}`
+                                    }
+                                }));
+                                continue; // Skip increment and continue loop with new step index
+                            }
+                        } else if (evalResult.action === 'end') {
+                            setState(prev => ({
+                                ...prev,
+                                executionState: {
+                                    ...prev.executionState!,
+                                    live_output: 'Evaluation result: End workflow execution'
+                                }
+                            }));
+                            break; // Exit loop early
+                        }
+                        // For 'continue' action or invalid jump target, fall through to increment step
+                    }
+
+                    // Only increment step if we haven't jumped or ended
                     currentStep++;
 
                 } catch (error) {

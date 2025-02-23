@@ -1,6 +1,6 @@
 import { SchemaValueType, Variable } from './schema';
 import { Tool, ToolParameterName, ToolOutputName } from './tools';
-import { WorkflowVariableName, StepExecutionResult as WorkflowStepResult } from './workflows';
+import { WorkflowVariableName, StepExecutionResult as WorkflowStepResult, WorkflowStepType, EvaluationConfig } from './workflows';
 
 export enum JobStatus {
     PENDING = 'pending',
@@ -23,19 +23,21 @@ export interface JobVariable extends Omit<Variable, 'name'> {
 export interface JobStep {
     step_id: JobStepId;
     job_id: JobId;
+    label: string;
+    description: string;
+    step_type: WorkflowStepType;
+    tool?: Tool;
+    tool_id?: string;
+    prompt_template_id?: string;
+    parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
+    output_mappings: Record<ToolOutputName, WorkflowVariableName>;
+    evaluation_config?: EvaluationConfig;
     sequence_number: number;
     status: JobStatus;
-    output_data?: Record<WorkflowVariableName, SchemaValueType>;
     error_message?: string;
     started_at?: string;
     completed_at?: string;
-    tool?: Tool;
-    // Only present for LLM tools
-    prompt_template_id?: string;
-    // Maps tool parameters to workflow variables
-    parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
-    // Maps tool outputs to workflow variables
-    output_mappings: Record<ToolOutputName, WorkflowVariableName>;
+    output_data?: Record<string, SchemaValueType>;
 }
 
 // Complete job definition
