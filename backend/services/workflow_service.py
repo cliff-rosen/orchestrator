@@ -129,6 +129,10 @@ class WorkflowService:
             # Query the workflow with related data in a single query
             workflow = (
                 self.db.query(Workflow)
+                .options(
+                    joinedload(Workflow.steps).joinedload(WorkflowStep.tool),
+                    joinedload(Workflow.variables)
+                )
                 .filter(
                     Workflow.workflow_id == workflow_id,
                     Workflow.user_id == user_id
@@ -138,6 +142,10 @@ class WorkflowService:
 
             if not workflow:
                 raise Exception(f"Workflow {workflow_id} not found or access denied")
+
+            # Add debug print to see evaluation config
+            for step in workflow.steps:
+                print(f"Step {step.step_id} evaluation config: {step.evaluation_config}")
 
             # Convert to response model
             response = WorkflowResponse(
@@ -156,6 +164,16 @@ class WorkflowService:
 
             # Add workflow steps with tool information
             for step in workflow.steps:
+                print('step', step.evaluation_config)
+                # Create evaluation config if it exists
+                eval_config = None
+                if step.evaluation_config:
+                    eval_config = EvaluationConfig(
+                        conditions=step.evaluation_config.get("conditions", []),
+                        default_action=step.evaluation_config.get("default_action", "continue"),
+                        maximum_jumps=step.evaluation_config.get("maximum_jumps")
+                    )
+                
                 step_response = WorkflowStepResponse(
                     step_id=step.step_id,
                     workflow_id=step.workflow_id,
@@ -166,10 +184,7 @@ class WorkflowService:
                     prompt_template_id=step.prompt_template_id,
                     parameter_mappings=step.parameter_mappings,
                     output_mappings=step.output_mappings,
-                    evaluation_config=EvaluationConfig(
-                        conditions=step.evaluation_config.get("conditions", []),
-                        default_action=step.evaluation_config.get("default_action", "continue")
-                    ) if step.evaluation_config else None,
+                    evaluation_config=eval_config,
                     sequence_number=step.sequence_number,
                     created_at=step.created_at,
                     updated_at=step.updated_at,
@@ -315,17 +330,18 @@ class WorkflowService:
                 # Ensure JSON fields have proper defaults
                 step_dict["parameter_mappings"] = step.parameter_mappings or {}
                 step_dict["output_mappings"] = step.output_mappings or {}
-                
                 if step.step_type == "EVALUATION":
                     step_dict["evaluation_config"] = step.evaluation_config or {
                         "conditions": [],
-                        "default_action": "continue"
+                        "default_action": "continue",
+                        "maximum_jumps": 3
                     }
                 
                 # Include tool data if present
                 if step.tool:
                     step_dict["tool"] = ToolResponse.model_validate(step.tool)
                 
+                print('step_dict', step_dict)
                 processed_steps.append(WorkflowStepResponse(**step_dict))
 
             # Split variables into inputs and outputs

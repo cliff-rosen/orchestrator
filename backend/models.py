@@ -232,7 +232,7 @@ class WorkflowStep(Base):
             default_action = "continue"
             
         # Get maximum_jumps from input or use default
-        maximum_jumps = value.get("maximum_jumps", 3)  # Changed default to 3
+        maximum_jumps = value.get("maximum_jumps", 1)  # Changed default to 3
         if not isinstance(maximum_jumps, int):
             try:
                 maximum_jumps = int(maximum_jumps)
@@ -240,7 +240,7 @@ class WorkflowStep(Base):
                 maximum_jumps = 3
         
         if maximum_jumps < 0:
-            maximum_jumps = 3
+            maximum_jumps = 1
             
         return {
             "conditions": valid_conditions,
