@@ -27,8 +27,12 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) =
         // Get outputs from other steps
         const otherOutputs = job.steps
             .slice(0, -1)
-            .map(step => step.output_data || {})
-            .filter(output => Object.keys(output).length > 0);
+            .map(step => ({
+                step_type: step.step_type,
+                label: step.label || `Step ${job.steps.findIndex(s => s.step_id === step.step_id) + 1}`,
+                output_data: step.output_data || {}
+            }))
+            .filter(output => Object.keys(output.output_data).length > 0);
 
         return (
             <div className="space-y-6">
