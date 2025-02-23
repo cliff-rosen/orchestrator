@@ -176,9 +176,9 @@ const Workflow: React.FC = () => {
             outputs: {
                 condition_met: 'none',
                 reason: 'No conditions met - continuing to next step',
-                target_step_index: String(activeStep + 1),
-                next_step: String(activeStep + 1),
-                action: 'jump'
+                target_step_index: '',  // Empty when continuing to next step
+                next_step: String(activeStep + 1),  // Still track the next step for display
+                action: 'continue'  // Use continue action instead of jump
             } as Record<string, string>
         };
 
@@ -548,7 +548,21 @@ const Workflow: React.FC = () => {
     };
 
     const handleNext = async (): Promise<void> => {
-        setActiveStep(activeStep + 1);
+        // For evaluation steps, check if we need to jump to a specific step
+        if (currentStep?.step_type === WorkflowStepType.EVALUATION) {
+            const evalResult = workflow?.outputs?.find(o => o.name === `${currentStep.step_id}_result`)?.value as Record<string, string> | undefined;
+            if (evalResult?.action === 'jump' && evalResult?.target_step_index) {
+                // Convert target_step_index from string to number and adjust for input step offset
+                const targetStep = !isEditMode ? parseInt(evalResult.target_step_index) + 1 : parseInt(evalResult.target_step_index);
+                setActiveStep(targetStep);
+            } else {
+                // Default behavior - go to next step
+                setActiveStep(activeStep + 1);
+            }
+        } else {
+            // For non-evaluation steps, just go to next step
+            setActiveStep(activeStep + 1);
+        }
         setStepExecuted(false);
     };
 
