@@ -28,13 +28,11 @@
 | - |
 | Workflow | | | |
 | workflow.status | WorkflowStatus | 'DRAFT' \| 'PUBLISHED' \| 'ARCHIVED' | Workflow lifecycle status |
-| Workflow Execution | | | |
-| workflowExecutionState.status | String | 'pending' \| 'running' \| 'completed' \| 'error' | Workflow execution status |
-| workflowExecutionState.variables | Object | Record<string, any> | Current variable values |
-| workflowExecutionState.error | string? | String | Error message if failed |
 
 Additional Notes:
-All timestamps are stored as ISO date strings
-SchemaValueType can be: string | number | boolean | SchemaObjectType | FileValue
-Status transitions generally follow: PENDING -> RUNNING -> (COMPLETED | FAILED)
-Both job.execution_progress and jobcontext.executionState track progress, but the context version is for live updates while the job version is for persistence
+- All timestamps are stored as ISO date strings
+- SchemaValueType can be: string | number | boolean | SchemaObjectType | FileValue
+- Status transitions generally follow: PENDING -> RUNNING -> (COMPLETED | FAILED)
+- Both job.execution_progress and jobcontext.executionState track progress, but the context version is for live updates while the job version is for persistence
+- The JobContext executionState provides real-time execution tracking while Job fields provide persistent storage
+- Step results are accumulated in jobcontext.executionState.step_results during execution

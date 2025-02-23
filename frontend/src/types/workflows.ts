@@ -179,28 +179,28 @@ export const isLLMStep = (step: WorkflowStep): step is WorkflowStep & { tool: To
 
 // Example workflow demonstrating various features
 export const EXAMPLE_WORKFLOW: Workflow = {
-    workflow_id: "example-research-workflow",
-    name: "Research Paper Analysis Workflow",
-    description: "A workflow that searches for research papers, analyzes them with an LLM, and generates a summary",
+    workflow_id: "pubmed-research-assistant",
+    name: "PubMed Research Assistant",
+    description: "A workflow that converts questions into PubMed queries, evaluates results, and generates answers",
     status: WorkflowStatus.PUBLISHED,
     inputs: [
         {
-            variable_id: "search-query-var",
-            name: "search_query" as WorkflowVariableName,
+            variable_id: "question-var",
+            name: "question" as WorkflowVariableName,
             schema: {
                 type: "string",
-                description: "The search query for finding research papers",
+                description: "The research question to be answered",
                 is_array: false
             },
             io_type: "input",
             required: true
         },
         {
-            variable_id: "max-papers-var",
-            name: "max_papers" as WorkflowVariableName,
+            variable_id: "notes-var",
+            name: "notes" as WorkflowVariableName,
             schema: {
-                type: "number",
-                description: "Maximum number of papers to analyze",
+                type: "string",
+                description: "Additional context or notes to help refine the search",
                 is_array: false
             },
             io_type: "input",
@@ -209,38 +209,72 @@ export const EXAMPLE_WORKFLOW: Workflow = {
     ],
     outputs: [
         {
-            variable_id: "summary-var",
-            name: "final_summary" as WorkflowVariableName,
+            variable_id: "final-answer-var",
+            name: "final_answer" as WorkflowVariableName,
             schema: {
                 type: "string",
-                description: "Final summarized analysis of all papers",
+                description: "Comprehensive answer based on PubMed results",
                 is_array: false
             },
             io_type: "output"
         },
         {
-            variable_id: "paper-details-var",
-            name: "paper_details" as WorkflowVariableName,
+            variable_id: "current-query-var",
+            name: "current_query" as WorkflowVariableName,
+            schema: {
+                type: "string",
+                description: "Current PubMed search query",
+                is_array: false
+            },
+            io_type: "output"
+        },
+        {
+            variable_id: "search-results-var",
+            name: "search_results" as WorkflowVariableName,
             schema: {
                 type: "object",
-                description: "Detailed information about each analyzed paper",
+                description: "Current PubMed search results",
                 is_array: true,
                 fields: {
-                    title: {
-                        type: "string",
-                        description: "Paper title",
-                        is_array: false
-                    },
-                    authors: {
-                        type: "string",
-                        description: "Paper authors",
-                        is_array: true
-                    },
-                    summary: {
-                        type: "string",
-                        description: "Individual paper summary",
-                        is_array: false
-                    }
+                    title: { type: "string", is_array: false },
+                    abstract: { type: "string", is_array: false },
+                    authors: { type: "string", is_array: true },
+                    publication_date: { type: "string", is_array: false }
+                }
+            },
+            io_type: "output"
+        },
+        {
+            variable_id: "results-adequate-var",
+            name: "results_adequate" as WorkflowVariableName,
+            schema: {
+                type: "string",
+                description: "Whether current results are adequate (yes/no)",
+                is_array: false
+            },
+            io_type: "output"
+        },
+        {
+            variable_id: "refinement-notes-var",
+            name: "refinement_notes" as WorkflowVariableName,
+            schema: {
+                type: "string",
+                description: "Notes for query refinement if needed",
+                is_array: false
+            },
+            io_type: "output"
+        },
+        {
+            variable_id: "search-history-var",
+            name: "search_history" as WorkflowVariableName,
+            schema: {
+                type: "object",
+                description: "History of search iterations",
+                is_array: true,
+                fields: {
+                    query: { type: "string", is_array: false },
+                    results_count: { type: "number", is_array: false },
+                    iteration: { type: "number", is_array: false }
                 }
             },
             io_type: "output"
@@ -248,57 +282,220 @@ export const EXAMPLE_WORKFLOW: Workflow = {
     ],
     steps: [
         {
-            step_id: "search-step" as WorkflowStepId,
-            workflow_id: "example-research-workflow",
+            step_id: "step1" as WorkflowStepId,
+            workflow_id: "pubmed-research-assistant",
+            label: "Generate PubMed Query",
+            description: "Convert research question into an optimized PubMed search query",
+            step_type: WorkflowStepType.ACTION,
+            tool: {
+                tool_id: "query-generator",
+                tool_type: "llm",
+                name: "PubMed Query Generator",
+                description: "Converts natural language questions into PubMed search queries",
+                signature: {
+                    parameters: [
+                        {
+                            name: "question" as ToolParameterName,
+                            schema: { type: "string", is_array: false },
+                            required: true,
+                            description: "Research question to convert"
+                        },
+                        {
+                            name: "query" as ToolParameterName,
+                            schema: { type: "string", is_array: false },
+                            required: false,
+                            description: "Previous query if refining"
+                        },
+                        {
+                            name: "notes" as ToolParameterName,
+                            schema: { type: "string", is_array: false },
+                            required: false,
+                            description: "Refinement notes from evaluation"
+                        }
+                    ],
+                    outputs: [
+                        {
+                            name: "query" as ToolOutputName,
+                            schema: { type: "string", is_array: false },
+                            description: "Generated or refined PubMed query"
+                        }
+                    ]
+                }
+            } as Tool,
+            prompt_template_id: "pubmed_query_generator",
+            parameter_mappings: {
+                question: "question" as WorkflowVariableName,
+                query: "current_query" as WorkflowVariableName,
+                notes: "refinement_notes" as WorkflowVariableName
+            } as Record<ToolParameterName, WorkflowVariableName>,
+            output_mappings: {
+                query: "current_query" as WorkflowVariableName
+            } as Record<ToolOutputName, WorkflowVariableName>,
+            sequence_number: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        },
+        {
+            step_id: "step2" as WorkflowStepId,
+            workflow_id: "pubmed-research-assistant",
             label: "Search PubMed",
-            description: "Search for research papers on PubMed",
+            description: "Execute search query on PubMed",
             step_type: WorkflowStepType.ACTION,
-            tool_id: "pubmed",
+            tool: {
+                tool_id: "pubmed-search",
+                tool_type: "search",
+                name: "PubMed Search",
+                description: "Search PubMed database with given query",
+                signature: {
+                    parameters: [
+                        {
+                            name: "query" as ToolParameterName,
+                            schema: { type: "string", is_array: false },
+                            required: true,
+                            description: "PubMed search query"
+                        }
+                    ],
+                    outputs: [
+                        {
+                            name: "search_results" as ToolOutputName,
+                            schema: { type: "object", is_array: true },
+                            description: "List of papers found"
+                        }
+                    ]
+                }
+            } as Tool,
+            parameter_mappings: {
+                query: "current_query" as WorkflowVariableName
+            } as Record<ToolParameterName, WorkflowVariableName>,
+            output_mappings: {
+                search_results: "search_results" as WorkflowVariableName
+            } as Record<ToolOutputName, WorkflowVariableName>,
             sequence_number: 1,
-            parameter_mappings: {
-                query: "search_query" as WorkflowVariableName,
-                max_results: "max_papers" as WorkflowVariableName
-            } as Record<ToolParameterName, WorkflowVariableName>,
-            output_mappings: {
-                search_results: "pubmed_results" as WorkflowVariableName
-            } as Record<ToolOutputName, WorkflowVariableName>,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         },
         {
-            step_id: "analysis-step" as WorkflowStepId,
-            workflow_id: "example-research-workflow",
-            label: "Analyze Papers",
-            description: "Use LLM to analyze each research paper",
+            step_id: "step3" as WorkflowStepId,
+            workflow_id: "pubmed-research-assistant",
+            label: "Evaluate Results",
+            description: "Evaluate if search results are sufficient to answer the question",
             step_type: WorkflowStepType.ACTION,
-            tool_id: "llm",
-            prompt_template_id: "paper-analysis-template",
+            tool: {
+                tool_id: "results-evaluator",
+                tool_type: "llm",
+                name: "Search Results Evaluator",
+                description: "Evaluates if search results are sufficient for the question",
+                signature: {
+                    parameters: [
+                        {
+                            name: "question" as ToolParameterName,
+                            schema: { type: "string", is_array: false },
+                            required: true,
+                            description: "Original research question"
+                        },
+                        {
+                            name: "search_results" as ToolParameterName,
+                            schema: { type: "object", is_array: true },
+                            required: true,
+                            description: "Current search results"
+                        }
+                    ],
+                    outputs: [
+                        {
+                            name: "is_sufficient" as ToolOutputName,
+                            schema: { type: "string", is_array: false },
+                            description: "Yes or No indicating if results are sufficient"
+                        },
+                        {
+                            name: "notes" as ToolOutputName,
+                            schema: { type: "string", is_array: false },
+                            description: "Notes for query refinement if needed"
+                        }
+                    ]
+                }
+            } as Tool,
+            prompt_template_id: "pubmed_results_evaluator",
+            parameter_mappings: {
+                question: "question" as WorkflowVariableName,
+                search_results: "search_results" as WorkflowVariableName
+            } as Record<ToolParameterName, WorkflowVariableName>,
+            output_mappings: {
+                is_sufficient: "results_adequate" as WorkflowVariableName,
+                notes: "refinement_notes" as WorkflowVariableName
+            } as Record<ToolOutputName, WorkflowVariableName>,
             sequence_number: 2,
-            parameter_mappings: {
-                papers: "pubmed_results" as WorkflowVariableName,
-                analysis_type: "detailed" as WorkflowVariableName
-            } as Record<ToolParameterName, WorkflowVariableName>,
-            output_mappings: {
-                paper_analyses: "paper_details" as WorkflowVariableName
-            } as Record<ToolOutputName, WorkflowVariableName>,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         },
         {
-            step_id: "summary-step" as WorkflowStepId,
-            workflow_id: "example-research-workflow",
-            label: "Generate Summary",
-            description: "Create a final summary of all analyzed papers",
-            step_type: WorkflowStepType.ACTION,
-            tool_id: "llm",
-            prompt_template_id: "summary-template",
+            step_id: "step4" as WorkflowStepId,
+            workflow_id: "pubmed-research-assistant",
+            label: "Check Results Sufficiency",
+            description: "Determine whether to refine search or proceed to answer",
+            step_type: WorkflowStepType.EVALUATION,
+            evaluation_config: {
+                conditions: [
+                    {
+                        condition_id: "needs-refinement",
+                        variable: "results_adequate" as WorkflowVariableName,
+                        operator: "equals",
+                        value: "no",
+                        target_step_index: 0
+                    }
+                ],
+                default_action: "continue",
+                maximum_jumps: 3
+            },
+            parameter_mappings: {},
+            output_mappings: {},
             sequence_number: 3,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        },
+        {
+            step_id: "step5" as WorkflowStepId,
+            workflow_id: "pubmed-research-assistant",
+            label: "Generate Answer",
+            description: "Generate comprehensive answer based on search results",
+            step_type: WorkflowStepType.ACTION,
+            tool: {
+                tool_id: "answer-generator",
+                tool_type: "llm",
+                name: "Answer Generator",
+                description: "Generates comprehensive answer from PubMed results",
+                signature: {
+                    parameters: [
+                        {
+                            name: "question" as ToolParameterName,
+                            schema: { type: "string", is_array: false },
+                            required: true,
+                            description: "Original research question"
+                        },
+                        {
+                            name: "search_results" as ToolParameterName,
+                            schema: { type: "object", is_array: true },
+                            required: true,
+                            description: "Final search results"
+                        }
+                    ],
+                    outputs: [
+                        {
+                            name: "answer" as ToolOutputName,
+                            schema: { type: "string", is_array: false },
+                            description: "Comprehensive answer to the research question"
+                        }
+                    ]
+                }
+            } as Tool,
+            prompt_template_id: "pubmed_answer_generator",
             parameter_mappings: {
-                analyses: "paper_details" as WorkflowVariableName
+                question: "question" as WorkflowVariableName,
+                search_results: "search_results" as WorkflowVariableName
             } as Record<ToolParameterName, WorkflowVariableName>,
             output_mappings: {
-                summary: "final_summary" as WorkflowVariableName
+                answer: "final_answer" as WorkflowVariableName
             } as Record<ToolOutputName, WorkflowVariableName>,
+            sequence_number: 4,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         }

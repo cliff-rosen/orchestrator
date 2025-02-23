@@ -1,14 +1,6 @@
 import { api, handleApiError } from './index';
 import { Workflow, WorkflowStepType } from '../../types/workflows';
 
-export interface WorkflowExecutionState {
-    workflowId: string;
-    stepId: string;
-    status: 'pending' | 'running' | 'completed' | 'error';
-    variables: Record<string, any>;
-    error?: string;
-}
-
 export const workflowApi = {
     getWorkflows: async (): Promise<Workflow[]> => {
         try {
