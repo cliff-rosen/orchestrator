@@ -141,7 +141,7 @@ const Job: React.FC = () => {
     };
 
     return (
-        <div className="container mx-auto px-2 sm:px-3 md:px-4 py-2">
+        <div className="w-full max-w-[95%] md:max-w-[90%] lg:max-w-[85%] xl:max-w-[80%] mx-auto px-2 sm:px-3 md:px-4 lg:px-6 py-2">
             <JobMenuBar
                 jobName={currentJob.name}
                 workflow={workflow}
