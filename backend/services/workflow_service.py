@@ -168,10 +168,15 @@ class WorkflowService:
                 # Create evaluation config if it exists
                 eval_config = None
                 if step.evaluation_config:
+                    # Ensure maximum_jumps has a default value if not present
+                    eval_config_dict = step.evaluation_config.copy()
+                    if 'maximum_jumps' not in eval_config_dict:
+                        eval_config_dict['maximum_jumps'] = 3
+                    
                     eval_config = EvaluationConfig(
-                        conditions=step.evaluation_config.get("conditions", []),
-                        default_action=step.evaluation_config.get("default_action", "continue"),
-                        maximum_jumps=step.evaluation_config.get("maximum_jumps")
+                        conditions=eval_config_dict.get("conditions", []),
+                        default_action=eval_config_dict.get("default_action", "continue"),
+                        maximum_jumps=eval_config_dict.get("maximum_jumps", 3)
                     )
                 
                 step_response = WorkflowStepResponse(
