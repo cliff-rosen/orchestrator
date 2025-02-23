@@ -422,6 +422,7 @@ class EvaluationConfig(BaseModel):
     """Schema for evaluation configuration"""
     conditions: List[EvaluationCondition] = Field(description="List of conditions to evaluate")
     default_action: Literal['continue', 'end'] = Field(description="What to do if no conditions match")
+    maximum_jumps: int = Field(default=1, ge=0, description="Maximum number of times conditions will be checked before forcing continue")
 
 class WorkflowStepBase(BaseModel):
     """Base schema for workflow steps"""

@@ -16,7 +16,8 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
     // Initialize evaluation config if not present
     const evaluation_config = step.evaluation_config || {
         conditions: [],
-        default_action: 'continue' as const
+        default_action: 'continue' as const,
+        maximum_jumps: 3
     };
 
     const handleAddCondition = () => {
@@ -74,11 +75,23 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
         });
     };
 
+    const handleMaximumJumpsChange = (value: string) => {
+        console.log('handleMaximumJumpsChange', value);
+        const numValue = parseInt(value);
+        if (isNaN(numValue) || numValue < 0) return;
+
+        onStepUpdate({
+            ...step,
+            evaluation_config: {
+                ...evaluation_config,
+                maximum_jumps: numValue
+            }
+        });
+    };
+
     // Get all available variables for condition evaluation
     const availableVariables = [
         ...(workflow?.inputs || []),
-        ...(workflow?.outputs || []),
-        // Add variables from previous steps
         ...workflow?.steps
             .filter(s => s.sequence_number < step.sequence_number)
             .flatMap(s => Object.entries(s.output_mappings || {})
@@ -112,7 +125,7 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
                 ) : (
                     <div className="space-y-4">
                         {evaluation_config.conditions.map((condition, index) => (
-                            <div key={index} className="border dark:border-gray-700 rounded-lg p-4">
+                            <div key={condition.condition_id || index} className="border dark:border-gray-700 rounded-lg p-4">
                                 <div className="flex justify-between items-start mb-4">
                                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Condition {index + 1}
@@ -141,7 +154,7 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
                                         >
                                             <option value="">Select a variable</option>
                                             {availableVariables.map((variable) => (
-                                                <option key={variable.name} value={variable.name}>
+                                                <option key={`var-${variable.name}`} value={variable.name}>
                                                     {variable.name} ({variable.description})
                                                 </option>
                                             ))}
@@ -197,7 +210,7 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
                                             <option value="">Continue to next step</option>
                                             {workflow?.steps.map((s, i) => (
                                                 <option
-                                                    key={s.step_id}
+                                                    key={`step-${s.step_id}`}
                                                     value={i}
                                                     disabled={i === step.sequence_number}
                                                 >
@@ -211,6 +224,29 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
                         ))}
                     </div>
                 )}
+            </div>
+
+            {/* Maximum Jumps Setting */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
+                    Maximum Jumps
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Maximum number of times conditions will be checked before forcing continue
+                </p>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="number"
+                        min="0"
+                        value={evaluation_config.maximum_jumps}
+                        onChange={(e) => handleMaximumJumpsChange(e.target.value)}
+                        className="w-24 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
+                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {evaluation_config.maximum_jumps === 0 ? '(No limit)' : `jump${evaluation_config.maximum_jumps === 1 ? '' : 's'}`}
+                    </span>
+                </div>
             </div>
 
             {/* Default Action */}

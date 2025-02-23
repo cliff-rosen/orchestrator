@@ -429,6 +429,10 @@ class WorkflowService:
                     if 'evaluation_config' in step_dict and step_dict['evaluation_config']:
                         if hasattr(step_dict['evaluation_config'], 'model_dump'):
                             step_dict['evaluation_config'] = step_dict['evaluation_config'].model_dump()
+                        print(f"Evaluation config before step creation: {step_dict['evaluation_config']}")
+                        # Ensure maximum_jumps is preserved
+                        if 'maximum_jumps' not in step_dict['evaluation_config']:
+                            step_dict['evaluation_config']['maximum_jumps'] = 3
                     
                     # Create the step
                     step = WorkflowStep(

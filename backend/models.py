@@ -196,16 +196,16 @@ class WorkflowStep(Base):
     def validate_evaluation_config(self, key: str, value: Any) -> Dict:
         """Validate evaluation_config field to ensure it's a proper dictionary."""
         if value is None:
-            return {"conditions": [], "default_action": "continue"}
+            return {"conditions": [], "default_action": "continue", "maximum_jumps": 3}
             
         if isinstance(value, str):
             try:
                 value = json.loads(value)
             except json.JSONDecodeError:
-                return {"conditions": [], "default_action": "continue"}
+                return {"conditions": [], "default_action": "continue", "maximum_jumps": 3}
                 
         if not isinstance(value, dict):
-            return {"conditions": [], "default_action": "continue"}
+            return {"conditions": [], "default_action": "continue", "maximum_jumps": 3}
             
         # Ensure required fields exist with proper types
         conditions = value.get("conditions", [])
@@ -231,9 +231,21 @@ class WorkflowStep(Base):
         if default_action not in ["continue", "end"]:
             default_action = "continue"
             
+        # Get maximum_jumps from input or use default
+        maximum_jumps = value.get("maximum_jumps", 3)  # Changed default to 3
+        if not isinstance(maximum_jumps, int):
+            try:
+                maximum_jumps = int(maximum_jumps)
+            except (ValueError, TypeError):
+                maximum_jumps = 3
+        
+        if maximum_jumps < 0:
+            maximum_jumps = 3
+            
         return {
             "conditions": valid_conditions,
-            "default_action": default_action
+            "default_action": default_action,
+            "maximum_jumps": maximum_jumps
         }
 
     def to_dict(self) -> Dict:

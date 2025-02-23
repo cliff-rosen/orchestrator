@@ -52,7 +52,8 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                 prompt_template_id: undefined,
                 evaluation_config: {
                     conditions: [],
-                    default_action: 'continue'
+                    default_action: 'continue',
+                    maximum_jumps: 3
                 }
             } : {})
         });

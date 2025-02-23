@@ -99,7 +99,8 @@ export const workflowApi = {
                                 ...condition,
                                 condition_id: condition.condition_id || crypto.randomUUID()
                             })),
-                            default_action: step.evaluation_config?.default_action || 'continue'
+                            default_action: step.evaluation_config?.default_action || 'continue',
+                            maximum_jumps: step.evaluation_config?.maximum_jumps || 3
                         }
                     } : {})
                 })),
@@ -117,7 +118,7 @@ export const workflowApi = {
                 }))
             };
 
-            console.log('transformedWorkflow', transformedWorkflow);
+            //console.log('workflowApi.updateWorkflow transformedWorkflow', transformedWorkflow);
             const response = await api.put(`/api/workflows/${workflowId}`, transformedWorkflow);
             return response.data;
         } catch (error) {

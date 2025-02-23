@@ -623,6 +623,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Execute steps sequentially
             let currentStep = 0;
             const jobOutputs: Record<WorkflowVariableName, SchemaValueType> = {};
+            const stepJumpCounts: Record<string, number> = {}; // Track jumps per step
 
             console.log('******************** ENTERING WHILE LOOP ********************');
             while (currentStep < updatedJob.steps.length) {
@@ -685,7 +686,15 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         if (evalResult.action === 'jump' && evalResult.target_step_index) {
                             // Convert target_step_index from string to number
                             const targetStep = parseInt(evalResult.target_step_index);
-                            if (!isNaN(targetStep) && targetStep >= 0 && targetStep < updatedJob.steps.length) {
+
+                            // Check if we've exceeded maximum jumps for this step
+                            const stepId = step.step_id;
+                            stepJumpCounts[stepId] = (stepJumpCounts[stepId] || 0) + 1;
+
+                            const maxJumps = step.evaluation_config?.maximum_jumps ?? 1;
+                            const shouldForceProgress = maxJumps > 0 && stepJumpCounts[stepId] >= maxJumps;
+
+                            if (!shouldForceProgress && !isNaN(targetStep) && targetStep >= 0 && targetStep < updatedJob.steps.length) {
                                 currentStep = targetStep;
                                 setState(prev => ({
                                     ...prev,
@@ -695,6 +704,14 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                     }
                                 }));
                                 continue; // Skip increment and continue loop with new step index
+                            } else if (shouldForceProgress) {
+                                setState(prev => ({
+                                    ...prev,
+                                    executionState: {
+                                        ...prev.executionState!,
+                                        live_output: `Maximum jumps (${maxJumps}) reached for step ${currentStep + 1}: Forcing continue`
+                                    }
+                                }));
                             }
                         } else if (evalResult.action === 'end') {
                             setState(prev => ({

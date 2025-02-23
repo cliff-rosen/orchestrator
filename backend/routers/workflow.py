@@ -92,6 +92,7 @@ async def update_workflow(
     """Update an existing workflow."""
     workflow_service = WorkflowService(db)
     try:
+        #print('workflow_data', workflow_data)
         return workflow_service.update_workflow(workflow_id, workflow_data, current_user.user_id)
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))

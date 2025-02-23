@@ -52,6 +52,7 @@ export interface EvaluationCondition {
 export interface EvaluationConfig {
     conditions: EvaluationCondition[];
     default_action: 'continue' | 'end';  // What to do if no conditions match
+    maximum_jumps: number;  // Maximum number of times conditions will be checked before forcing continue
 }
 
 // Runtime step that includes execution functions
