@@ -198,7 +198,7 @@ class WorkflowService:
                         name=step.tool.name,
                         description=step.tool.description,
                         tool_type=step.tool.tool_type,
-                        signature=step.tool.signature,
+                        signature=self._get_llm_signature(step.prompt_template_id) if step.tool.tool_type == 'llm' and step.prompt_template_id else step.tool.signature,
                         created_at=step.tool.created_at,
                         updated_at=step.tool.updated_at
                     ) if step.tool else None
