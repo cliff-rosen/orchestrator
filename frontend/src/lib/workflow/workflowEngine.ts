@@ -168,6 +168,97 @@ export class WorkflowEngine {
     }
 
     /**
+     * Handles execution of a tool step
+     */
+    private static async executeToolStep(
+        step: WorkflowStep,
+        workflow: Workflow,
+        updateWorkflow: (updates: Partial<Workflow>) => void
+    ): Promise<StepExecutionResult> {
+        if (!step.tool) {
+            return {
+                success: false,
+                error: 'No tool configured for this step'
+            };
+        }
+
+        const parameters = this.getResolvedParameters(step, workflow.inputs || [], workflow.outputs || []);
+
+        // Add prompt template ID for LLM tools
+        if (step.tool.tool_type === 'llm' && step.prompt_template_id) {
+            parameters['prompt_template_id' as ToolParameterName] = step.prompt_template_id as SchemaValueType;
+        }
+
+        // Execute the tool
+        const toolResult = await ToolEngine.executeTool(step.tool, parameters);
+
+        // Update workflow outputs with tool results
+        if (toolResult) {
+            const updatedOutputs = this.getUpdatedWorkflowOutputs(step, toolResult, workflow.outputs || []);
+            updateWorkflow({ outputs: updatedOutputs });
+        }
+
+        return {
+            success: true,
+            outputs: toolResult
+        };
+    }
+
+    /**
+     * Handles execution of an evaluation step
+     */
+    private static executeEvaluationStep(
+        step: WorkflowStep,
+        workflow: Workflow,
+        updateWorkflow: (updates: Partial<Workflow>) => void
+    ): StepExecutionResult {
+        const variables = this.collectVariables(workflow.inputs || [], workflow.outputs || []);
+        const result = this.evaluateConditions(step, variables);
+
+        // Store evaluation result in workflow outputs
+        if (result.success && result.outputs) {
+            const updatedOutputs = this.getUpdatedWorkflowOutputs(step, result.outputs, workflow.outputs || []);
+            updateWorkflow({ outputs: updatedOutputs });
+        }
+
+        return result;
+    }
+
+    /**
+     * Clears outputs for a step before execution
+     */
+    private static clearStepOutputs(
+        step: WorkflowStep,
+        workflow: Workflow,
+        updateWorkflow: (updates: Partial<Workflow>) => void
+    ): void {
+        if (!workflow.outputs) return;
+
+        // Clear mapped outputs
+        if (step.output_mappings) {
+            const updatedOutputs = workflow.outputs.map(output => {
+                if (Object.values(step.output_mappings!).includes(output.name)) {
+                    return { ...output, value: undefined };
+                }
+                return output;
+            });
+            updateWorkflow({ outputs: updatedOutputs });
+        }
+
+        // Clear evaluation-specific outputs
+        if (step.step_type === WorkflowStepType.EVALUATION) {
+            const evaluationOutputName = `${step.step_id}_result`;
+            const updatedOutputs = workflow.outputs.map(output => {
+                if (output.name === evaluationOutputName) {
+                    return { ...output, value: undefined };
+                }
+                return output;
+            });
+            updateWorkflow({ outputs: updatedOutputs });
+        }
+    }
+
+    /**
      * Executes a workflow step and manages workflow state
      */
     static async executeStep(
@@ -185,79 +276,14 @@ export class WorkflowEngine {
                 };
             }
 
-            // Clear outputs that correspond to this step
-            if (workflow.outputs && step.output_mappings) {
-                const updatedOutputs = workflow.outputs.map(output => {
-                    // If this output is mapped from the current step, clear its value
-                    if (Object.values(step.output_mappings!).includes(output.name)) {
-                        return {
-                            ...output,
-                            value: undefined
-                        };
-                    }
-                    return output;
-                });
-                updateWorkflow({ outputs: updatedOutputs });
-            }
+            // Clear any existing outputs for this step
+            this.clearStepOutputs(step, workflow, updateWorkflow);
 
-            // Also clear evaluation-specific outputs if this is an evaluation step
-            if (step.step_type === WorkflowStepType.EVALUATION && workflow.outputs) {
-                const evaluationOutputName = `${step.step_id}_result`;
-                const updatedOutputs = workflow.outputs.map(output => {
-                    if (output.name === evaluationOutputName) {
-                        return {
-                            ...output,
-                            value: undefined
-                        };
-                    }
-                    return output;
-                });
-                updateWorkflow({ outputs: updatedOutputs });
-            }
+            // Execute based on step type
+            return step.step_type === WorkflowStepType.EVALUATION
+                ? this.executeEvaluationStep(step, workflow, updateWorkflow)
+                : await this.executeToolStep(step, workflow, updateWorkflow);
 
-            // Handle evaluation steps
-            if (step.step_type === WorkflowStepType.EVALUATION) {
-                const variables = this.collectVariables(workflow.inputs || [], workflow.outputs || []);
-                const result = this.evaluateConditions(step, variables);
-
-                // Store evaluation result in workflow outputs
-                if (result.success && result.outputs) {
-                    const updatedOutputs = this.getUpdatedWorkflowOutputs(step, result.outputs, workflow.outputs || []);
-                    updateWorkflow({ outputs: updatedOutputs });
-                }
-
-                return result;
-            }
-
-            // Handle tool steps
-            if (!step.tool) {
-                return {
-                    success: false,
-                    error: 'No tool configured for this step'
-                };
-            }
-
-            const parameters = this.getResolvedParameters(step, workflow.inputs || [], workflow.outputs || []);
-
-            // Add prompt template ID for LLM tools
-            if (step.tool.tool_type === 'llm' && step.prompt_template_id) {
-                parameters['prompt_template_id' as ToolParameterName] = step.prompt_template_id as SchemaValueType;
-            }
-
-            // Execute the tool
-            const toolResult = await ToolEngine.executeTool(step.tool, parameters);
-
-            console.log('toolResult', toolResult);
-            // Update workflow outputs with tool results
-            if (toolResult) {
-                const updatedOutputs = this.getUpdatedWorkflowOutputs(step, toolResult, workflow.outputs || []);
-                updateWorkflow({ outputs: updatedOutputs });
-            }
-
-            return {
-                success: true,
-                outputs: toolResult
-            };
         } catch (error) {
             return {
                 success: false,
