@@ -155,7 +155,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, [createWorkflow, isLoading, workflow?.workflow_id]);
 
     const updateWorkflow = useCallback((updates: Partial<Workflow>) => {
-        console.log('updateWorkflow called with updates:', updates);
+
         if (!workflow) return;
 
         // First, create the base updated workflow
@@ -205,7 +205,6 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // Compare with original workflow to determine if there are unsaved changes
         if (originalWorkflow) {
             const hasChanges = JSON.stringify(updatedWorkflow) !== JSON.stringify(originalWorkflow);
-            console.log('Setting hasUnsavedChanges to:', hasChanges);
             setHasUnsavedChanges(hasChanges);
         } else {
             setHasUnsavedChanges(true);

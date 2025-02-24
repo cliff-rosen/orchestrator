@@ -22,6 +22,7 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
     ];
 
     // Get the evaluation result if executed
+    // The result will be located 
     const evaluationResult = React.useMemo(() => {
         if (!isExecuted || !workflow?.outputs) return null;
         return workflow.outputs.find(o => o.name === `${step.step_id}_result`)?.value as Record<string, string> | undefined;

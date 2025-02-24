@@ -46,25 +46,51 @@ export class WorkflowEngine {
     ): WorkflowVariable[] {
         if (!step.output_mappings) return workflowOutputs;
 
-        // Deep copy the workflow outputs
-        // const updatedOutputs = workflowOutputs.map(output => ({
-        //     ...output,
-        //     schema: { ...output.schema },
-        //     value: output.value !== undefined ? JSON.parse(JSON.stringify(output.value)) : undefined
-        // }));
-
         const updatedOutputs = workflowOutputs;
-        for (const [outputName, varName] of Object.entries(step.output_mappings)) {
-            const value = outputs[outputName as ToolOutputName];
-            const outputVarIndex = updatedOutputs.findIndex(v => v.name === varName);
 
+        // If step is type tool, we need to update the outputs with the tool results
+        if (step.step_type === WorkflowStepType.ACTION) {
+            for (const [outputName, varName] of Object.entries(step.output_mappings)) {
+                const value = outputs[outputName as ToolOutputName];
+                const outputVarIndex = updatedOutputs.findIndex(v => v.name === varName);
+
+                if (outputVarIndex !== -1) {
+                    updatedOutputs[outputVarIndex] = {
+                        ...updatedOutputs[outputVarIndex],
+                        value
+                    };
+                }
+            }
+        }
+        // If step is type evaluation, we need to update the outputs with the evaluation result
+        else if (step.step_type === WorkflowStepType.EVALUATION) {
+            console.log('Updating evaluation outputs:', workflowOutputs);
+            // Get the evaluation result
+            const outputVarName = `${step.step_id}_result` as WorkflowVariableName;
+
+            // Check if the output variable already exists
+            const outputVarIndex = updatedOutputs.findIndex(v => v.name === outputVarName);
             if (outputVarIndex !== -1) {
                 updatedOutputs[outputVarIndex] = {
                     ...updatedOutputs[outputVarIndex],
-                    value
+                    value: outputs
                 };
+            } else {
+                updatedOutputs.push({
+                    name: outputVarName,
+                    variable_id: outputVarName,
+                    description: 'Evaluation step result',
+                    schema: {
+                        type: 'object',
+                        is_array: false
+                    },
+                    value: outputs,
+                    io_type: 'output'
+                });
             }
         }
+
+        console.log('Updated outputs:', updatedOutputs);
         return updatedOutputs;
     }
 
@@ -212,6 +238,9 @@ export class WorkflowEngine {
         workflow: Workflow,
         updateWorkflow: (updates: Partial<Workflow>) => void
     ): StepExecutionResult {
+
+        console.log('Executing evaluation step:', step.evaluation_config);
+
         const variables = this.collectVariables(workflow.inputs || [], workflow.outputs || []);
         const result = this.evaluateConditions(step, variables);
 

@@ -196,17 +196,8 @@ const Workflow: React.FC = () => {
             }
 
             // In run mode, create full runtime step
-            console.log('Converting workflow step to runtime step:', {
-                step_id: step.step_id,
-                tool: step.tool,
-                parameter_mappings: step.parameter_mappings
-            });
             const runtimeStep = createRuntimeStep(step, index);
-            console.log('Resulting runtime step:', {
-                step_id: runtimeStep.step_id,
-                tool: runtimeStep.tool,
-                parameter_mappings: runtimeStep.parameter_mappings
-            });
+
             return runtimeStep;
         });
     }, [workflow, createRuntimeStep, isEditMode]);
