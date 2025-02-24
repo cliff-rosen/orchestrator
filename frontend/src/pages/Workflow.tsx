@@ -7,20 +7,12 @@ import {
     WorkflowStepType,
     RuntimeWorkflowStep,
     WorkflowStepId,
-    WorkflowVariableName,
     StepExecutionResult
 } from '../types/workflows';
-import {
-    ToolOutputName
-} from '../types/tools';
-import { SchemaValueType } from '../types/schema';
 
-// Engines
-import { ToolEngine } from '../lib/tool/toolEngine';
-import { WorkflowEngine } from '../lib/workflow/workflowEngine';
-
-// Context
+// Context and engines
 import { useWorkflows } from '../context/WorkflowContext';
+import { WorkflowEngine } from '../lib/workflow/workflowEngine';
 
 // Page components
 import WorkflowConfig from '../components/WorkflowConfig';
@@ -117,8 +109,18 @@ const Workflow: React.FC = () => {
             setIsExecuting(true);
             console.log('Executing current step');
 
+            // Get current step
+            const stepIndex = !isEditMode ? activeStep - 1 : activeStep;
+            const currentStep = workflow.steps[stepIndex];
+            if (!currentStep) {
+                return {
+                    success: false,
+                    error: 'Invalid step index'
+                };
+            }
+
             // Execute step using WorkflowEngine - all state management handled internally
-            const result = await WorkflowEngine.executeCurrentStep();
+            const result = await WorkflowEngine.executeStep(currentStep, workflow, updateWorkflow);
 
             // Only track UI execution state
             setStepExecuted(true);

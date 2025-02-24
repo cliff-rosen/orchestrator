@@ -10,8 +10,6 @@ import {
 import { ToolParameterName, ToolOutputName } from '../../types/tools';
 import { SchemaValueType } from '../../types/schema';
 import { ToolEngine } from '../tool/toolEngine';
-import { api } from '../api';
-import { useWorkflows } from '../../context/WorkflowContext';
 
 export class WorkflowEngine {
     /**
@@ -174,32 +172,9 @@ export class WorkflowEngine {
     }
 
     /**
-     * Executes the current workflow step using the workflow context
-     */
-    static executeCurrentStep = async (): Promise<StepExecutionResult> => {
-        const { workflow, updateWorkflow, activeStep } = useWorkflows();
-        if (!workflow) {
-            return {
-                success: false,
-                error: 'No workflow loaded'
-            };
-        }
-
-        const currentStep = workflow.steps[activeStep];
-        if (!currentStep) {
-            return {
-                success: false,
-                error: 'Invalid step index'
-            };
-        }
-
-        return await this.executeStep(currentStep, workflow, updateWorkflow);
-    }
-
-    /**
      * Executes a workflow step and manages workflow state
      */
-    private static async executeStep(
+    static async executeStep(
         step: WorkflowStep,
         workflow: Workflow,
         updateWorkflow: (updates: Partial<Workflow>) => void
