@@ -235,14 +235,7 @@ export class WorkflowEngine {
             }
 
             // Execute the tool
-            const toolResult = await ToolEngine.executeTool(
-                step.tool,
-                parameters,
-                async (id, p) => {
-                    const response = await api.post(`/api/tools/${id}/execute`, p);
-                    return response.data;
-                }
-            );
+            const toolResult = await ToolEngine.executeTool(step.tool, parameters);
 
             // Update workflow outputs with tool results
             if (toolResult) {

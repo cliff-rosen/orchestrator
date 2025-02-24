@@ -1,13 +1,12 @@
 import {
     Tool,
     ToolOutputs,
-    ToolParameterName,
     ToolOutputName,
     ResolvedParameters,
     LLMParameters
 } from '../../types/tools';
 import { SchemaValueType } from '../../types/schema';
-
+import { getToolExecutor } from './toolRegistry';
 
 export class ToolEngine {
     /**
@@ -15,66 +14,18 @@ export class ToolEngine {
      */
     static async executeTool(
         tool: Tool,
-        parameters: ResolvedParameters,
-        executor: (toolId: string, params: ResolvedParameters) => Promise<ToolOutputs>
+        parameters: ResolvedParameters
     ): Promise<ToolOutputs> {
-        // Transform parameters based on tool type
-        const resolvedParams = await this.resolveParameters(tool, parameters);
+        // Get the executor from registry
+        const executor = getToolExecutor(tool.tool_id);
+        if (!executor) {
+            throw new Error(`No executor found for tool: ${tool.tool_id}`);
+        }
 
         // Execute the tool
-        return await executor(tool.tool_id, resolvedParams);
+        return await executor(tool.tool_id, parameters);
     }
 
-    /**
-     * Resolves parameters based on tool type and requirements
-     */
-    private static async resolveParameters(
-        tool: Tool,
-        parameters: ResolvedParameters
-    ): Promise<ResolvedParameters> {
-        // Handle LLM tools specially
-        if (tool.tool_type === 'llm') {
-            return this.resolveLLMParameters(parameters);
-        }
-
-        // For other tools, just validate and pass through
-        return parameters;
-    }
-
-    /**
-     * Resolves parameters specifically for LLM tools
-     */
-    private static async resolveLLMParameters(
-        parameters: ResolvedParameters
-    ): Promise<LLMParameters> {
-        const regular_variables: Record<string, SchemaValueType> = {};
-        const file_variables: Record<string, string> = {};
-
-        // Get the prompt template ID from parameters
-        const promptTemplateId = (parameters as { prompt_template_id?: string }).prompt_template_id;
-        if (!promptTemplateId) {
-            throw new Error('No prompt template ID provided for LLM tool');
-        }
-
-        // Transform parameters based on schema
-        Object.entries(parameters).forEach(([key, value]) => {
-            // Skip prompt template ID as it's handled separately
-            if (key === 'prompt_template_id') return;
-
-            if (typeof value === 'object' && value !== null && 'file_id' in value) {
-                file_variables[key] = value.file_id as string;
-            } else {
-                regular_variables[key] = value as SchemaValueType;
-            }
-        });
-
-        // Return transformed LLM parameters
-        return {
-            prompt_template_id: promptTemplateId,
-            regular_variables,
-            file_variables
-        };
-    }
 
     /**
      * Formats tool outputs according to the tool's signature
