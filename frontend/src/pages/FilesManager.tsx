@@ -67,6 +67,7 @@ const FilesManager: React.FC = () => {
     };
 
     const handleDelete = async (fileId: string) => {
+        console.log('Deleting file:', fileId);
         try {
             await fileApi.deleteFile(fileId);
             await loadFiles();

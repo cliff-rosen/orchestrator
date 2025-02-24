@@ -98,6 +98,7 @@ const Workflow: React.FC = () => {
     //////////////////////// Handlers ////////////////////////
 
     const handleExecuteCurrentStep = async (): Promise<StepExecutionResult> => {
+        console.log('handleExecuteCurrentStep called');
         if (!workflow) {
             return {
                 success: false,
@@ -369,21 +370,9 @@ const Workflow: React.FC = () => {
     };
 
     const handleNext = async (): Promise<void> => {
-        // For evaluation steps, check if we need to jump to a specific step
-        if (currentStep?.step_type === WorkflowStepType.EVALUATION) {
-            const evalResult = workflow?.outputs?.find(o => o.name === `${currentStep.step_id}_result`)?.value as Record<string, string> | undefined;
-            if (evalResult?.action === 'jump' && evalResult?.target_step_index) {
-                // Convert target_step_index from string to number and adjust for input step offset
-                const targetStep = !isEditMode ? parseInt(evalResult.target_step_index) + 1 : parseInt(evalResult.target_step_index);
-                setActiveStep(targetStep);
-            } else {
-                // Default behavior - go to next step
-                setActiveStep(activeStep + 1);
-            }
-        } else {
-            // For non-evaluation steps, just go to next step
-            setActiveStep(activeStep + 1);
-        }
+        if (!workflow) return;
+        const nextStep = WorkflowEngine.getNextStepIndex(workflow, activeStep);
+        setActiveStep(nextStep);
         setStepExecuted(false);
     };
 
@@ -486,9 +475,9 @@ const Workflow: React.FC = () => {
             />
 
             {/* Main Content Area */}
-            <div className="flex-1 flex bg-gray-50 dark:bg-gray-900">
+            <div className="flex-1 flex bg-gray-50 dark:bg-gray-900 min-h-0">
                 {/* Left Navigation */}
-                <div className={`${isCollapsed ? 'w-16' : 'w-80'} flex flex-col bg-white dark:bg-gray-800/50 transition-all duration-300 relative`}>
+                <div className={`${isCollapsed ? 'w-16' : 'w-80'} flex flex-col bg-white dark:bg-gray-800/50 transition-all duration-300 relative min-h-0`}>
                     {/* Collapse Button */}
                     <button
                         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -506,7 +495,7 @@ const Workflow: React.FC = () => {
                     </button>
 
                     {/* Config Section */}
-                    <div className={`${isCollapsed ? 'hidden' : ''}`}>
+                    <div className={`${isCollapsed ? 'hidden' : ''} flex-none`}>
                         <div className="p-2 border-b border-gray-200 dark:border-gray-700">
                             <button
                                 onClick={() => setShowConfig(!showConfig)}

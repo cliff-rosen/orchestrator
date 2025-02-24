@@ -59,7 +59,7 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
 
     if (isCollapsed) {
         return (
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto min-h-0">
                 <div className="flex flex-col gap-2 p-2">
                     {steps.map((step, index) => (
                         <button
@@ -106,7 +106,7 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
     }
 
     return (
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}

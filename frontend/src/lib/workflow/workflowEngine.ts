@@ -321,4 +321,37 @@ export class WorkflowEngine {
             };
         }
     }
+
+    /**
+     * Determines the next step index in the workflow based on current step and evaluation results
+     * Only used in run mode to handle evaluation step jumps
+     */
+    static getNextStepIndex(
+        workflow: Workflow,
+        currentStepIndex: number
+    ): number {
+        const currentStep = workflow.steps[currentStepIndex];
+        if (!currentStep) return currentStepIndex;
+
+        // For evaluation steps, check if we need to jump to a specific step
+        if (currentStep.step_type === WorkflowStepType.EVALUATION) {
+            // Find evaluation result in workflow outputs
+            const evalResult = workflow.outputs?.find(
+                o => o.name === `${currentStep.step_id}_result`
+            )?.value as Record<string, string> | undefined;
+
+            if (evalResult?.action === 'jump' && evalResult?.target_step_index) {
+                // Convert target_step_index from string to number and adjust for input step offset
+                const targetStep = parseInt(evalResult.target_step_index);
+
+                // Validate target step index and adjust for input step offset
+                if (!isNaN(targetStep) && targetStep >= 0 && targetStep < workflow.steps.length) {
+                    return targetStep + 1; // Add 1 to account for input step
+                }
+            }
+        }
+
+        // Default behavior - go to next step
+        return currentStepIndex + 1;
+    }
 } 

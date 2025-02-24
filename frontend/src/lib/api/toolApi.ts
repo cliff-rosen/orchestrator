@@ -1,4 +1,4 @@
-import { Tool, ToolSignature, ResolvedParameters, ToolOutputName, WorkflowStep, ToolParameterName } from '../../types/tools';
+import { Tool, ToolSignature, ToolOutputName, ToolParameterName } from '../../types/tools';
 import { PromptTemplate, PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest } from '../../types/prompts';
 import { api, handleApiError } from './index';
 // Caches for tools and prompt templates    

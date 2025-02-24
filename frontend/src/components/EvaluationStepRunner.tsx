@@ -1,5 +1,5 @@
 import React from 'react';
-import { RuntimeWorkflowStep, WorkflowVariableName } from '../types/workflows';
+import { RuntimeWorkflowStep } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
 
 interface EvaluationStepRunnerProps {

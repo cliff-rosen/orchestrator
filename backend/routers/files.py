@@ -7,7 +7,7 @@ from uuid import uuid4
 import base64
 from io import BytesIO
 import PyPDF2
-from pdf2image import convert_from_bytes
+#from pdf2image import convert_from_bytes
 
 from database import get_db
 from models import File, FileImage
@@ -237,7 +237,13 @@ def delete_file(
         raise HTTPException(status_code=404, detail="File not found")
 
     try:
+        # Delete associated file images first
+        db.query(FileImage).filter(FileImage.file_id == file_id).delete()
+        
+        # Then delete the file
         db.delete(file)
+        
+        # Commit the transaction
         db.commit()
         return {"status": "success"}
     except Exception as e:
