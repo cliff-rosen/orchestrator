@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PromptTemplate, PromptTemplateToken, PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest } from '../types/prompts';
 import { SchemaValue, PrimitiveValue, ObjectValue } from '../types/schema';
 import Dialog from './common/Dialog';
@@ -24,6 +24,7 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
     onTemplateChange,
     onClose
 }) => {
+    const nameInputRef = useRef<HTMLInputElement>(null);
     const { updateTemplate, createTemplate, testTemplate } = usePromptTemplates();
     const [name, setName] = useState(template?.name || '');
     const [description, setDescription] = useState(template?.description || '');
@@ -56,6 +57,13 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
             );
         }
     }, [template]);
+
+    useEffect(() => {
+        if (nameInputRef.current) {
+            nameInputRef.current.focus();
+            nameInputRef.current.select();
+        }
+    }, []);
 
     const extractTokens = useCallback((text: string, existingTokens: PromptTemplateToken[], source: string) => {
         const regularTokenRegex = /{{([^}]+)}}/g;
@@ -199,6 +207,7 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Template Name</label>
                     <input
+                        ref={nameInputRef}
                         type="text"
                         className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm 
                                  focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm

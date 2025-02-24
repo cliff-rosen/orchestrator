@@ -414,21 +414,27 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             );
         }
 
+        const value = valueObj?.value;
+        const formattedValue = formatValue(valueObj);
+        const isComplexValue = React.isValidElement(formattedValue);
+
         return (
-            <div className="flex items-center justify-between">
-                <div className="flex-1">
-                    {formatValue(valueObj)}
-                </div>
-                {!isExecuted && (
-                    <button
-                        onClick={() => handleStartEdit(paramName, valueObj?.value)}
-                        className="ml-2 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 
-                                 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
-                                 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                    >
-                        Edit
-                    </button>
+            <div className="flex items-center gap-2">
+                {isComplexValue ? (
+                    <div className="flex-1 min-w-0">{formattedValue}</div>
+                ) : (
+                    <div className="flex-1 min-w-0 text-gray-900 dark:text-gray-100">
+                        {formattedValue}
+                    </div>
                 )}
+                <button
+                    onClick={() => handleStartEdit(paramName, value)}
+                    className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 
+                             dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 
+                             dark:bg-blue-900/20 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                >
+                    Edit
+                </button>
             </div>
         );
     };
