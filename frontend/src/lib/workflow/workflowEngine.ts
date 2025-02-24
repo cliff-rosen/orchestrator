@@ -65,8 +65,9 @@ export class WorkflowEngine {
         // If step is type evaluation, we need to update the outputs with the evaluation result
         else if (step.step_type === WorkflowStepType.EVALUATION) {
             console.log('Updating evaluation outputs:', workflowOutputs);
-            // Get the evaluation result
-            const outputVarName = `${step.step_id}_result` as WorkflowVariableName;
+            // Generate a shorter variable ID using first 8 chars of step ID plus _eval
+            const shortStepId = step.step_id.slice(0, 8);
+            const outputVarName = `${shortStepId}_eval` as WorkflowVariableName;
 
             // Check if the output variable already exists
             const outputVarIndex = updatedOutputs.findIndex(v => v.name === outputVarName);
