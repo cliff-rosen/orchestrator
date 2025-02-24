@@ -11,17 +11,16 @@ import {
     StepExecutionResult
 } from '../types/workflows';
 import {
-    ToolOutputName,
-    ToolParameterName,
-    ResolvedParameters
+    ToolOutputName
 } from '../types/tools';
 import { SchemaValueType } from '../types/schema';
 
+// Engines
+import { ToolEngine } from '../lib/tool/toolEngine';
+import { WorkflowEngine } from '../lib/workflow/workflowEngine';
+
 // Context
 import { useWorkflows } from '../context/WorkflowContext';
-
-// API
-import { toolApi } from '../lib/api';
 
 // Page components
 import WorkflowConfig from '../components/WorkflowConfig';
@@ -29,6 +28,8 @@ import WorkflowStepsList from '../components/WorkflowStepsList';
 import StepDetail from '../components/StepDetail';
 import WorkflowNavigation from '../components/WorkflowNavigation';
 import WorkflowMenuBar from '../components/WorkflowMenuBar';
+
+
 
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
@@ -104,163 +105,7 @@ const Workflow: React.FC = () => {
 
     //////////////////////// Handlers ////////////////////////
 
-    const handleExecuteEvaluation = async (currentStep: WorkflowStep): Promise<StepExecutionResult> => {
-        if (!currentStep.evaluation_config) {
-            return {
-                success: false,
-                error: 'No evaluation configuration found'
-            };
-        }
-
-        // 1. Get all available variables for condition evaluation
-        const variables = new Map<string, any>();
-        workflow?.inputs?.forEach(input => {
-            variables.set(input.name, input.value);
-        });
-        workflow?.outputs?.forEach(output => {
-            variables.set(output.name, output.value);
-        });
-
-        // 2. Evaluate conditions in order until one is met
-        let metCondition = null;
-        for (const condition of currentStep.evaluation_config.conditions) {
-            const variableValue = variables.get(condition.variable);
-            if (variableValue === undefined) continue;
-
-            let conditionMet = false;
-            switch (condition.operator) {
-                case 'equals':
-                    conditionMet = variableValue === condition.value;
-                    break;
-                case 'not_equals':
-                    conditionMet = variableValue !== condition.value;
-                    break;
-                case 'greater_than':
-                    conditionMet = variableValue > condition.value;
-                    break;
-                case 'less_than':
-                    conditionMet = variableValue < condition.value;
-                    break;
-                case 'contains':
-                    conditionMet = String(variableValue).includes(String(condition.value));
-                    break;
-                case 'not_contains':
-                    conditionMet = !String(variableValue).includes(String(condition.value));
-                    break;
-            }
-
-            if (conditionMet) {
-                metCondition = {
-                    condition,
-                    value: variableValue
-                };
-                break;
-            }
-        }
-
-        // 3. Determine final result based on evaluation
-        const evaluationResult = metCondition ? {
-            success: true,
-            outputs: {
-                condition_met: metCondition.condition.condition_id,
-                variable_name: metCondition.condition.variable,
-                variable_value: String(metCondition.value),
-                operator: metCondition.condition.operator,
-                comparison_value: String(metCondition.condition.value),
-                target_step_index: String(metCondition.condition.target_step_index),
-                next_step: String(metCondition.condition.target_step_index),
-                action: 'jump'
-            } as Record<string, string>
-        } : {
-            success: true,
-            outputs: {
-                condition_met: 'none',
-                reason: 'No conditions met - continuing to next step',
-                target_step_index: '',  // Empty when continuing to next step
-                next_step: String(activeStep + 1),  // Still track the next step for display
-                action: 'continue'  // Use continue action instead of jump
-            } as Record<string, string>
-        };
-
-        // 4. Store the result in workflow state
-        const updatedOutputs = [...(workflow?.outputs || [])];
-        const evalOutputIndex = updatedOutputs.findIndex(o => o.name === `${currentStep.step_id}_result`);
-        if (evalOutputIndex !== -1) {
-            updatedOutputs[evalOutputIndex].value = evaluationResult.outputs;
-        } else {
-            updatedOutputs.push({
-                variable_id: `${currentStep.step_id}_result`,
-                name: `${currentStep.step_id}_result` as WorkflowVariableName,
-                value: evaluationResult.outputs,
-                schema: { type: 'object', is_array: false },
-                io_type: 'output'
-            });
-        }
-        updateWorkflow({ outputs: updatedOutputs });
-
-        // 5. Mark step as executed and return result
-        setStepExecuted(true);
-        return evaluationResult;
-    };
-
-    const handleExecuteTool = async (currentStep: WorkflowStep): Promise<StepExecutionResult> => {
-        const toolId = currentStep?.tool?.tool_id;
-        if (!toolId) {
-            return {
-                success: false,
-                error: 'No tool configured for this step'
-            };
-        }
-
-        const parameters: ResolvedParameters = {};
-
-        // Collect parameters from mappings
-        if (currentStep.parameter_mappings) {
-            for (const [paramName, varName] of Object.entries(currentStep.parameter_mappings)) {
-                const variable = workflow?.inputs?.find(v => v.name === varName) ||
-                    workflow?.outputs?.find(v => v.name === varName);
-
-                if (variable?.value !== undefined) {
-                    parameters[paramName as ToolParameterName] = variable.value as SchemaValueType;
-                }
-            }
-        }
-
-        // Add prompt template ID for LLM tools
-        if (currentStep.tool?.tool_type === 'llm' && currentStep.prompt_template_id) {
-            parameters['prompt_template_id' as ToolParameterName] = currentStep.prompt_template_id as SchemaValueType;
-        }
-
-        // execute the tool with the resolved parameters
-        const outputs = await toolApi.executeTool(toolId, parameters);
-
-        // Store outputs in workflow variables
-        if (currentStep.output_mappings && workflow?.outputs) {
-            const updatedOutputs = [...workflow.outputs];
-
-            for (const [outputName, varName] of Object.entries(currentStep.output_mappings)) {
-                const value = outputs[outputName as ToolOutputName];
-                const outputVarIndex = updatedOutputs.findIndex(v => v.name === varName);
-
-                if (outputVarIndex !== -1) {
-                    updatedOutputs[outputVarIndex] = {
-                        ...updatedOutputs[outputVarIndex],
-                        value
-                    };
-                }
-            }
-
-            updateWorkflow({ outputs: updatedOutputs });
-        }
-
-        setStepExecuted(true);
-        return {
-            success: true,
-            outputs: outputs as Record<WorkflowVariableName, SchemaValueType>
-        };
-    };
-
-    const handleExecuteStep = async (): Promise<StepExecutionResult> => {
+    const handleExecuteCurrentStep = async (): Promise<StepExecutionResult> => {
         if (!workflow) {
             return {
                 success: false,
@@ -270,22 +115,14 @@ const Workflow: React.FC = () => {
 
         try {
             setIsExecuting(true);
-            // Adjust the index for run mode - subtract 1 to account for input step
-            const stepIndex = !isEditMode ? activeStep - 1 : activeStep;
-            const currentStep = workflow.steps[stepIndex];
-            console.log('Executing step:', currentStep);
+            console.log('Executing current step');
 
-            // Dispatch to appropriate handler based on step type
-            if (currentStep.step_type === WorkflowStepType.ACTION) {
-                return await handleExecuteTool(currentStep);
-            } else if (currentStep.step_type === WorkflowStepType.EVALUATION) {
-                return await handleExecuteEvaluation(currentStep);
-            } else {
-                return {
-                    success: false,
-                    error: `Unsupported step type: ${currentStep.step_type}`
-                };
-            }
+            // Execute step using WorkflowEngine - all state management handled internally
+            const result = await WorkflowEngine.executeCurrentStep();
+
+            // Only track UI execution state
+            setStepExecuted(true);
+            return result;
         } catch (error) {
             console.error('Error executing step:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -305,7 +142,7 @@ const Workflow: React.FC = () => {
             ...step,
             action: async () => {
                 if (index === activeStep) {
-                    return handleExecuteStep();
+                    return handleExecuteCurrentStep();
                 }
                 return {
                     success: false,
@@ -347,7 +184,7 @@ const Workflow: React.FC = () => {
                 return errors;
             }
         };
-    }, [activeStep, stepExecuted, isExecuting, workflow, handleExecuteStep]);
+    }, [activeStep, stepExecuted, isExecuting, workflow, handleExecuteCurrentStep]);
 
     // Memoize the workflow steps
     const workflowSteps = useMemo(() => {
@@ -396,12 +233,12 @@ const Workflow: React.FC = () => {
             updated_at: new Date().toISOString(),
             parameter_mappings: {},
             output_mappings: {},
-            action: handleExecuteStep,
+            action: handleExecuteCurrentStep,
             actionButtonText: () => 'Next Step',
             isDisabled: () => false,
             getValidationErrors: () => []
         } as RuntimeWorkflowStep;
-    }, [workflow, isEditMode, handleExecuteStep]);
+    }, [workflow, isEditMode, handleExecuteCurrentStep]);
 
     // Memoize all steps
     const allSteps = useMemo(() => {
@@ -797,7 +634,7 @@ const Workflow: React.FC = () => {
                                             stepExecuted={stepExecuted}
                                             onBack={handleBack}
                                             onNext={handleNext}
-                                            onExecute={handleExecuteStep}
+                                            onExecute={handleExecuteCurrentStep}
                                             onRestart={handleNewQuestion}
                                         />
                                     )}

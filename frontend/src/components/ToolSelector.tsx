@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Tool } from '../types/tools';
-import { TOOL_TYPES } from '../lib/api/toolApi';
+import { TOOL_TYPES } from '../lib/tool/toolRegistry';
 
 interface ToolSelectorProps {
     tools: Tool[];
