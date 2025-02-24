@@ -59,19 +59,15 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
 
                     {/* Center - Step counter and action buttons */}
                     <div className="flex items-center space-x-4">
-                        {/* Step counter */}
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                            Step {activeStep + 1} of {totalSteps}
-                        </div>
 
                         {/* Action buttons */}
                         {step_type === WorkflowStepType.ACTION && !isInputStep && (
                             <button
                                 onClick={onExecute}
-                                disabled={isLoading || stepExecuted}
+                                disabled={isLoading}
                                 className={`inline-flex items-center justify-center rounded-md
                                           px-3 py-1.5 text-sm font-medium
-                                          ${isLoading || stepExecuted
+                                          ${isLoading
                                         ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
                                         : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30'
                                     }
@@ -89,7 +85,7 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                        <span>Execute Tool</span>
+                                        <span>{stepExecuted ? 'Re-execute Tool' : 'Execute Tool'}</span>
                                     </>
                                 )}
                             </button>

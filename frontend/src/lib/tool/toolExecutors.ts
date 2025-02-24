@@ -82,7 +82,7 @@ export const executePubMedSearch = async (_toolId: string, parameters: ResolvedP
             `Date: ${article.publication_date}\n` +
             `Abstract: ${article.abstract}\n` +
             `URL: ${article.url}`
-        ).join('\n');
+        )
 
         return {
             ['results' as ToolOutputName]: formattedResults as SchemaValueType

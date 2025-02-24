@@ -8,7 +8,7 @@ import {
     Workflow
 } from '../../types/workflows';
 import { ToolParameterName, ToolOutputName } from '../../types/tools';
-import { SchemaValueType } from '../../types/schema';
+import { SchemaValueType, ValueType } from '../../types/schema';
 import { ToolEngine } from '../tool/toolEngine';
 
 export class WorkflowEngine {
@@ -46,29 +46,25 @@ export class WorkflowEngine {
     ): WorkflowVariable[] {
         if (!step.output_mappings) return workflowOutputs;
 
-        const updatedOutputs = [...workflowOutputs];
+        // Deep copy the workflow outputs
+        // const updatedOutputs = workflowOutputs.map(output => ({
+        //     ...output,
+        //     schema: { ...output.schema },
+        //     value: output.value !== undefined ? JSON.parse(JSON.stringify(output.value)) : undefined
+        // }));
 
+        const updatedOutputs = workflowOutputs;
         for (const [outputName, varName] of Object.entries(step.output_mappings)) {
-            const typedOutputName = outputName as ToolOutputName;
-            if (typedOutputName in outputs) {
-                const outputVarIndex = updatedOutputs.findIndex(v => v.name === varName);
-                if (outputVarIndex !== -1) {
-                    updatedOutputs[outputVarIndex] = {
-                        ...updatedOutputs[outputVarIndex],
-                        value: outputs[typedOutputName]
-                    };
-                } else {
-                    updatedOutputs.push({
-                        variable_id: `${step.step_id}_${outputName}`,
-                        name: varName as WorkflowVariableName,
-                        value: outputs[typedOutputName],
-                        schema: { type: 'object', is_array: false },
-                        io_type: 'output'
-                    });
-                }
+            const value = outputs[outputName as ToolOutputName];
+            const outputVarIndex = updatedOutputs.findIndex(v => v.name === varName);
+
+            if (outputVarIndex !== -1) {
+                updatedOutputs[outputVarIndex] = {
+                    ...updatedOutputs[outputVarIndex],
+                    value
+                };
             }
         }
-
         return updatedOutputs;
     }
 
@@ -179,6 +175,8 @@ export class WorkflowEngine {
         workflow: Workflow,
         updateWorkflow: (updates: Partial<Workflow>) => void
     ): Promise<StepExecutionResult> {
+
+
         try {
             // Handle evaluation steps
             if (step.step_type === WorkflowStepType.EVALUATION) {
@@ -212,6 +210,7 @@ export class WorkflowEngine {
             // Execute the tool
             const toolResult = await ToolEngine.executeTool(step.tool, parameters);
 
+            console.log('toolResult', toolResult);
             // Update workflow outputs with tool results
             if (toolResult) {
                 const updatedOutputs = this.updateWorkflowOutputs(step, toolResult, workflow.outputs || []);

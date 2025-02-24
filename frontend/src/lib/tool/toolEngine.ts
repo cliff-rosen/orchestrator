@@ -2,8 +2,7 @@ import {
     Tool,
     ToolOutputs,
     ToolOutputName,
-    ResolvedParameters,
-    LLMParameters
+    ResolvedParameters
 } from '../../types/tools';
 import { SchemaValueType } from '../../types/schema';
 import { getToolExecutor } from './toolRegistry';
