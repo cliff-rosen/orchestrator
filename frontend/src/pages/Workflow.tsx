@@ -109,22 +109,13 @@ const Workflow: React.FC = () => {
             setIsExecuting(true);
             console.log('Executing current step');
 
-            // Get current step
-            const stepIndex = !isEditMode ? activeStep - 1 : activeStep;
-            const currentStep = workflow.steps[stepIndex];
-            if (!currentStep) {
-                return {
-                    success: false,
-                    error: 'Invalid step index'
-                };
-            }
-
             // Execute step using WorkflowEngine - all state management handled internally
-            const result = await WorkflowEngine.executeStep(currentStep, workflow, updateWorkflow);
+            const result = await WorkflowEngine.executeStep(workflow, activeStep - 1, updateWorkflow);
 
             // Only track UI execution state
             setStepExecuted(true);
             return result;
+
         } catch (error) {
             console.error('Error executing step:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';

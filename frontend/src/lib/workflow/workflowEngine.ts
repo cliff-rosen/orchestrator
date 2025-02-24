@@ -15,7 +15,7 @@ export class WorkflowEngine {
     /**
      * Resolves parameter mappings for a workflow step
      */
-    private static resolveParameters(
+    private static getResolvedParameters(
         step: WorkflowStep,
         inputs: WorkflowVariable[],
         outputs: WorkflowVariable[]
@@ -39,7 +39,7 @@ export class WorkflowEngine {
     /**
      * Updates workflow outputs with tool results
      */
-    private static updateWorkflowOutputs(
+    private static getUpdatedWorkflowOutputs(
         step: WorkflowStep,
         outputs: Record<string, any>,
         workflowOutputs: WorkflowVariable[]
@@ -171,13 +171,50 @@ export class WorkflowEngine {
      * Executes a workflow step and manages workflow state
      */
     static async executeStep(
-        step: WorkflowStep,
         workflow: Workflow,
+        stepIndex: number,
         updateWorkflow: (updates: Partial<Workflow>) => void
     ): Promise<StepExecutionResult> {
-
-
         try {
+            // Get the step from workflow
+            const step = workflow.steps[stepIndex];
+            if (!step) {
+                return {
+                    success: false,
+                    error: 'Invalid step index'
+                };
+            }
+
+            // Clear outputs that correspond to this step
+            if (workflow.outputs && step.output_mappings) {
+                const updatedOutputs = workflow.outputs.map(output => {
+                    // If this output is mapped from the current step, clear its value
+                    if (Object.values(step.output_mappings!).includes(output.name)) {
+                        return {
+                            ...output,
+                            value: undefined
+                        };
+                    }
+                    return output;
+                });
+                updateWorkflow({ outputs: updatedOutputs });
+            }
+
+            // Also clear evaluation-specific outputs if this is an evaluation step
+            if (step.step_type === WorkflowStepType.EVALUATION && workflow.outputs) {
+                const evaluationOutputName = `${step.step_id}_result`;
+                const updatedOutputs = workflow.outputs.map(output => {
+                    if (output.name === evaluationOutputName) {
+                        return {
+                            ...output,
+                            value: undefined
+                        };
+                    }
+                    return output;
+                });
+                updateWorkflow({ outputs: updatedOutputs });
+            }
+
             // Handle evaluation steps
             if (step.step_type === WorkflowStepType.EVALUATION) {
                 const variables = this.collectVariables(workflow.inputs || [], workflow.outputs || []);
@@ -185,7 +222,7 @@ export class WorkflowEngine {
 
                 // Store evaluation result in workflow outputs
                 if (result.success && result.outputs) {
-                    const updatedOutputs = this.updateWorkflowOutputs(step, result.outputs, workflow.outputs || []);
+                    const updatedOutputs = this.getUpdatedWorkflowOutputs(step, result.outputs, workflow.outputs || []);
                     updateWorkflow({ outputs: updatedOutputs });
                 }
 
@@ -200,7 +237,7 @@ export class WorkflowEngine {
                 };
             }
 
-            const parameters = this.resolveParameters(step, workflow.inputs || [], workflow.outputs || []);
+            const parameters = this.getResolvedParameters(step, workflow.inputs || [], workflow.outputs || []);
 
             // Add prompt template ID for LLM tools
             if (step.tool.tool_type === 'llm' && step.prompt_template_id) {
@@ -213,7 +250,7 @@ export class WorkflowEngine {
             console.log('toolResult', toolResult);
             // Update workflow outputs with tool results
             if (toolResult) {
-                const updatedOutputs = this.updateWorkflowOutputs(step, toolResult, workflow.outputs || []);
+                const updatedOutputs = this.getUpdatedWorkflowOutputs(step, toolResult, workflow.outputs || []);
                 updateWorkflow({ outputs: updatedOutputs });
             }
 
