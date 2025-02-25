@@ -16,6 +16,11 @@ const ToolSelector: React.FC<ToolSelectorProps> = ({
 
     const [selectedToolType, setSelectedToolType] = useState<string | null>(selectedTool?.tool_type || null);
 
+    // Update selectedToolType when selectedTool changes
+    useEffect(() => {
+        setSelectedToolType(selectedTool?.tool_type || null);
+    }, [selectedTool]);
+
     // Function to get the tool type config
     const getToolTypeConfig = (typeId: string) => {
         return TOOL_TYPES.find(type => type.tool_type_id === typeId);
