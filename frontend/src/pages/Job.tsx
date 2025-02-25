@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useJobs } from '../context/JobsContext';
 import { useWorkflows } from '../context/WorkflowContext';
 
-import { JobStatus, JobVariable } from '../types/jobs';
+import { JobStatus } from '../types/jobs';
 import { JobProgress } from '../components/job/JobProgress';
 import { JobStepDetails } from '../components/job/JobStepDetails';
 import { JobLiveOutput } from '../components/job/JobLiveOutput';
@@ -17,7 +17,7 @@ const Job: React.FC = () => {
     const {
         currentJob,
         loadJob,
-        startJob,
+        runJob,
         cancelJob,
         resetJob,
         resetCurrentJob,
@@ -98,19 +98,19 @@ const Job: React.FC = () => {
         if (needsInput) {
             if (!validateInputs()) return;
 
-            console.log('Starting job with variables:', currentJob.job_id);
+            console.log('Running job with variables:', currentJob.job_id);
 
             try {
-                await startJob();
+                await runJob();
             } catch (error) {
-                console.error('Failed to start job:', error);
+                console.error('Failed to run job:', error);
             }
         } else {
-            console.log('Starting job without variables');
+            console.log('Running job without variables');
             try {
-                await startJob();
+                await runJob();
             } catch (error) {
-                console.error('Failed to start job:', error);
+                console.error('Failed to run job:', error);
             }
         }
     };

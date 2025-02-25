@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult, JobId, JobStepId, JobStep } from '../types/jobs';
-import { WorkflowVariable, WorkflowVariableName, WorkflowStepType, Workflow, WorkflowStatus, WorkflowStep, WorkflowStepId } from '../types/workflows';
-import { SchemaValueType, ValueType } from '../types/schema';
+import { WorkflowVariable, WorkflowVariableName, WorkflowStepType } from '../types/workflows';
+import { SchemaValueType } from '../types/schema';
 import { useWorkflows } from './WorkflowContext';
 import { toolApi } from '../lib/api/toolApi';
-import { WorkflowEngine } from '../lib/workflow/workflowEngine';
 
 interface JobError {
     message: string;
@@ -32,7 +31,7 @@ interface JobsContextValue extends JobsContextState {
     deleteJob: (jobId: string) => Promise<void>;
 
     // Job Execution
-    runJob: () => Promise<void>;
+    startJob: () => Promise<void>;
     executeStep: (stepIndex: number, jobOutputs: Record<WorkflowVariableName, SchemaValueType>, inputVariables?: JobVariable[]) => Promise<StepExecutionResult>;
     cancelJob: (jobId: string) => Promise<void>;
     resetJob: (jobId: string) => Promise<void>;
@@ -50,68 +49,6 @@ interface JobsContextValue extends JobsContextState {
 }
 
 const JobsContext = createContext<JobsContextValue | undefined>(undefined);
-
-// Helper function to convert Job to Workflow format
-const jobToWorkflow = (job: Job, inputs: WorkflowVariable[], outputs: WorkflowVariable[]): Workflow => {
-    // Convert JobStepId to WorkflowStepId (they're branded types)
-    const convertedSteps = job.steps.map(step => {
-        // Only include properties that exist in WorkflowStep
-        const workflowStep: WorkflowStep = {
-            step_id: `workflow-${step.step_id}` as WorkflowStepId,
-            workflow_id: job.workflow_id,
-            label: step.label,
-            description: step.description,
-            step_type: step.step_type,
-            sequence_number: step.sequence_number,
-            parameter_mappings: step.parameter_mappings || {},
-            output_mappings: step.output_mappings || {},
-            tool: step.tool,
-            tool_id: step.tool_id,
-            prompt_template_id: step.prompt_template_id,
-            evaluation_config: step.evaluation_config,
-            created_at: step.started_at || new Date().toISOString(),
-            updated_at: step.completed_at || new Date().toISOString()
-        };
-        return workflowStep;
-    });
-
-    // Only include properties that exist in Workflow
-    return {
-        workflow_id: job.workflow_id,
-        name: job.name,
-        description: job.description,
-        status: WorkflowStatus.DRAFT,
-        steps: convertedSteps,
-        inputs,
-        outputs
-    };
-};
-
-// Helper function to convert workflow step to job step
-const workflowStepToJobStep = (step: WorkflowStep, jobId: JobId): JobStep => {
-    // Convert WorkflowStepId to JobStepId (they're branded types)
-    const jobStepId = step.step_id.replace('workflow-', '') as JobStepId;
-
-    return {
-        step_id: jobStepId,
-        job_id: jobId,
-        label: step.label,
-        description: step.description,
-        step_type: step.step_type,
-        sequence_number: step.sequence_number,
-        parameter_mappings: step.parameter_mappings,
-        output_mappings: step.output_mappings,
-        tool: step.tool,
-        tool_id: step.tool_id,
-        prompt_template_id: step.prompt_template_id,
-        evaluation_config: step.evaluation_config,
-        status: JobStatus.RUNNING,
-        error_message: undefined,
-        output_data: undefined,
-        started_at: undefined,
-        completed_at: undefined
-    };
-};
 
 export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const navigate = useNavigate();
@@ -616,10 +553,10 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [state.currentJob, state.jobs]);
 
-    const runJob = useCallback(async (): Promise<void> => {
+    const startJob = useCallback(async (): Promise<void> => {
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
         try {
-            console.log('JobsContext.tsx runJob');
+            console.log('JobsContext.tsx startJob');
             const job = state.currentJob;
             if (!job) {
                 const error: JobError = {
@@ -683,10 +620,12 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 executionState: initialExecutionState
             }));
 
-            // Execute steps using WorkflowEngine
+            // Execute steps sequentially
             let currentStep = 0;
             const jobOutputs: Record<WorkflowVariableName, SchemaValueType> = {};
+            const stepJumpCounts: Record<string, number> = {}; // Track jumps per step
 
+            console.log('******************** ENTERING WHILE LOOP ********************');
             while (currentStep < updatedJob.steps.length) {
                 try {
                     // Update live output to show progress
@@ -698,46 +637,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         }
                     }));
 
-                    // Execute step using WorkflowEngine
-                    const workflowInputs = preparedInputVariables.map(v => ({
-                        ...v,
-                        io_type: 'input' as const
-                    }));
-
-                    const workflowOutputs = Object.entries(jobOutputs).map(([name, value]) => ({
-                        name: name as WorkflowVariableName,
-                        variable_id: name,
-                        value,
-                        io_type: 'output' as const,
-                        schema: { type: typeof value as ValueType, is_array: Array.isArray(value) }
-                    }));
-
-                    const stepResult = await WorkflowEngine.executeStep(
-                        jobToWorkflow(updatedJob, workflowInputs, workflowOutputs),
-                        currentStep,
-                        (updates: Partial<Workflow>) => {
-                            setState(prev => {
-                                const currentJob = prev.currentJob;
-                                if (!currentJob) return prev;
-
-                                // Convert workflow steps to job steps
-                                const updatedSteps = updates.steps?.map(step =>
-                                    workflowStepToJobStep(step, currentJob.job_id)
-                                ) || currentJob.steps;
-
-                                const updatedJob = {
-                                    ...currentJob,
-                                    steps: updatedSteps
-                                };
-
-                                return {
-                                    ...prev,
-                                    jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
-                                    currentJob: updatedJob
-                                };
-                            });
-                        }
-                    );
+                    console.log('******************** EXECUTING STEP ********************');
+                    const stepResult = await executeStep(currentStep, jobOutputs, preparedInputVariables);
 
                     // Update job outputs
                     if (stepResult.outputs) {
@@ -777,18 +678,56 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         break;
                     }
 
-                    // Get next step from WorkflowEngine
-                    const nextStep = WorkflowEngine.getNextStepIndex(
-                        jobToWorkflow(updatedJob, workflowInputs, workflowOutputs),
-                        currentStep
-                    );
+                    // Handle step result and determine next step
+                    const step = updatedJob.steps[currentStep];
+                    if (step.step_type === WorkflowStepType.EVALUATION && stepResult.outputs) {
+                        const evalResult = stepResult.outputs as Record<string, string>;
 
-                    if (nextStep === currentStep) {
-                        // If we're not progressing, something went wrong
-                        throw new Error('Workflow execution stuck - no progress being made');
+                        if (evalResult.action === 'jump' && evalResult.target_step_index) {
+                            // Convert target_step_index from string to number
+                            const targetStep = parseInt(evalResult.target_step_index);
+
+                            // Check if we've exceeded maximum jumps for this step
+                            const stepId = step.step_id;
+                            stepJumpCounts[stepId] = (stepJumpCounts[stepId] || 0) + 1;
+
+                            const maxJumps = step.evaluation_config?.maximum_jumps ?? 1;
+                            const shouldForceProgress = maxJumps > 0 && stepJumpCounts[stepId] >= maxJumps;
+
+                            if (!shouldForceProgress && !isNaN(targetStep) && targetStep >= 0 && targetStep < updatedJob.steps.length) {
+                                currentStep = targetStep;
+                                setState(prev => ({
+                                    ...prev,
+                                    executionState: {
+                                        ...prev.executionState!,
+                                        live_output: `Evaluation condition met: Jumping to step ${targetStep + 1}`
+                                    }
+                                }));
+                                continue; // Skip increment and continue loop with new step index
+                            } else if (shouldForceProgress) {
+                                setState(prev => ({
+                                    ...prev,
+                                    executionState: {
+                                        ...prev.executionState!,
+                                        live_output: `Maximum jumps (${maxJumps}) reached for step ${currentStep + 1}: Forcing continue`
+                                    }
+                                }));
+                            }
+                        } else if (evalResult.action === 'end') {
+                            setState(prev => ({
+                                ...prev,
+                                executionState: {
+                                    ...prev.executionState!,
+                                    live_output: 'Evaluation result: End workflow execution'
+                                }
+                            }));
+                            break; // Exit loop early
+                        }
+                        // For 'continue' action or invalid jump target, fall through to increment step
                     }
 
-                    currentStep = nextStep;
+                    // Only increment step if we haven't jumped or ended
+                    currentStep++;
 
                 } catch (error) {
                     const jobError: JobError = {
@@ -839,8 +778,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
         } catch (error) {
             const jobError: JobError = {
-                message: error instanceof Error ? error.message : 'Failed to run job',
-                code: 'JOB_RUN_ERROR',
+                message: error instanceof Error ? error.message : 'Failed to start job',
+                code: 'JOB_START_ERROR',
                 details: error instanceof Error ? error.stack : undefined
             };
             setState(prev => ({
@@ -850,7 +789,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }));
             throw error;
         }
-    }, [state.currentJob, state.jobs, state.inputValues]);
+    }, [state.currentJob, state.jobs, state.inputValues, executeStep]);
 
     const cancelJob = useCallback(async (jobId: string): Promise<void> => {
         setState(prev => {
@@ -1003,7 +942,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         getJob,
         createJob,
         deleteJob,
-        runJob,
+        startJob,
         executeStep,
         cancelJob,
         resetJob,

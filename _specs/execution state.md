@@ -36,3 +36,5 @@ Additional Notes:
 - Both job.execution_progress and jobcontext.executionState track progress, but the context version is for live updates while the job version is for persistence
 - The JobContext executionState provides real-time execution tracking while Job fields provide persistent storage
 - Step results are accumulated in jobcontext.executionState.step_results during execution
+
+
