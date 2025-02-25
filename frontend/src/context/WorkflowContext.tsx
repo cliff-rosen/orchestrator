@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId, WorkflowStep, WorkflowVariable, ToolParameterName, ToolOutputName, WorkflowVariableName, Tool } from '../types';
+import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId, WorkflowVariable, ToolParameterName, ToolOutputName, WorkflowVariableName, Tool, StepExecutionResult } from '../types';
 import { workflowApi } from '../lib/api';
+import { WorkflowEngine } from '../lib/workflow/workflowEngine';
 
 interface WorkflowContextType {
     // Public State
@@ -11,6 +12,8 @@ interface WorkflowContextType {
     error: string | null
     activeStep: number
     setActiveStep: (step: number) => void
+    isExecuting: boolean
+    stepExecuted: boolean
 
     // User Operations
     loadWorkflows(): Promise<void>
@@ -28,6 +31,12 @@ interface WorkflowContextType {
             tool?: Tool
         }
     }): void
+
+    // Workflow Execution
+    executeCurrentStep(): Promise<StepExecutionResult>
+    moveToNextStep(): void
+    moveToPreviousStep(): void
+    resetWorkflow(): void
 }
 
 const WorkflowContext = createContext<WorkflowContextType | undefined>(undefined);
@@ -40,6 +49,8 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [activeStep, setActiveStep] = useState(0);
+    const [isExecuting, setIsExecuting] = useState(false);
+    const [stepExecuted, setStepExecuted] = useState(false);
     // Add state to track original workflow
     const [originalWorkflow, setOriginalWorkflow] = useState<Workflow | null>(null);
 
@@ -319,6 +330,62 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
     }, [originalWorkflow]); // Now we only depend on originalWorkflow
 
+    // Workflow Execution Methods
+    const executeCurrentStep = useCallback(async (): Promise<StepExecutionResult> => {
+        if (!workflow) {
+            return {
+                success: false,
+                error: 'No workflow loaded'
+            };
+        }
+
+        try {
+            setIsExecuting(true);
+            setError(null);
+
+            // Execute step using WorkflowEngine - all state management handled internally
+            const result = await WorkflowEngine.executeStep(workflow, activeStep - 1, updateWorkflow);
+
+            // Track UI execution state
+            setStepExecuted(true);
+            return result;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            setError(errorMessage);
+            return {
+                success: false,
+                error: errorMessage
+            };
+        } finally {
+            setIsExecuting(false);
+        }
+    }, [workflow, activeStep, updateWorkflow]);
+
+    const moveToNextStep = useCallback(() => {
+        if (!workflow) return;
+        const nextStep = WorkflowEngine.getNextStepIndex(workflow, activeStep);
+        setActiveStep(nextStep);
+        setStepExecuted(false);
+    }, [workflow, activeStep]);
+
+    const moveToPreviousStep = useCallback(() => {
+        setActiveStep(Math.max(0, activeStep - 1));
+        setStepExecuted(false);
+    }, [activeStep]);
+
+    const resetWorkflow = useCallback(() => {
+        if (!workflow?.outputs) return;
+
+        // Clear all output values
+        const clearedOutputs = workflow.outputs.map(output => ({
+            ...output,
+            value: undefined
+        }));
+        updateWorkflow({ outputs: clearedOutputs });
+        setActiveStep(0);
+        setStepExecuted(false);
+    }, [workflow, updateWorkflow]);
+
     // Initial load
     useEffect(() => {
         loadWorkflows();
@@ -333,6 +400,8 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         error,
         activeStep,
         setActiveStep,
+        isExecuting,
+        stepExecuted,
 
         // User Operations
         createWorkflow,
@@ -341,7 +410,13 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateWorkflow,
         saveWorkflow,
         exitWorkflow,
-        updateWorkflowState
+        updateWorkflowState,
+
+        // Workflow Execution
+        executeCurrentStep,
+        moveToNextStep,
+        moveToPreviousStep,
+        resetWorkflow
     };
 
     return (

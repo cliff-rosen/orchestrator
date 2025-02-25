@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Tool } from '../types/tools';
+import { Tool, ToolType } from '../types/tools';
 import { TOOL_TYPES } from '../lib/tool/toolRegistry';
 
 interface ToolSelectorProps {
@@ -14,17 +14,18 @@ const ToolSelector: React.FC<ToolSelectorProps> = ({
     onSelect
 }) => {
 
-    const [selectedToolType, setSelectedToolType] = useState<string | null>(selectedTool?.tool_type || null);
-
-    // Update selectedToolType when selectedTool changes
-    useEffect(() => {
-        setSelectedToolType(selectedTool?.tool_type || null);
-    }, [selectedTool]);
+    const [selectedToolType, setSelectedToolType] = useState<string | undefined>(selectedTool?.tool_type || undefined);
 
     // Function to get the tool type config
     const getToolTypeConfig = (typeId: string) => {
         return TOOL_TYPES.find(type => type.tool_type_id === typeId);
     };
+
+    useEffect(() => {
+        if (selectedTool) {
+            setSelectedToolType(selectedTool.tool_type);
+        }
+    }, [selectedTool]);
 
     // Function to check if a tool belongs to a type
     const isToolOfType = (tool: Tool, typeId: string) => {
@@ -45,7 +46,6 @@ const ToolSelector: React.FC<ToolSelectorProps> = ({
                         <button
                             key={type.tool_type_id}
                             onClick={() => {
-                                setSelectedToolType(type.tool_type_id);
                                 // If LLM is selected, automatically set the LLM tool
                                 if (type.tool_type_id === 'llm') {
                                     const llmTool = tools.find(t => t.tool_type === 'llm');
@@ -53,6 +53,7 @@ const ToolSelector: React.FC<ToolSelectorProps> = ({
                                 } else {
                                     // For other tool types, clear the selected tool
                                     onSelect(undefined);
+                                    setSelectedToolType(type.tool_type_id);
                                 }
                             }}
                             className={`px-2 py-1.5 rounded-lg border-2 transition-all duration-200 text-left

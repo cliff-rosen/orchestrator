@@ -6,13 +6,11 @@ import {
     WorkflowStep,
     WorkflowStepType,
     RuntimeWorkflowStep,
-    WorkflowStepId,
-    StepExecutionResult
+    WorkflowStepId
 } from '../types/workflows';
 
-// Context and engines
+// Context
 import { useWorkflows } from '../context/WorkflowContext';
-import { WorkflowEngine } from '../lib/workflow/workflowEngine';
 
 // Page components
 import WorkflowConfig from '../components/WorkflowConfig';
@@ -20,8 +18,6 @@ import WorkflowStepsList from '../components/WorkflowStepsList';
 import StepDetail from '../components/StepDetail';
 import WorkflowNavigation from '../components/WorkflowNavigation';
 import WorkflowMenuBar from '../components/WorkflowMenuBar';
-
-
 
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
@@ -33,21 +29,24 @@ const Workflow: React.FC = () => {
         loadWorkflow,
         isLoading,
         activeStep,
-        setActiveStep
+        setActiveStep,
+        isExecuting,
+        stepExecuted,
+        executeCurrentStep,
+        moveToNextStep,
+        moveToPreviousStep,
+        resetWorkflow
     } = useWorkflows();
 
     // State
-    const [stepExecuted, setStepExecuted] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(true);
-    const [isExecuting, setIsExecuting] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(() => {
         // Initialize from localStorage, default to false if not set
         const saved = localStorage.getItem('workflowNavCollapsed');
         return saved ? JSON.parse(saved) : false;
     });
-
 
     // Initialize workflow based on URL parameter
     useEffect(() => {
@@ -85,50 +84,10 @@ const Workflow: React.FC = () => {
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasUnsavedChanges]);
 
-    // Reset stepExecuted when active step changes
-    useEffect(() => {
-        setStepExecuted(false);
-    }, [activeStep]);
-
     // Save collapse state to localStorage whenever it changes
     useEffect(() => {
         localStorage.setItem('workflowNavCollapsed', JSON.stringify(isCollapsed));
     }, [isCollapsed]);
-
-    //////////////////////// Handlers ////////////////////////
-
-    const handleExecuteCurrentStep = async (): Promise<StepExecutionResult> => {
-        console.log('handleExecuteCurrentStep called');
-        if (!workflow) {
-            return {
-                success: false,
-                error: 'No workflow loaded'
-            };
-        }
-
-        try {
-            setIsExecuting(true);
-            console.log('Executing current step');
-
-            // Execute step using WorkflowEngine - all state management handled internally
-            const result = await WorkflowEngine.executeStep(workflow, activeStep - 1, updateWorkflow);
-
-            // Only track UI execution state
-            setStepExecuted(true);
-            return result;
-
-        } catch (error) {
-            console.error('Error executing step:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            setError(errorMessage);
-            return {
-                success: false,
-                error: errorMessage
-            };
-        } finally {
-            setIsExecuting(false);
-        }
-    };
 
     // Memoize the createRuntimeStep function
     const createRuntimeStep = useCallback((step: WorkflowStep, index: number): RuntimeWorkflowStep => {
@@ -136,7 +95,7 @@ const Workflow: React.FC = () => {
             ...step,
             action: async () => {
                 if (index === activeStep) {
-                    return handleExecuteCurrentStep();
+                    return executeCurrentStep();
                 }
                 return {
                     success: false,
@@ -178,7 +137,7 @@ const Workflow: React.FC = () => {
                 return errors;
             }
         };
-    }, [activeStep, stepExecuted, isExecuting, workflow, handleExecuteCurrentStep]);
+    }, [activeStep, stepExecuted, isExecuting, workflow, executeCurrentStep]);
 
     // Memoize the workflow steps
     const workflowSteps = useMemo(() => {
@@ -218,12 +177,12 @@ const Workflow: React.FC = () => {
             updated_at: new Date().toISOString(),
             parameter_mappings: {},
             output_mappings: {},
-            action: handleExecuteCurrentStep,
+            action: executeCurrentStep,
             actionButtonText: () => 'Next Step',
             isDisabled: () => false,
             getValidationErrors: () => []
         } as RuntimeWorkflowStep;
-    }, [workflow, isEditMode, handleExecuteCurrentStep]);
+    }, [workflow, isEditMode, executeCurrentStep]);
 
     // Memoize all steps
     const allSteps = useMemo(() => {
@@ -257,6 +216,8 @@ const Workflow: React.FC = () => {
             parameter_mappings: currentStep.parameter_mappings
         });
     }, [allSteps, currentStep]);
+
+    //////////////////////// Handlers ////////////////////////
 
     const handleStepReorder = (reorderedSteps: RuntimeWorkflowStep[]) => {
         if (!workflow) return;
@@ -370,27 +331,15 @@ const Workflow: React.FC = () => {
     };
 
     const handleNext = async (): Promise<void> => {
-        if (!workflow) return;
-        const nextStep = WorkflowEngine.getNextStepIndex(workflow, activeStep);
-        setActiveStep(nextStep);
-        setStepExecuted(false);
+        moveToNextStep();
     };
 
     const handleBack = () => {
-        setActiveStep(Math.max(0, activeStep - 1));
-        setStepExecuted(false);
+        moveToPreviousStep();
     };
 
     const handleNewQuestion = async (): Promise<void> => {
-        // Clear all output values
-        if (workflow?.outputs) {
-            const clearedOutputs = workflow.outputs.map(output => ({
-                ...output,
-                value: undefined
-            }));
-            updateWorkflow({ outputs: clearedOutputs });
-        }
-        setActiveStep(0);
+        resetWorkflow();
     };
 
     const handleStepClick = (index: number) => {
@@ -607,7 +556,7 @@ const Workflow: React.FC = () => {
                                             stepExecuted={stepExecuted}
                                             onBack={handleBack}
                                             onNext={handleNext}
-                                            onExecute={handleExecuteCurrentStep}
+                                            onExecute={executeCurrentStep}
                                             onRestart={handleNewQuestion}
                                         />
                                     )}

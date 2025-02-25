@@ -20,14 +20,14 @@ export const TOOL_TYPES = [
     {
         tool_type_id: 'llm',
         name: 'LLM',
-        description: 'Language Model tools for text generation and processing',
+        description: '',
         icon: '🤖',
         requiresTemplate: true
     },
     {
         tool_type_id: 'search',
         name: 'Search',
-        description: 'Tools for searching and retrieving information',
+        description: '',
         icon: '🔍',
         tools: [
             { tool_id: 'search', name: 'Web Search', description: 'Search the web for information' },
@@ -36,7 +36,7 @@ export const TOOL_TYPES = [
     {
         tool_type_id: 'api',
         name: 'API',
-        description: 'External API integrations and data processing',
+        description: '',
         icon: '🔌',
         tools: [
             { tool_id: 'rest-api', name: 'REST API', description: 'Make REST API calls' },
@@ -46,7 +46,7 @@ export const TOOL_TYPES = [
     {
         tool_type_id: 'utility',
         name: 'Utils',
-        description: 'Utility tools for basic operations',
+        description: '',
         icon: '🛠️',
         tools: [
             { tool_id: 'echo', name: 'Echo', description: 'Echo input to output' },
