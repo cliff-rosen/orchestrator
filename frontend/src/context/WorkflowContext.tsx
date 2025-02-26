@@ -271,6 +271,11 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
             const newWorkflow = WorkflowEngine.updateWorkflowByAction(currentWorkflow, action);
 
+            // Set active step to the new step when adding a step
+            if (action.type === 'ADD_STEP') {
+                setActiveStep(newWorkflow.steps.length - 1);
+            }
+
             // Compare with original workflow to determine if there are unsaved changes
             if (originalWorkflow) {
                 const hasChanges = JSON.stringify(newWorkflow) !== JSON.stringify(originalWorkflow);

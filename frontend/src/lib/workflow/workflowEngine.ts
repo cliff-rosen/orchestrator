@@ -375,10 +375,10 @@ export class WorkflowEngine {
     static updateWorkflowByAction(workflow: Workflow, action: WorkflowStateAction): Workflow {
         switch (action.type) {
             case 'ADD_STEP':
-                if (!action.payload.newStep) return workflow;
+                const newStep = WorkflowEngine.createNewStep(workflow);
                 return {
                     ...workflow,
-                    steps: [...workflow.steps, action.payload.newStep]
+                    steps: [...workflow.steps, newStep]
                 };
 
             case 'REORDER_STEPS':

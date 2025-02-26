@@ -242,15 +242,10 @@ const Workflow: React.FC = () => {
     const handleAddStep = () => {
         if (!workflow) return;
 
-        const newStep = WorkflowEngine.createNewStep(workflow);
         updateWorkflowByAction({
             type: 'ADD_STEP',
-            payload: {
-                newStep
-            }
+            payload: {}
         });
-        // Set the new step as active
-        setActiveStep(workflow.steps.length);
     };
 
     const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {
