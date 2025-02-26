@@ -24,7 +24,7 @@ interface WorkflowContextType {
     saveWorkflow(): Promise<void>
     exitWorkflow(): void
     // New granular update method
-    updateWorkflowState(action: {
+    updateWorkflowByAction(action: {
         type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE',
         payload: {
             stepId: string,
@@ -254,7 +254,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         sessionStorage.removeItem('originalWorkflow');
     }, []);
 
-    const updateWorkflowState = useCallback((action: {
+    const updateWorkflowByAction = useCallback((action: {
         type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE',
         payload: {
             stepId: string,
@@ -265,7 +265,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setWorkflow(currentWorkflow => {
             if (!currentWorkflow) return null;
 
-            const newWorkflow = WorkflowEngine.updateWorkflowState(currentWorkflow, action);
+            const newWorkflow = WorkflowEngine.updateWorkflowByAction(currentWorkflow, action);
 
             // Compare with original workflow to determine if there are unsaved changes
             if (originalWorkflow) {
@@ -358,7 +358,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateWorkflow,
         saveWorkflow,
         exitWorkflow,
-        updateWorkflowState,
+        updateWorkflowByAction,
 
         // Workflow Execution
         executeCurrentStep,

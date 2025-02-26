@@ -343,7 +343,7 @@ export class WorkflowEngine {
     /**
      * Updates workflow state based on an action
      */
-    static updateWorkflowState(workflow: Workflow, action: WorkflowStateAction): Workflow {
+    static updateWorkflowByAction(workflow: Workflow, action: WorkflowStateAction): Workflow {
         return {
             ...workflow,
             steps: workflow.steps.map(step => {

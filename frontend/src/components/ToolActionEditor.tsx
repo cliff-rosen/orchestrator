@@ -18,16 +18,16 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
     tools,
     onStepUpdate
 }) => {
-    const { workflow, updateWorkflow, updateWorkflowState } = useWorkflows();
+    const { workflow, updateWorkflow, updateWorkflowByAction } = useWorkflows();
 
     const handleToolSelect = (tool: Tool | undefined) => {
         console.log('handleToolSelect', tool);
 
-        updateWorkflowState({
+        updateWorkflowByAction({
             type: 'UPDATE_STEP_TOOL',
             payload: {
                 stepId: step.step_id,
-                tool: tool
+                tool
             }
         });
     };
@@ -44,23 +44,22 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
         }
     };
 
-    const handleParameterMappingChange = (mappings: Record<string, string>) => {
-        console.log('handleParameterMappingChange', mappings);
-        updateWorkflowState({
+    const handleParameterMappingChange = (parameterMappings: Record<ToolParameterName, WorkflowVariableName>) => {
+        updateWorkflowByAction({
             type: 'UPDATE_PARAMETER_MAPPINGS',
             payload: {
                 stepId: step.step_id,
-                mappings: mappings as Record<ToolParameterName, WorkflowVariableName>
+                mappings: parameterMappings
             }
         });
     };
 
-    const handleOutputMappingChange = (mappings: Record<string, string>) => {
-        updateWorkflowState({
+    const handleOutputMappingChange = (outputMappings: Record<ToolOutputName, WorkflowVariableName>) => {
+        updateWorkflowByAction({
             type: 'UPDATE_OUTPUT_MAPPINGS',
             payload: {
                 stepId: step.step_id,
-                mappings: mappings as Record<ToolOutputName, WorkflowVariableName>
+                mappings: outputMappings
             }
         });
     };

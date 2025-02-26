@@ -23,7 +23,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     const [tools, setTools] = useState<Tool[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const { updateWorkflowState } = useWorkflows();
+    const { updateWorkflowByAction } = useWorkflows();
 
     useEffect(() => {
         const loadTools = async () => {
@@ -42,7 +42,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     }, []);
 
     const handleTypeChange = () => {
-        updateWorkflowState({
+        updateWorkflowByAction({
             type: 'UPDATE_STEP_TYPE',
             payload: {
                 stepId: step.step_id
