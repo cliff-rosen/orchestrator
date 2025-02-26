@@ -25,7 +25,7 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
         if (!isExecuted || !workflow?.state) return null;
         // Use the new shorter format for evaluation result variables
         const shortStepId = step.step_id.slice(0, 8);
-        return workflow.state.find(o => o.name === `${shortStepId}_eval`)?.value as EvaluationResult | undefined;
+        return workflow.state.find(o => o.name === `eval_${shortStepId}`)?.value as EvaluationResult | undefined;
     }, [isExecuted, workflow?.state, step.step_id]);
 
     if (!step.evaluation_config) {
@@ -48,7 +48,7 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
                 <div className="space-y-4">
                     {step.evaluation_config.conditions.map((condition, index) => {
                         const variableValue = availableVariables.find(v => v.name === condition.variable)?.value;
-                        const isConditionMet = evaluationResult?.condition_met === condition.condition_id;
+                        const isConditionMet = (evaluationResult?.outputs as Record<string, string>)?.condition_met === condition.condition_id;
 
                         return (
                             <div
@@ -117,19 +117,19 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
                             <div className="flex justify-between">
                                 <span className="text-gray-500 dark:text-gray-400">Result:</span>
                                 <span className="text-gray-900 dark:text-gray-100">
-                                    {evaluationResult.condition_met === 'none' ? 'No conditions met' : 'Condition met'}
+                                    {(evaluationResult.outputs as Record<string, string>)?.condition_met === 'none' ? 'No conditions met' : 'Condition met'}
                                 </span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500 dark:text-gray-400">Next Action:</span>
                                 <span className="text-gray-900 dark:text-gray-100">
-                                    {evaluationResult.action === 'jump' ? 'Jump to step' : 'Continue'}
+                                    {evaluationResult.next_action === 'jump' ? 'Jump to step' : 'Continue'}
                                 </span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500 dark:text-gray-400">Target Step:</span>
                                 <span className="text-gray-900 dark:text-gray-100">
-                                    {evaluationResult.target_step_index ? `Step ${parseInt(evaluationResult.target_step_index) + 1}` : 'Next step'}
+                                    {evaluationResult.target_step_index !== undefined ? `Step ${evaluationResult.target_step_index + 1}` : 'Next step'}
                                 </span>
                             </div>
                             {evaluationResult.reason && (

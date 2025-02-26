@@ -70,7 +70,7 @@ export interface RuntimeWorkflowStep extends WorkflowStep {
 // Workflow variable extends base Variable with I/O type and required flag
 export interface WorkflowVariable extends Omit<Variable, 'name'> {
     name: WorkflowVariableName;  // Reference name in workflow context
-    io_type: 'input' | 'output';
+    io_type: 'input' | 'output' | 'evaluation';
     // Required flag only applies to inputs and defaults to true
     required?: boolean;
 }

@@ -125,7 +125,7 @@ export class WorkflowEngine {
                         is_array: false
                     },
                     value: outputs,
-                    io_type: 'output'
+                    io_type: 'evaluation'
                 });
             }
         }
