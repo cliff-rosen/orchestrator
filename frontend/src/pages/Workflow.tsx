@@ -39,7 +39,8 @@ const Workflow: React.FC = () => {
         moveToNextStep,
         moveToPreviousStep,
         resetWorkflow,
-        updateWorkflowByAction
+        updateWorkflowByAction,
+        updateWorkflowStep
     } = useWorkflows();
 
     // State
@@ -250,58 +251,18 @@ const Workflow: React.FC = () => {
 
     const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {
         console.log('handleStepUpdate called with step:', step);
-        if (!workflow) return;
-
-        // Find the existing step to preserve tool information
-        const existingStep = workflow.steps.find(s => s.step_id === step.step_id);
-        console.log('Existing step:', existingStep);
-
-        // Create updated step, properly handling tool clearing and evaluation config
-        const updatedStep = {
-            ...step,
-            // Only preserve tool and tool_id if they weren't explicitly set to undefined
-            tool: 'tool' in step ? step.tool : existingStep?.tool,
-            tool_id: 'tool_id' in step ? step.tool_id : existingStep?.tool_id,
-            // Only preserve prompt_template_id if the tool hasn't changed
-            prompt_template_id: step.tool?.tool_id === existingStep?.tool_id ?
-                (step.prompt_template_id ?? existingStep?.prompt_template_id) :
-                step.prompt_template_id,
-            parameter_mappings: {
-                ...(existingStep?.parameter_mappings || {}),  // Keep existing mappings as base
-                ...(step.parameter_mappings || {})  // Override with any new mappings
-            },
-            output_mappings: {
-                ...(existingStep?.output_mappings || {}),  // Keep existing mappings as base
-                ...(step.output_mappings || {})  // Override with any new mappings
-            }
-        };
-        console.log('Updated step:', updatedStep);
-
-        const updatedSteps = workflow.steps.map((s: WorkflowStep) =>
-            s.step_id === step.step_id ? updatedStep : s
-        );
-        console.log('All steps after update:', updatedSteps);
-
-        updateWorkflow({
-            steps: updatedSteps
-        });
+        updateWorkflowStep(step);
     };
 
     const handleStepDelete = (stepId: string) => {
         if (!workflow) return;
 
-        const stepIndex = workflow.steps.findIndex((s: WorkflowStep) => s.step_id === stepId);
-        if (stepIndex === -1) return;
-
-        // Update workflow with filtered steps
-        updateWorkflow({
-            steps: workflow.steps.filter((s: WorkflowStep) => s.step_id !== stepId)
+        updateWorkflowByAction({
+            type: 'DELETE_STEP',
+            payload: {
+                stepId
+            }
         });
-
-        // Adjust activeStep if needed
-        if (stepIndex <= activeStep) {
-            setActiveStep(Math.max(0, activeStep - 1));
-        }
     };
 
     const handleNext = async (): Promise<void> => {

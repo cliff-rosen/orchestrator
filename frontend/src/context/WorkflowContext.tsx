@@ -1,5 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId, WorkflowVariable, ToolParameterName, ToolOutputName, WorkflowVariableName, Tool, StepExecutionResult, WorkflowStep } from '../types';
+import {
+    Workflow,
+    WorkflowStepType,
+    WorkflowStatus,
+    WorkflowStepId,
+    WorkflowVariable,
+    ToolParameterName,
+    ToolOutputName,
+    WorkflowVariableName,
+    Tool,
+    StepExecutionResult,
+    WorkflowStep,
+    RuntimeWorkflowStep
+} from '../types';
 import { workflowApi } from '../lib/api';
 import { WorkflowEngine, StepReorderPayload } from '../lib/workflow/workflowEngine';
 
@@ -18,14 +31,13 @@ interface WorkflowContextType {
 
     // User Operations
     loadWorkflows(): Promise<void>
-    createWorkflow(): void
     loadWorkflow(id: string): Promise<void>
-    updateWorkflow(updates: Partial<Workflow>): void
+    createWorkflow(): void
     saveWorkflow(): Promise<void>
     exitWorkflow(): void
     // New granular update method
     updateWorkflowByAction(action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS',
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP',
         payload: {
             stepId?: string,
             mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
@@ -35,11 +47,16 @@ interface WorkflowContextType {
         }
     }): void
 
+    // legacy update methods
+    updateWorkflow(updates: Partial<Workflow>): void
+    updateWorkflowStep(step: WorkflowStep | RuntimeWorkflowStep): void
+
     // Workflow Execution
     executeCurrentStep(): Promise<StepExecutionResult>
     moveToNextStep(): void
     moveToPreviousStep(): void
     resetWorkflow(): void
+
 }
 
 const WorkflowContext = createContext<WorkflowContextType | undefined>(undefined);
@@ -221,6 +238,45 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     }, [workflow, originalWorkflow]);
 
+    const updateWorkflowStep = useCallback((step: WorkflowStep | RuntimeWorkflowStep) => {
+        console.log('updateWorkflowStep called with step:', step);
+        if (!workflow) return;
+
+        // Find the existing step to preserve tool information
+        const existingStep = workflow.steps.find(s => s.step_id === step.step_id);
+        console.log('Existing step:', existingStep);
+
+        // Create updated step, properly handling tool clearing and evaluation config
+        const updatedStep = {
+            ...step,
+            // Only preserve tool and tool_id if they weren't explicitly set to undefined
+            tool: 'tool' in step ? step.tool : existingStep?.tool,
+            tool_id: 'tool_id' in step ? step.tool_id : existingStep?.tool_id,
+            // Only preserve prompt_template_id if the tool hasn't changed
+            prompt_template_id: step.tool?.tool_id === existingStep?.tool_id ?
+                (step.prompt_template_id ?? existingStep?.prompt_template_id) :
+                step.prompt_template_id,
+            parameter_mappings: {
+                ...(existingStep?.parameter_mappings || {}),  // Keep existing mappings as base
+                ...(step.parameter_mappings || {})  // Override with any new mappings
+            },
+            output_mappings: {
+                ...(existingStep?.output_mappings || {}),  // Keep existing mappings as base
+                ...(step.output_mappings || {})  // Override with any new mappings
+            }
+        };
+        console.log('Updated step:', updatedStep);
+
+        const updatedSteps = workflow.steps.map((s: WorkflowStep) =>
+            s.step_id === step.step_id ? updatedStep : s
+        );
+        console.log('All steps after update:', updatedSteps);
+
+        updateWorkflow({
+            steps: updatedSteps
+        });
+    }, [workflow, updateWorkflow]);
+
     const saveWorkflow = useCallback(async () => {
         if (!workflow) return;
 
@@ -257,7 +313,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, []);
 
     const updateWorkflowByAction = useCallback((action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS',
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP',
         payload: {
             stepId?: string,
             mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
@@ -275,6 +331,13 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (action.type === 'ADD_STEP') {
                 setActiveStep(newWorkflow.steps.length - 1);
             }
+            // Adjust active step when deleting a step
+            else if (action.type === 'DELETE_STEP' && action.payload.stepId) {
+                const deletedStepIndex = currentWorkflow.steps.findIndex(s => s.step_id === action.payload.stepId);
+                if (deletedStepIndex !== -1 && deletedStepIndex <= activeStep) {
+                    setActiveStep(Math.max(0, activeStep - 1));
+                }
+            }
 
             // Compare with original workflow to determine if there are unsaved changes
             if (originalWorkflow) {
@@ -286,7 +349,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
             return newWorkflow;
         });
-    }, [originalWorkflow]);
+    }, [originalWorkflow, activeStep]);
 
     // Workflow Execution Methods
     const executeCurrentStep = useCallback(async (): Promise<StepExecutionResult> => {
@@ -365,6 +428,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         loadWorkflow,
         loadWorkflows,
         updateWorkflow,
+        updateWorkflowStep,
         saveWorkflow,
         exitWorkflow,
         updateWorkflowByAction,

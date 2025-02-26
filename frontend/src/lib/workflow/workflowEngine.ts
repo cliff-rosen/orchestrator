@@ -17,7 +17,7 @@ export type StepReorderPayload = {
 };
 
 type WorkflowStateAction = {
-    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS',
+    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP',
     payload: {
         stepId?: string,
         mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
@@ -379,6 +379,13 @@ export class WorkflowEngine {
                 return {
                     ...workflow,
                     steps: [...workflow.steps, newStep]
+                };
+
+            case 'DELETE_STEP':
+                if (!action.payload.stepId) return workflow;
+                return {
+                    ...workflow,
+                    steps: workflow.steps.filter(step => step.step_id !== action.payload.stepId)
                 };
 
             case 'REORDER_STEPS':
