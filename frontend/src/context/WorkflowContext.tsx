@@ -37,13 +37,14 @@ interface WorkflowContextType {
     exitWorkflow(): void
     // New granular update method
     updateWorkflowByAction(action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP',
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE',
         payload: {
             stepId?: string,
             mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
             tool?: Tool,
             newStep?: WorkflowStep,
-            reorder?: StepReorderPayload
+            reorder?: StepReorderPayload,
+            state?: WorkflowVariable[]
         }
     }): void
 
@@ -313,13 +314,14 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, []);
 
     const updateWorkflowByAction = useCallback((action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP',
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE',
         payload: {
             stepId?: string,
             mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
             tool?: Tool,
             newStep?: WorkflowStep,
-            reorder?: StepReorderPayload
+            reorder?: StepReorderPayload,
+            state?: WorkflowVariable[]
         }
     }) => {
         setWorkflow(currentWorkflow => {

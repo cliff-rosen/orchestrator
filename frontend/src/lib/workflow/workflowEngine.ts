@@ -17,13 +17,14 @@ export type StepReorderPayload = {
 };
 
 type WorkflowStateAction = {
-    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP',
+    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE',
     payload: {
         stepId?: string,
         mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
         tool?: Tool,
         newStep?: WorkflowStep,
-        reorder?: StepReorderPayload
+        reorder?: StepReorderPayload,
+        state?: WorkflowVariable[]
     }
 };
 
@@ -243,7 +244,9 @@ export class WorkflowEngine {
 
         // Update workflow state with tool results
         if (toolResult) {
+            console.log('Updating workflow state with tool results:', toolResult);
             const updatedState = this.getUpdatedWorkflowState(step, toolResult, workflow);
+            console.log('Updated state:', updatedState);
             updateWorkflow({ state: updatedState });
         }
 
@@ -398,6 +401,13 @@ export class WorkflowEngine {
                 return {
                     ...workflow,
                     steps: updatedSteps
+                };
+
+            case 'UPDATE_STATE':
+                if (!action.payload.state) return workflow;
+                return {
+                    ...workflow,
+                    state: action.payload.state
                 };
 
             default:

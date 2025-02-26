@@ -4,23 +4,29 @@
 import React from 'react';
 import { useWorkflows } from '../context/WorkflowContext';
 import SchemaForm from './SchemaForm';
+import { WorkflowVariable } from '@/types/workflows';
 
 const InputStepRunner: React.FC = () => {
-    const { workflow, updateWorkflow } = useWorkflows();
-    const inputs = workflow?.inputs || [];
+    const { workflow, updateWorkflowByAction } = useWorkflows();
+    const inputs = workflow?.state?.filter(variable => variable.io_type === 'input') || [];
 
     const handleInputChange = (input: string, value: any) => {
         console.log('handleInputChange', input, value);
         if (!workflow) return;
 
-        const updatedInputs = inputs.map(i => {
+        const updatedInputs = workflow.state?.map((i: WorkflowVariable) => {
             if (i.name === input) {
                 return { ...i, value };
             }
             return i;
-        });
+        }) || [];
 
-        updateWorkflow({ inputs: updatedInputs });
+        updateWorkflowByAction({
+            type: 'UPDATE_STATE',
+            payload: {
+                state: updatedInputs
+            }
+        });
     };
 
     return (

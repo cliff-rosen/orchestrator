@@ -301,8 +301,8 @@ const Workflow: React.FC = () => {
                         } else {
                             // When switching to run mode
                             // Check if any inputs are not supplied
-                            const hasUnsetInputs = workflow?.inputs?.some(input =>
-                                input.value === undefined || input.value === null
+                            const hasUnsetInputs = workflow?.state?.some(variable =>
+                                variable.io_type === 'input' && (variable.value === undefined || variable.value === null)
                             );
 
                             if (hasUnsetInputs) {
@@ -339,8 +339,8 @@ const Workflow: React.FC = () => {
                     } else {
                         // When switching to run mode
                         // Check if any inputs are not supplied
-                        const hasUnsetInputs = workflow?.inputs?.some(input =>
-                            input.value === undefined || input.value === null
+                        const hasUnsetInputs = workflow?.state?.some(variable =>
+                            variable.io_type === 'input' && (variable.value === undefined || variable.value === null)
                         );
 
                         if (hasUnsetInputs) {
