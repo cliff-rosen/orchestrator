@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId, WorkflowVariable, ToolParameterName, ToolOutputName, WorkflowVariableName, Tool, StepExecutionResult } from '../types';
+import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId, WorkflowVariable, ToolParameterName, ToolOutputName, WorkflowVariableName, Tool, StepExecutionResult, WorkflowStep } from '../types';
 import { workflowApi } from '../lib/api';
-import { WorkflowEngine } from '../lib/workflow/workflowEngine';
+import { WorkflowEngine, StepReorderPayload } from '../lib/workflow/workflowEngine';
 
 
 interface WorkflowContextType {
@@ -25,11 +25,13 @@ interface WorkflowContextType {
     exitWorkflow(): void
     // New granular update method
     updateWorkflowByAction(action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE',
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS',
         payload: {
-            stepId: string,
+            stepId?: string,
             mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
-            tool?: Tool
+            tool?: Tool,
+            newStep?: WorkflowStep,
+            reorder?: StepReorderPayload
         }
     }): void
 
@@ -255,11 +257,13 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, []);
 
     const updateWorkflowByAction = useCallback((action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE',
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS',
         payload: {
-            stepId: string,
+            stepId?: string,
             mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
-            tool?: Tool
+            tool?: Tool,
+            newStep?: WorkflowStep,
+            reorder?: StepReorderPayload
         }
     }) => {
         setWorkflow(currentWorkflow => {

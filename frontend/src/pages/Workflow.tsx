@@ -19,6 +19,9 @@ import StepDetail from '../components/StepDetail';
 import WorkflowNavigation from '../components/WorkflowNavigation';
 import WorkflowMenuBar from '../components/WorkflowMenuBar';
 
+// Engine
+import { WorkflowEngine } from '../lib/workflow/workflowEngine';
+
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
     const navigate = useNavigate();
@@ -35,7 +38,8 @@ const Workflow: React.FC = () => {
         executeCurrentStep,
         moveToNextStep,
         moveToPreviousStep,
-        resetWorkflow
+        resetWorkflow,
+        updateWorkflowByAction
     } = useWorkflows();
 
     // State
@@ -222,56 +226,31 @@ const Workflow: React.FC = () => {
     const handleStepReorder = (reorderedSteps: RuntimeWorkflowStep[]) => {
         if (!workflow) return;
 
-        // Convert runtime steps back to workflow steps while preserving sequence numbers
-        const updatedSteps: WorkflowStep[] = reorderedSteps.map((step, index) => {
-            // Extract only the WorkflowStep properties
-            const {
-                action,
-                actionButtonText,
-                isDisabled,
-                getValidationErrors,
-                ...workflowStep
-            } = step;
+        // Convert runtime steps back to workflow steps
+        const workflowSteps = reorderedSteps.map(({ action, actionButtonText, isDisabled, getValidationErrors, ...step }) => step);
 
-            return {
-                ...workflowStep,
-                sequence_number: index,
-                updated_at: new Date().toISOString()
-            };
-        });
-
-        updateWorkflow({
-            steps: updatedSteps
+        updateWorkflowByAction({
+            type: 'REORDER_STEPS',
+            payload: {
+                reorder: {
+                    reorderedSteps: workflowSteps
+                }
+            }
         });
     };
 
     const handleAddStep = () => {
         if (!workflow) return;
 
-        // Create a branded WorkflowStepId using crypto.randomUUID()
-        const stepId = `step-${crypto.randomUUID()}`;
-        const newStep: WorkflowStep = {
-            step_id: stepId as WorkflowStepId,
-            label: `Step ${workflow.steps.length + 1}`,
-            description: 'Configure this step by selecting a tool and setting up its parameters',
-            step_type: WorkflowStepType.ACTION,
-            workflow_id: workflow.workflow_id,
-            sequence_number: workflow.steps.length,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            parameter_mappings: {},
-            output_mappings: {},
-            tool: undefined,
-            tool_id: undefined,
-            prompt_template_id: undefined
-        };
-
-        const updatedSteps = [...workflow.steps, newStep];
-        updateWorkflow({
-            steps: updatedSteps
+        const newStep = WorkflowEngine.createNewStep(workflow);
+        updateWorkflowByAction({
+            type: 'ADD_STEP',
+            payload: {
+                newStep
+            }
         });
         // Set the new step as active
-        setActiveStep(updatedSteps.length - 1);
+        setActiveStep(workflow.steps.length);
     };
 
     const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {

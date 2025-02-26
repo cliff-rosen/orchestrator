@@ -5,22 +5,51 @@ import {
     EvaluationOperator,
     StepExecutionResult,
     WorkflowStepType,
-    Workflow
+    Workflow,
+    WorkflowStepId
 } from '../../types/workflows';
 import { ToolParameterName, ToolOutputName, Tool } from '../../types/tools';
 import { SchemaValueType } from '../../types/schema';
 import { ToolEngine } from '../tool/toolEngine';
 
+export type StepReorderPayload = {
+    reorderedSteps: WorkflowStep[];
+};
+
 type WorkflowStateAction = {
-    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE',
+    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS',
     payload: {
-        stepId: string,
+        stepId?: string,
         mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
-        tool?: Tool
+        tool?: Tool,
+        newStep?: WorkflowStep,
+        reorder?: StepReorderPayload
     }
 };
 
 export class WorkflowEngine {
+    /**
+     * Creates a new workflow step with proper defaults and business logic
+     */
+    static createNewStep(workflow: Workflow): WorkflowStep {
+        const stepId = `step-${crypto.randomUUID()}` as WorkflowStepId;
+        return {
+            step_id: stepId,
+            label: `Step ${workflow.steps.length + 1}`,
+            description: 'Configure this step by selecting a tool and setting up its parameters',
+            step_type: WorkflowStepType.ACTION,
+            workflow_id: workflow.workflow_id,
+            sequence_number: workflow.steps.length,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            parameter_mappings: {},
+            output_mappings: {},
+            tool: undefined,
+            tool_id: undefined,
+            prompt_template_id: undefined
+        };
+    }
+
     /**
      * Resolves parameter mappings for a workflow step
      */
@@ -344,60 +373,83 @@ export class WorkflowEngine {
      * Updates workflow state based on an action
      */
     static updateWorkflowByAction(workflow: Workflow, action: WorkflowStateAction): Workflow {
-        return {
-            ...workflow,
-            steps: workflow.steps.map(step => {
-                if (step.step_id === action.payload.stepId) {
-                    switch (action.type) {
-                        case 'UPDATE_PARAMETER_MAPPINGS':
-                            return {
-                                ...step,
-                                parameter_mappings: action.payload.mappings as Record<ToolParameterName, WorkflowVariableName>
-                            };
-                        case 'UPDATE_OUTPUT_MAPPINGS':
-                            return {
-                                ...step,
-                                output_mappings: action.payload.mappings as Record<ToolOutputName, WorkflowVariableName>
-                            };
-                        case 'UPDATE_STEP_TOOL':
-                            return {
-                                ...step,
-                                tool: action.payload.tool,
-                                tool_id: action.payload.tool?.tool_id,
-                                // Clear mappings when tool changes
-                                parameter_mappings: {},
-                                output_mappings: {},
-                                // Clear prompt template when tool changes
-                                prompt_template_id: undefined
-                            };
-                        case 'UPDATE_STEP_TYPE':
-                            const newType = step.step_type === WorkflowStepType.ACTION
-                                ? WorkflowStepType.EVALUATION
-                                : WorkflowStepType.ACTION;
+        switch (action.type) {
+            case 'ADD_STEP':
+                if (!action.payload.newStep) return workflow;
+                return {
+                    ...workflow,
+                    steps: [...workflow.steps, action.payload.newStep]
+                };
 
-                            return {
-                                ...step,
-                                step_type: newType,
-                                // Clear tool-specific data when switching to evaluation
-                                ...(step.step_type === WorkflowStepType.ACTION ? {
-                                    tool: undefined,
-                                    tool_id: undefined,
-                                    parameter_mappings: {},
-                                    output_mappings: {},
-                                    prompt_template_id: undefined,
-                                    evaluation_config: {
-                                        conditions: [],
-                                        default_action: 'continue',
-                                        maximum_jumps: 3
-                                    }
-                                } : {})
-                            };
-                        default:
-                            return step;
-                    }
-                }
-                return step;
-            })
-        };
+            case 'REORDER_STEPS':
+                if (!action.payload.reorder) return workflow;
+                // Update sequence numbers for the reordered steps
+                const updatedSteps = action.payload.reorder.reorderedSteps.map((step, index) => ({
+                    ...step,
+                    sequence_number: index
+                }));
+                return {
+                    ...workflow,
+                    steps: updatedSteps
+                };
+
+            default:
+                // Handle existing step update cases
+                return {
+                    ...workflow,
+                    steps: workflow.steps.map(step => {
+                        if (step.step_id === action.payload.stepId) {
+                            switch (action.type) {
+                                case 'UPDATE_PARAMETER_MAPPINGS':
+                                    return {
+                                        ...step,
+                                        parameter_mappings: action.payload.mappings as Record<ToolParameterName, WorkflowVariableName>
+                                    };
+                                case 'UPDATE_OUTPUT_MAPPINGS':
+                                    return {
+                                        ...step,
+                                        output_mappings: action.payload.mappings as Record<ToolOutputName, WorkflowVariableName>
+                                    };
+                                case 'UPDATE_STEP_TOOL':
+                                    return {
+                                        ...step,
+                                        tool: action.payload.tool,
+                                        tool_id: action.payload.tool?.tool_id,
+                                        // Clear mappings when tool changes
+                                        parameter_mappings: {},
+                                        output_mappings: {},
+                                        // Clear prompt template when tool changes
+                                        prompt_template_id: undefined
+                                    };
+                                case 'UPDATE_STEP_TYPE':
+                                    const newType = step.step_type === WorkflowStepType.ACTION
+                                        ? WorkflowStepType.EVALUATION
+                                        : WorkflowStepType.ACTION;
+
+                                    return {
+                                        ...step,
+                                        step_type: newType,
+                                        // Clear tool-specific data when switching to evaluation
+                                        ...(step.step_type === WorkflowStepType.ACTION ? {
+                                            tool: undefined,
+                                            tool_id: undefined,
+                                            parameter_mappings: {},
+                                            output_mappings: {},
+                                            prompt_template_id: undefined,
+                                            evaluation_config: {
+                                                conditions: [],
+                                                default_action: 'continue',
+                                                maximum_jumps: 3
+                                            }
+                                        } : {})
+                                    };
+                                default:
+                                    return step;
+                            }
+                        }
+                        return step;
+                    })
+                };
+        }
     }
 } 
