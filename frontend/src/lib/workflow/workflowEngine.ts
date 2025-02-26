@@ -77,7 +77,7 @@ export class WorkflowEngine {
     /**
      * Updates workflow state with tool results
      */
-    private static getUpdatedWorkflowState(
+    private static getUpdatedWorkflowStateFromResults(
         step: WorkflowStep,
         outputs: Record<string, any>,
         workflow: Workflow
@@ -270,7 +270,7 @@ export class WorkflowEngine {
 
         // Store evaluation result in workflow state
         if (result.success && result.outputs) {
-            const updatedState = this.getUpdatedWorkflowState(step, result.outputs, workflow);
+            const updatedState = this.getUpdatedWorkflowStateFromResults(step, result.outputs, workflow);
             updateWorkflow({ state: updatedState });
         }
 
