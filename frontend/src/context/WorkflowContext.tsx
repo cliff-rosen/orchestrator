@@ -284,10 +284,15 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         try {
             setIsLoading(true);
             setError(null);
-            const savedWorkflow = await workflowApi.updateWorkflow(workflow.workflow_id, {
+
+            const workflowData = {
                 ...workflow,
                 state: workflow.state ?? []
-            });
+            };
+
+            const savedWorkflow = workflow.workflow_id === 'new'
+                ? await workflowApi.createWorkflow(workflowData)
+                : await workflowApi.updateWorkflow(workflow.workflow_id, workflowData);
 
             setWorkflow(savedWorkflow);
             setOriginalWorkflow(savedWorkflow); // Update the original state after saving

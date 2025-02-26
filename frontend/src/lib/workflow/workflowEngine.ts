@@ -6,7 +6,8 @@ import {
     StepExecutionResult,
     WorkflowStepType,
     Workflow,
-    WorkflowStepId
+    WorkflowStepId,
+    EvaluationResult
 } from '../../types/workflows';
 import { ToolParameterName, ToolOutputName, Tool } from '../../types/tools';
 import { SchemaValueType } from '../../types/schema';
@@ -139,11 +140,12 @@ export class WorkflowEngine {
     private static evaluateConditions(
         step: WorkflowStep,
         workflow: Workflow
-    ): StepExecutionResult {
+    ): EvaluationResult {
         if (!step.evaluation_config) {
             return {
                 success: false,
-                error: 'No evaluation configuration found'
+                error: 'No evaluation configuration found',
+                next_action: 'end'
             };
         }
 
@@ -167,54 +169,117 @@ export class WorkflowEngine {
             }
         }
 
-        // Return evaluation result
-        const evalResult: Record<WorkflowVariableName, SchemaValueType> = metCondition ? {
-            ['condition_met' as WorkflowVariableName]: metCondition.condition.condition_id as SchemaValueType,
-            ['variable_name' as WorkflowVariableName]: metCondition.condition.variable as SchemaValueType,
-            ['variable_value' as WorkflowVariableName]: String(metCondition.value) as SchemaValueType,
-            ['operator' as WorkflowVariableName]: metCondition.condition.operator as SchemaValueType,
-            ['comparison_value' as WorkflowVariableName]: String(metCondition.condition.value) as SchemaValueType,
-            ['target_step_index' as WorkflowVariableName]: String(metCondition.condition.target_step_index) as SchemaValueType,
-            ['next_step' as WorkflowVariableName]: String(metCondition.condition.target_step_index) as SchemaValueType,
-            ['action' as WorkflowVariableName]: 'jump' as SchemaValueType
-        } : {
-            ['condition_met' as WorkflowVariableName]: 'none' as SchemaValueType,
-            ['reason' as WorkflowVariableName]: 'No conditions met - continuing to next step' as SchemaValueType,
-            ['target_step_index' as WorkflowVariableName]: '' as SchemaValueType,
-            ['next_step' as WorkflowVariableName]: String(step.sequence_number + 1) as SchemaValueType,
-            ['action' as WorkflowVariableName]: 'continue' as SchemaValueType
-        };
-
-        return {
-            success: true,
-            outputs: evalResult
-        };
+        // Return evaluation result that matches the EvaluationResult interface
+        if (metCondition) {
+            return {
+                success: true,
+                outputs: {
+                    ['condition_met' as WorkflowVariableName]: metCondition.condition.condition_id as SchemaValueType,
+                    ['variable_name' as WorkflowVariableName]: metCondition.condition.variable as SchemaValueType,
+                    ['variable_value' as WorkflowVariableName]: String(metCondition.value) as SchemaValueType,
+                    ['operator' as WorkflowVariableName]: metCondition.condition.operator as SchemaValueType,
+                    ['comparison_value' as WorkflowVariableName]: String(metCondition.condition.value) as SchemaValueType,
+                    ['target_step_index' as WorkflowVariableName]: String(metCondition.condition.target_step_index) as SchemaValueType
+                },
+                next_action: 'jump',
+                target_step_index: metCondition.condition.target_step_index,
+                reason: `Condition '${metCondition.condition.condition_id}' was met`
+            };
+        } else {
+            return {
+                success: true,
+                outputs: {
+                    ['condition_met' as WorkflowVariableName]: 'none' as SchemaValueType,
+                    ['reason' as WorkflowVariableName]: 'No conditions met - continuing to next step' as SchemaValueType
+                },
+                next_action: step.evaluation_config.default_action as 'continue' | 'end',
+                reason: 'No conditions were met'
+            };
+        }
     }
 
     /**
-     * Evaluates a single condition
+     * Evaluates a single condition with proper type handling
      */
     private static evaluateCondition(
         operator: EvaluationOperator,
-        value: any,
-        compareValue: any
+        value: SchemaValueType,
+        compareValue: SchemaValueType
     ): boolean {
-        switch (operator) {
-            case 'equals':
-                return value === compareValue;
-            case 'not_equals':
-                return value !== compareValue;
-            case 'greater_than':
-                return value > compareValue;
-            case 'less_than':
-                return value < compareValue;
-            case 'contains':
-                return String(value).includes(String(compareValue));
-            case 'not_contains':
-                return !String(value).includes(String(compareValue));
-            default:
-                return false;
+        // Handle null/undefined values
+        if (value === null || value === undefined || compareValue === null || compareValue === undefined) {
+            return false;
         }
+
+        try {
+            switch (operator) {
+                case 'equals':
+                    // Use strict equality after converting to same type if needed
+                    if (typeof value === 'number' && typeof compareValue === 'string') {
+                        return value === Number(compareValue);
+                    }
+                    if (typeof value === 'string' && typeof compareValue === 'number') {
+                        return Number(value) === compareValue;
+                    }
+                    return value === compareValue;
+
+                case 'not_equals':
+                    // Reuse equals logic
+                    return !this.evaluateCondition('equals', value, compareValue);
+
+                case 'greater_than':
+                    // Ensure numeric comparison
+                    const numValue = typeof value === 'string' ? Number(value) : value;
+                    const numCompare = typeof compareValue === 'string' ? Number(compareValue) : compareValue;
+                    if (typeof numValue !== 'number' || typeof numCompare !== 'number' || isNaN(numValue) || isNaN(numCompare)) {
+                        return false;
+                    }
+                    return numValue > numCompare;
+
+                case 'less_than':
+                    // Reuse greater_than logic
+                    return this.evaluateCondition('greater_than', compareValue, value);
+
+                case 'contains':
+                    // Only allow string contains operations
+                    if (typeof value !== 'string' || typeof compareValue !== 'string') {
+                        return false;
+                    }
+                    return value.includes(compareValue);
+
+                case 'not_contains':
+                    // Reuse contains logic
+                    return !this.evaluateCondition('contains', value, compareValue);
+
+                default:
+                    console.warn(`Unknown operator: ${operator}`);
+                    return false;
+            }
+        } catch (error) {
+            console.error('Error in condition evaluation:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Handles execution of an evaluation step
+     */
+    private static executeEvaluationStep(
+        step: WorkflowStep,
+        workflow: Workflow,
+        updateWorkflow: (updates: Partial<Workflow>) => void
+    ): StepExecutionResult {
+        console.log('Executing evaluation step:', step.evaluation_config);
+
+        const result = this.evaluateConditions(step, workflow);
+
+        // Store evaluation result in workflow state
+        if (result.success && result.outputs) {
+            const updatedState = this.getUpdatedWorkflowStateFromResults(step, result.outputs, workflow);
+            updateWorkflow({ state: updatedState });
+        }
+
+        return result;
     }
 
     /**
@@ -254,27 +319,6 @@ export class WorkflowEngine {
             success: true,
             outputs: toolResult
         };
-    }
-
-    /**
-     * Handles execution of an evaluation step
-     */
-    private static executeEvaluationStep(
-        step: WorkflowStep,
-        workflow: Workflow,
-        updateWorkflow: (updates: Partial<Workflow>) => void
-    ): StepExecutionResult {
-        console.log('Executing evaluation step:', step.evaluation_config);
-
-        const result = this.evaluateConditions(step, workflow);
-
-        // Store evaluation result in workflow state
-        if (result.success && result.outputs) {
-            const updatedState = this.getUpdatedWorkflowStateFromResults(step, result.outputs, workflow);
-            updateWorkflow({ state: updatedState });
-        }
-
-        return result;
     }
 
     /**
@@ -355,14 +399,14 @@ export class WorkflowEngine {
             // Find evaluation result in workflow outputs
             const evalResult = workflow.state?.find(
                 o => o.name === `${currentStep.step_id}_result`
-            )?.value as Record<string, string> | undefined;
+            )?.value as EvaluationResult | undefined;
 
-            if (evalResult?.action === 'jump' && evalResult?.target_step_index) {
+            if (evalResult?.next_action === 'jump' && evalResult?.target_step_index) {
                 // Convert target_step_index from string to number and adjust for input step offset
-                const targetStep = parseInt(evalResult.target_step_index);
+                const targetStep = evalResult.target_step_index;
 
                 // Validate target step index and adjust for input step offset
-                if (!isNaN(targetStep) && targetStep >= 0 && targetStep < workflow.steps.length) {
+                if (targetStep >= 0 && targetStep < workflow.steps.length) {
                     return targetStep + 1; // Add 1 to account for input step
                 }
             }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { RuntimeWorkflowStep } from '../types/workflows';
+import { RuntimeWorkflowStep, EvaluationResult } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
 
 interface EvaluationStepRunnerProps {
@@ -17,17 +17,16 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
 
     // Get all available variables for condition evaluation
     const availableVariables = [
-        ...(workflow?.inputs || []),
-        ...(workflow?.outputs || [])
+        ...(workflow?.state || [])
     ];
 
     // Get the evaluation result if executed
     const evaluationResult = React.useMemo(() => {
-        if (!isExecuted || !workflow?.outputs) return null;
+        if (!isExecuted || !workflow?.state) return null;
         // Use the new shorter format for evaluation result variables
         const shortStepId = step.step_id.slice(0, 8);
-        return workflow.outputs.find(o => o.name === `${shortStepId}_eval`)?.value as Record<string, string> | undefined;
-    }, [isExecuted, workflow?.outputs, step.step_id]);
+        return workflow.state.find(o => o.name === `${shortStepId}_eval`)?.value as EvaluationResult | undefined;
+    }, [isExecuted, workflow?.state, step.step_id]);
 
     if (!step.evaluation_config) {
         return (
