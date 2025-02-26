@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { WorkflowStep, WorkflowVariableName, WorkflowVariable } from '../types/workflows';
+import { WorkflowStep, WorkflowVariableName, WorkflowVariable, Workflow, addWorkflowVariable, getWorkflowInputs, getWorkflowOutputs } from '../types/workflows';
 import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
 import { toolApi } from '../lib/api/toolApi';
 import PromptTemplateSelector from './PromptTemplateSelector';
@@ -65,18 +65,11 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
         });
     };
 
-    const handleVariableCreate = (newVariable: WorkflowVariable) => {
-        console.log('handleVariableCreate', newVariable);
+    const handleAddVariable = (newVariable: WorkflowVariable) => {
         if (!workflow) return;
 
-        updateWorkflow({
-            inputs: newVariable.io_type === 'input'
-                ? [...(workflow.inputs || []), newVariable]
-                : workflow.inputs,
-            outputs: newVariable.io_type === 'output'
-                ? [...(workflow.outputs || []), newVariable]
-                : workflow.outputs
-        });
+        const updatedWorkflow = addWorkflowVariable(workflow, newVariable);
+        updateWorkflow(updatedWorkflow);
     };
 
     return (
@@ -113,11 +106,11 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
                         tool={step.tool}
                         parameter_mappings={step.parameter_mappings || {}}
                         output_mappings={step.output_mappings || {}}
-                        inputs={workflow?.inputs || []}
-                        outputs={workflow?.outputs || []}
+                        inputs={workflow ? getWorkflowInputs(workflow) : []}
+                        outputs={workflow ? getWorkflowOutputs(workflow) : []}
                         onParameterMappingChange={handleParameterMappingChange}
                         onOutputMappingChange={handleOutputMappingChange}
-                        onVariableCreate={handleVariableCreate}
+                        onVariableCreate={handleAddVariable}
                     />
                 </div>
             )}

@@ -7,6 +7,7 @@ import { Tool } from '../types/tools';
 import { toolApi } from '../lib/api/toolApi';
 import EvaluationStepEditor from './EvaluationStepEditor';
 import ToolActionEditor from './ToolActionEditor';
+import { WorkflowEngine } from '../lib/workflow/workflowEngine';
 
 interface ActionStepEditorProps {
     step: WorkflowStep;
@@ -16,8 +17,7 @@ interface ActionStepEditorProps {
 
 const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     step,
-    onStepUpdate,
-    onDeleteRequest
+    onStepUpdate
 }) => {
     const [tools, setTools] = useState<Tool[]>([]);
     const [loading, setLoading] = useState(true);
@@ -40,25 +40,9 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     }, []);
 
     const handleStepTypeChange = () => {
-        onStepUpdate({
-            ...step,
-            step_type: step.step_type === WorkflowStepType.ACTION ? WorkflowStepType.EVALUATION : WorkflowStepType.ACTION,
-            // Clear tool-specific data when switching to evaluation
-            ...(step.step_type === WorkflowStepType.ACTION ? {
-                tool: undefined,
-                tool_id: undefined,
-                parameter_mappings: {},
-                output_mappings: {},
-                prompt_template_id: undefined,
-                evaluation_config: {
-                    conditions: [],
-                    default_action: 'continue',
-                    maximum_jumps: 3
-                }
-            } : {})
-        });
+        const updatedStep = WorkflowEngine.handleStepTypeChange(step);
+        onStepUpdate(updatedStep);
     };
-
 
     if (loading) {
         return (

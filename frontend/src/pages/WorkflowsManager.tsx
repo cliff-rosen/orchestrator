@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useWorkflows } from '../context/WorkflowContext';
 import { workflowApi } from '../lib/api';
 import AssetList from '../components/common/AssetList';
+import {
+    Workflow,
+    getWorkflowInputs,
+    getWorkflowOutputs
+} from '../types/workflows';
 
 const WorkflowsManager: React.FC = () => {
     const navigate = useNavigate();
@@ -47,20 +52,7 @@ const WorkflowsManager: React.FC = () => {
         id: workflow.workflow_id,
         name: workflow.name || 'Untitled Workflow',
         description: workflow.description || 'No description',
-        metadata: [
-            {
-                label: 'steps',
-                value: workflow.steps?.length || 0
-            },
-            {
-                label: 'inputs',
-                value: workflow.inputs?.length || 0
-            },
-            {
-                label: 'outputs',
-                value: workflow.outputs?.length || 0
-            }
-        ]
+        metadata: getWorkflowStats(workflow)
     })) || [];
 
     if (isLoading) {
@@ -87,5 +79,20 @@ const WorkflowsManager: React.FC = () => {
         />
     );
 };
+
+const getWorkflowStats = (workflow: Workflow) => [
+    {
+        label: 'Steps',
+        value: workflow.steps.length
+    },
+    {
+        label: 'Inputs',
+        value: getWorkflowInputs(workflow).length
+    },
+    {
+        label: 'Outputs',
+        value: getWorkflowOutputs(workflow).length
+    }
+];
 
 export default WorkflowsManager; 

@@ -8,7 +8,7 @@ import {
     Workflow
 } from '../../types/workflows';
 import { ToolParameterName, ToolOutputName } from '../../types/tools';
-import { SchemaValueType, ValueType } from '../../types/schema';
+import { SchemaValueType } from '../../types/schema';
 import { ToolEngine } from '../tool/toolEngine';
 
 export class WorkflowEngine {
@@ -17,16 +17,15 @@ export class WorkflowEngine {
      */
     private static getResolvedParameters(
         step: WorkflowStep,
-        inputs: WorkflowVariable[],
-        outputs: WorkflowVariable[]
+        workflow: Workflow
     ): Record<ToolParameterName, SchemaValueType> {
         const parameters: Record<ToolParameterName, SchemaValueType> = {};
 
         if (!step.parameter_mappings) return parameters;
 
+        const allVariables = workflow.state || [];
         for (const [paramName, varName] of Object.entries(step.parameter_mappings)) {
-            const variable = inputs.find(v => v.name === varName) ||
-                outputs.find(v => v.name === varName);
+            const variable = allVariables.find(v => v.name === varName);
 
             if (variable?.value !== undefined) {
                 parameters[paramName as ToolParameterName] = variable.value as SchemaValueType;
@@ -37,26 +36,26 @@ export class WorkflowEngine {
     }
 
     /**
-     * Updates workflow outputs with tool results
+     * Updates workflow state with tool results
      */
-    private static getUpdatedWorkflowOutputs(
+    private static getUpdatedWorkflowState(
         step: WorkflowStep,
         outputs: Record<string, any>,
-        workflowOutputs: WorkflowVariable[]
+        workflow: Workflow
     ): WorkflowVariable[] {
-        if (!step.output_mappings) return workflowOutputs;
+        if (!step.output_mappings) return workflow.state || [];
 
-        const updatedOutputs = workflowOutputs;
+        const updatedState = [...(workflow.state || [])];
 
         // If step is type tool, we need to update the outputs with the tool results
         if (step.step_type === WorkflowStepType.ACTION) {
             for (const [outputName, varName] of Object.entries(step.output_mappings)) {
                 const value = outputs[outputName as ToolOutputName];
-                const outputVarIndex = updatedOutputs.findIndex(v => v.name === varName);
+                const outputVarIndex = updatedState.findIndex(v => v.name === varName);
 
                 if (outputVarIndex !== -1) {
-                    updatedOutputs[outputVarIndex] = {
-                        ...updatedOutputs[outputVarIndex],
+                    updatedState[outputVarIndex] = {
+                        ...updatedState[outputVarIndex],
                         value
                     };
                 }
@@ -64,20 +63,20 @@ export class WorkflowEngine {
         }
         // If step is type evaluation, we need to update the outputs with the evaluation result
         else if (step.step_type === WorkflowStepType.EVALUATION) {
-            console.log('Updating evaluation outputs:', workflowOutputs);
+            console.log('Updating evaluation outputs:', workflow.state);
             // Generate a shorter variable ID using first 8 chars of step ID plus _eval
             const shortStepId = step.step_id.slice(0, 8);
             const outputVarName = `${shortStepId}_eval` as WorkflowVariableName;
 
             // Check if the output variable already exists
-            const outputVarIndex = updatedOutputs.findIndex(v => v.name === outputVarName);
+            const outputVarIndex = updatedState.findIndex(v => v.name === outputVarName);
             if (outputVarIndex !== -1) {
-                updatedOutputs[outputVarIndex] = {
-                    ...updatedOutputs[outputVarIndex],
+                updatedState[outputVarIndex] = {
+                    ...updatedState[outputVarIndex],
                     value: outputs
                 };
             } else {
-                updatedOutputs.push({
+                updatedState.push({
                     name: outputVarName,
                     variable_id: outputVarName,
                     description: 'Evaluation step result',
@@ -91,8 +90,8 @@ export class WorkflowEngine {
             }
         }
 
-        console.log('Updated outputs:', updatedOutputs);
-        return updatedOutputs;
+        console.log('Updated state:', updatedState);
+        return updatedState;
     }
 
     /**
@@ -100,7 +99,7 @@ export class WorkflowEngine {
      */
     private static evaluateConditions(
         step: WorkflowStep,
-        variables: Map<WorkflowVariableName, any>
+        workflow: Workflow
     ): StepExecutionResult {
         if (!step.evaluation_config) {
             return {
@@ -108,6 +107,11 @@ export class WorkflowEngine {
                 error: 'No evaluation configuration found'
             };
         }
+
+        const variables = new Map<WorkflowVariableName, any>();
+        (workflow.state || []).forEach(variable => {
+            variables.set(variable.name, variable.value);
+        });
 
         // Find first matching condition
         let metCondition = null;
@@ -175,26 +179,6 @@ export class WorkflowEngine {
     }
 
     /**
-     * Collects all available variables for evaluation
-     */
-    private static collectVariables(
-        inputs: WorkflowVariable[],
-        outputs: WorkflowVariable[]
-    ): Map<WorkflowVariableName, any> {
-        const variables = new Map<WorkflowVariableName, any>();
-
-        inputs?.forEach(input => {
-            variables.set(input.name, input.value);
-        });
-
-        outputs?.forEach(output => {
-            variables.set(output.name, output.value);
-        });
-
-        return variables;
-    }
-
-    /**
      * Handles execution of a tool step
      */
     private static async executeToolStep(
@@ -209,7 +193,7 @@ export class WorkflowEngine {
             };
         }
 
-        const parameters = this.getResolvedParameters(step, workflow.inputs || [], workflow.outputs || []);
+        const parameters = this.getResolvedParameters(step, workflow);
 
         // Add prompt template ID for LLM tools
         if (step.tool.tool_type === 'llm' && step.prompt_template_id) {
@@ -219,10 +203,10 @@ export class WorkflowEngine {
         // Execute the tool
         const toolResult = await ToolEngine.executeTool(step.tool, parameters);
 
-        // Update workflow outputs with tool results
+        // Update workflow state with tool results
         if (toolResult) {
-            const updatedOutputs = this.getUpdatedWorkflowOutputs(step, toolResult, workflow.outputs || []);
-            updateWorkflow({ outputs: updatedOutputs });
+            const updatedState = this.getUpdatedWorkflowState(step, toolResult, workflow);
+            updateWorkflow({ state: updatedState });
         }
 
         return {
@@ -239,16 +223,14 @@ export class WorkflowEngine {
         workflow: Workflow,
         updateWorkflow: (updates: Partial<Workflow>) => void
     ): StepExecutionResult {
-
         console.log('Executing evaluation step:', step.evaluation_config);
 
-        const variables = this.collectVariables(workflow.inputs || [], workflow.outputs || []);
-        const result = this.evaluateConditions(step, variables);
+        const result = this.evaluateConditions(step, workflow);
 
-        // Store evaluation result in workflow outputs
+        // Store evaluation result in workflow state
         if (result.success && result.outputs) {
-            const updatedOutputs = this.getUpdatedWorkflowOutputs(step, result.outputs, workflow.outputs || []);
-            updateWorkflow({ outputs: updatedOutputs });
+            const updatedState = this.getUpdatedWorkflowState(step, result.outputs, workflow);
+            updateWorkflow({ state: updatedState });
         }
 
         return result;
@@ -262,30 +244,24 @@ export class WorkflowEngine {
         workflow: Workflow,
         updateWorkflow: (updates: Partial<Workflow>) => void
     ): void {
-        if (!workflow.outputs) return;
+        if (!workflow.state) return;
 
-        // Clear mapped outputs
-        if (step.output_mappings) {
-            const updatedOutputs = workflow.outputs.map(output => {
-                if (Object.values(step.output_mappings!).includes(output.name)) {
-                    return { ...output, value: undefined };
-                }
-                return output;
-            });
-            updateWorkflow({ outputs: updatedOutputs });
-        }
+        const updatedState = workflow.state.map(variable => {
+            // Clear mapped outputs
+            if (step.output_mappings && Object.values(step.output_mappings).includes(variable.name)) {
+                return { ...variable, value: undefined };
+            }
 
-        // Clear evaluation-specific outputs
-        if (step.step_type === WorkflowStepType.EVALUATION) {
-            const evaluationOutputName = `${step.step_id}_result`;
-            const updatedOutputs = workflow.outputs.map(output => {
-                if (output.name === evaluationOutputName) {
-                    return { ...output, value: undefined };
-                }
-                return output;
-            });
-            updateWorkflow({ outputs: updatedOutputs });
-        }
+            // Clear evaluation-specific outputs
+            if (step.step_type === WorkflowStepType.EVALUATION &&
+                variable.name === `${step.step_id}_result`) {
+                return { ...variable, value: undefined };
+            }
+
+            return variable;
+        });
+
+        updateWorkflow({ state: updatedState });
     }
 
     /**
@@ -336,7 +312,7 @@ export class WorkflowEngine {
         // For evaluation steps, check if we need to jump to a specific step
         if (currentStep.step_type === WorkflowStepType.EVALUATION) {
             // Find evaluation result in workflow outputs
-            const evalResult = workflow.outputs?.find(
+            const evalResult = workflow.state?.find(
                 o => o.name === `${currentStep.step_id}_result`
             )?.value as Record<string, string> | undefined;
 
@@ -353,5 +329,30 @@ export class WorkflowEngine {
 
         // Default behavior - go to next step
         return currentStepIndex + 1;
+    }
+
+    /**
+     * Handles changing a step's type between ACTION and EVALUATION
+     */
+    static handleStepTypeChange(step: WorkflowStep): WorkflowStep {
+        const newType = step.step_type === WorkflowStepType.ACTION ? WorkflowStepType.EVALUATION : WorkflowStepType.ACTION;
+
+        return {
+            ...step,
+            step_type: newType,
+            // Clear tool-specific data when switching to evaluation
+            ...(step.step_type === WorkflowStepType.ACTION ? {
+                tool: undefined,
+                tool_id: undefined,
+                parameter_mappings: {},
+                output_mappings: {},
+                prompt_template_id: undefined,
+                evaluation_config: {
+                    conditions: [],
+                    default_action: 'continue',
+                    maximum_jumps: 3
+                }
+            } : {})
+        };
     }
 } 

@@ -5,11 +5,11 @@ import React, { useState } from 'react';
 import { useWorkflows } from '../context/WorkflowContext';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
 import { fileApi } from '../lib/api/fileApi';
-import { RuntimeWorkflowStep, WorkflowVariableName } from '../types/workflows';
+import { RuntimeWorkflowStep, WorkflowVariableName, getWorkflowInputs, getWorkflowOutputs } from '../types/workflows';
+import { isFileValue } from '../types/schema';
 import Dialog from './common/Dialog';
 import FileLibrary from './FileLibrary';
 import PromptTemplateEditor from './PromptTemplateEditor';
-import { isFileValue } from '../types/schema';
 import MarkdownRenderer from './common/MarkdownRenderer';
 
 interface ActionStepRunnerProps {
@@ -47,7 +47,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     const [editValue, setEditValue] = useState<any>(null);
     const [showFileSelector, setShowFileSelector] = useState(false);
     const [selectedParam, setSelectedParam] = useState<{ paramName: string, varName: string } | null>(null);
-    const [fileNames, setFileNames] = useState<Record<string, string>>({});
+    const [fileNames, setFileNames] = useState<Record<string, string[]>>({});
     const [showTemplateEditor, setShowTemplateEditor] = useState(false);
     const [inputValues, setInputValues] = useState<Record<string, any>>({});
     const [outputValues, setOutputValues] = useState<Record<string, any>>({});
@@ -58,8 +58,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         const loadFileNames = async () => {
             const newFileNames: Record<string, string> = {};
             for (const [paramName, varName] of Object.entries(actionStep.parameter_mappings || {})) {
-                const variable = workflow?.inputs?.find(v => v.name === varName) ||
-                    workflow?.outputs?.find(v => v.name === varName);
+                const variable = workflow?.state?.find(v => v.name === varName);
                 if (variable?.schema.type === 'file' && variable.value && isFileValue(variable.schema, variable.value)) {
                     try {
                         const fileInfo = await fileApi.getFile(variable.value.file_id);
@@ -69,7 +68,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                     }
                 }
             }
-            setFileNames(newFileNames);
+            setFileNames(newFileNames as unknown as Record<string, string[]>);
         };
         loadFileNames();
     }, [workflow, actionStep]);
@@ -82,10 +81,20 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             tool: actionStep.tool?.name,
             tool_parameters: actionStep.tool?.signature.parameters.map(p => p.name)
         });
+
+        const workflowState = workflow?.state || [];
         console.log('ActionStepRunner - Current workflow:', {
             workflow_id: workflow?.workflow_id,
-            inputs: workflow?.inputs?.map(v => ({ id: v.variable_id, name: v.name, value: v.value })),
-            outputs: workflow?.outputs?.map(v => ({ id: v.variable_id, name: v.name, value: v.value }))
+            inputs: workflow ? getWorkflowInputs(workflow).map(v => ({
+                id: v.variable_id,
+                name: v.name,
+                value: v.value
+            })) : [],
+            outputs: workflow ? getWorkflowOutputs(workflow).map(v => ({
+                id: v.variable_id,
+                name: v.name,
+                value: v.value
+            })) : []
         });
 
         const newInputValues: Record<string, any> = {};
@@ -94,31 +103,10 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                 console.log(`\nProcessing parameter mapping: "${paramName}" -> "${varName}"`);
                 console.log('Tool parameter exists:', actionStep.tool?.signature.parameters.some(p => p.name === paramName));
 
-                // First try to find in inputs
-                const inputVar = workflow?.inputs?.find(v => v.name === varName);
-                if (inputVar) {
-                    console.log('Found in workflow inputs:', {
-                        variable_id: inputVar.variable_id,
-                        schema: inputVar.schema,
-                        value: inputVar.value
-                    });
-                }
-
-                // Then try to find in outputs
-                const outputVar = workflow?.outputs?.find(v => v.name === varName);
-                if (outputVar) {
-                    console.log('Found in workflow outputs:', {
-                        variable_id: outputVar.variable_id,
-                        schema: outputVar.schema,
-                        value: outputVar.value
-                    });
-                }
-
-                // Use the found variable
-                const variable = inputVar || outputVar;
+                const variable = workflowState.find(v => v.name === varName);
 
                 if (!variable) {
-                    console.warn(`No variable found with name "${varName}" in workflow inputs or outputs`);
+                    console.warn(`No variable found with name "${varName}" in workflow state`);
                     newInputValues[paramName] = {
                         value: null,
                         schema: null
@@ -149,7 +137,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         const newOutputValues: Record<string, any> = {};
         if (actionStep.output_mappings) {
             Object.entries(actionStep.output_mappings).forEach(([outputName, varName]) => {
-                const variable = workflow?.outputs?.find(v => v.name === varName);
+                const variable = workflowState.find(v => v.name === varName);
                 newOutputValues[outputName] = {
                     value: variable?.value,
                     schema: variable?.schema
@@ -175,21 +163,14 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     const handleSaveEdit = (paramName: string, varName: WorkflowVariableName) => {
         if (!workflow) return;
 
-        // Find and update the variable
-        const updatedInputs = [...(workflow.inputs || [])];
-        const updatedOutputs = [...(workflow.outputs || [])];
+        const updatedState = (workflow.state || []).map(variable => {
+            if (variable.name === varName) {
+                return { ...variable, value: editValue };
+            }
+            return variable;
+        });
 
-        const inputVar = updatedInputs.find(v => v.name === varName);
-        const outputVar = updatedOutputs.find(v => v.name === varName);
-
-        if (inputVar) {
-            inputVar.value = editValue;
-            updateWorkflow({ inputs: updatedInputs });
-        } else if (outputVar) {
-            outputVar.value = editValue;
-            updateWorkflow({ outputs: updatedOutputs });
-        }
-
+        updateWorkflow({ state: updatedState });
         setEditingInput(null);
         setEditValue(null);
     };
@@ -604,21 +585,14 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                         onFileSelect={(fileId: string) => {
                             if (!workflow || !selectedParam) return;
 
-                            // Find and update the variable
-                            const updatedInputs = [...(workflow.inputs || [])];
-                            const updatedOutputs = [...(workflow.outputs || [])];
+                            const updatedState = (workflow.state || []).map(variable => {
+                                if (variable.name === selectedParam.varName) {
+                                    return { ...variable, value: { file_id: fileId } };
+                                }
+                                return variable;
+                            });
 
-                            const inputVar = updatedInputs.find(v => v.name === selectedParam.varName);
-                            const outputVar = updatedOutputs.find(v => v.name === selectedParam.varName);
-
-                            if (inputVar) {
-                                inputVar.value = { file_id: fileId };
-                                updateWorkflow({ inputs: updatedInputs });
-                            } else if (outputVar) {
-                                outputVar.value = { file_id: fileId };
-                                updateWorkflow({ outputs: updatedOutputs });
-                            }
-
+                            updateWorkflow({ state: updatedState });
                             setShowFileSelector(false);
                             setSelectedParam(null);
                         }}

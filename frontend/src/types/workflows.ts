@@ -100,16 +100,33 @@ export interface WorkflowStep {
     updated_at: string;
 }
 
+// Helper functions to work with workflow state
+export const getWorkflowInputs = (workflow: Workflow): WorkflowVariable[] => {
+    return workflow.state?.filter(v => v.io_type === 'input') ?? [];
+};
+
+export const getWorkflowOutputs = (workflow: Workflow): WorkflowVariable[] => {
+    return workflow.state?.filter(v => v.io_type === 'output') ?? [];
+};
+
+export const addWorkflowVariable = (
+    workflow: Workflow,
+    variable: WorkflowVariable
+): Workflow => {
+    return {
+        ...workflow,
+        state: [...(workflow.state ?? []), variable]
+    };
+};
+
 // Complete workflow definition
 export interface Workflow {
     workflow_id: string;
     name: string;
     description?: string;
     status: WorkflowStatus;
-    // Variables for collecting input values
-    inputs?: WorkflowVariable[];
-    // Variables for storing output values
-    outputs?: WorkflowVariable[];
+    // Combined state array containing both inputs and outputs
+    state?: WorkflowVariable[];
     steps: WorkflowStep[];
 }
 
@@ -120,8 +137,7 @@ export const DEFAULT_WORKFLOW: Workflow = {
     description: 'A new custom workflow',
     status: WorkflowStatus.DRAFT,
     steps: [],
-    inputs: [],
-    outputs: []
+    state: []
 };
 
 // Helper function to create a workflow variable with type safety
@@ -183,7 +199,7 @@ export const EXAMPLE_WORKFLOW: Workflow = {
     name: "PubMed Research Assistant",
     description: "A workflow that converts questions into PubMed queries, evaluates results, and generates answers",
     status: WorkflowStatus.PUBLISHED,
-    inputs: [
+    state: [
         {
             variable_id: "question-var",
             name: "question" as WorkflowVariableName,
@@ -205,9 +221,7 @@ export const EXAMPLE_WORKFLOW: Workflow = {
             },
             io_type: "input",
             required: false
-        }
-    ],
-    outputs: [
+        },
         {
             variable_id: "final-answer-var",
             name: "final_answer" as WorkflowVariableName,

@@ -11,6 +11,10 @@ import {
     DialogFooter,
 } from '../components/ui/dialog';
 import AssetList from '../components/common/AssetList';
+import {
+    Workflow,
+    getWorkflowInputs
+} from '../types/workflows';
 
 const JobsManager: React.FC = () => {
     const navigate = useNavigate();
@@ -119,6 +123,14 @@ const JobsManager: React.FC = () => {
         ]
     }));
 
+    // Update the workflow stats display
+    const WorkflowStats: React.FC<{ workflow: Workflow }> = ({ workflow }) => (
+        <div className="flex gap-4 text-sm text-gray-500">
+            <span>{workflow.steps.length} steps</span>
+            <span>{getWorkflowInputs(workflow).length} inputs</span>
+        </div>
+    );
+
     return (
         <>
             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -188,11 +200,7 @@ const JobsManager: React.FC = () => {
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                         {workflow.description || 'No description'}
                                     </p>
-                                    <div className="flex gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                        <span>{workflow.steps?.length || 0} steps</span>
-                                        <span>•</span>
-                                        <span>{workflow.inputs?.length || 0} inputs</span>
-                                    </div>
+                                    <WorkflowStats workflow={workflow} />
                                 </div>
                             ))}
                         </div>

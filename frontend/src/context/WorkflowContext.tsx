@@ -2,6 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId, WorkflowVariable, ToolParameterName, ToolOutputName, WorkflowVariableName, Tool, StepExecutionResult } from '../types';
 import { workflowApi } from '../lib/api';
 import { WorkflowEngine } from '../lib/workflow/workflowEngine';
+import {
+    WorkflowStep,
+    DEFAULT_WORKFLOW,
+    getWorkflowInputs,
+    getWorkflowOutputs,
+    addWorkflowVariable
+} from '../types/workflows';
 
 interface WorkflowContextType {
     // Public State
@@ -92,8 +99,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             name: 'Untitled Workflow',
             description: 'A new custom workflow',
             status: WorkflowStatus.DRAFT,
-            inputs: [],
-            outputs: [],
+            state: [],
             steps: [{
                 step_id: `step-${crypto.randomUUID()}` as WorkflowStepId,
                 label: 'Step 1',
@@ -148,15 +154,18 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         try {
             setIsLoading(true);
             setError(null);
-            const fetchedWorkflow = await workflowApi.getWorkflow(id);
+            const baseWorkflow = await workflowApi.getWorkflow(id);
 
-            // Only update state if the ID still matches (prevent race conditions)
-            if (id === fetchedWorkflow.workflow_id) {
-                setWorkflow(fetchedWorkflow);
-                setOriginalWorkflow(fetchedWorkflow); // Store the original state
-                setHasUnsavedChanges(false);
-                // Don't reset active step here to preserve navigation state
-            }
+            // Convert to runtime workflow with state
+            const runtimeWorkflow: Workflow = {
+                ...baseWorkflow,
+                state: baseWorkflow.state ?? []
+            };
+
+            setWorkflow(runtimeWorkflow);
+            setOriginalWorkflow(runtimeWorkflow); // Store the original state
+            setHasUnsavedChanges(false);
+            setActiveStep(0);
         } catch (err) {
             setError('Failed to load workflow');
             console.error('Error loading workflow:', err);
@@ -166,7 +175,6 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, [createWorkflow, isLoading, workflow?.workflow_id]);
 
     const updateWorkflow = useCallback((updates: Partial<Workflow>) => {
-
         if (!workflow) return;
 
         // First, create the base updated workflow
@@ -188,26 +196,21 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             return null;
         };
 
-        // Check for duplicate names in inputs and outputs separately
-        const inputError = validateVariableNames(updates.inputs);
-        const outputError = validateVariableNames(updates.outputs);
-        if (inputError || outputError) {
-            console.error('Variable name validation failed:', inputError || outputError);
-            setError(inputError || outputError);
+        // Check for duplicate names in state variables
+        const stateError = validateVariableNames(updates.state);
+        if (stateError) {
+            console.error('Variable name validation failed:', stateError);
+            setError(stateError);
             return;
         }
 
-        // Then, handle inputs and outputs separately to ensure we don't lose data
+        // Then, handle state updates to ensure we don't lose data
         const updatedWorkflow = {
             ...baseWorkflow,
-            inputs: updates.inputs ? updates.inputs.map(input => ({
-                ...input,
-                variable_id: input.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-            })) : baseWorkflow.inputs || [],
-            outputs: updates.outputs ? updates.outputs.map(output => ({
-                ...output,
-                variable_id: output.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-            })) : baseWorkflow.outputs || []
+            state: updates.state ? updates.state.map(variable => ({
+                ...variable,
+                variable_id: variable.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            })) : baseWorkflow.state || []
         };
 
         console.log('Setting workflow to:', updatedWorkflow);
@@ -228,27 +231,11 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         try {
             setIsLoading(true);
             setError(null);
-            let savedWorkflow: Workflow;
+            const savedWorkflow = await workflowApi.updateWorkflow(workflow.workflow_id, {
+                ...workflow,
+                state: workflow.state ?? []
+            });
 
-            if (workflow.workflow_id === 'new') {
-                const { workflow_id, ...workflowData } = workflow;
-                savedWorkflow = await workflowApi.createWorkflow(workflowData);
-                setWorkflows(prev => [...prev, savedWorkflow]);
-            } else {
-                // Only send updatable fields
-                const updateData = {
-                    name: workflow.name,
-                    description: workflow.description,
-                    status: workflow.status,
-                    steps: workflow.steps,
-                    inputs: workflow.inputs,
-                    outputs: workflow.outputs
-                };
-                savedWorkflow = await workflowApi.updateWorkflow(workflow.workflow_id, updateData);
-                setWorkflows(prev =>
-                    prev.map(w => w.workflow_id === savedWorkflow.workflow_id ? savedWorkflow : w)
-                );
-            }
             setWorkflow(savedWorkflow);
             setOriginalWorkflow(savedWorkflow); // Update the original state after saving
             setHasUnsavedChanges(false);
@@ -374,14 +361,13 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, [activeStep]);
 
     const resetWorkflow = useCallback(() => {
-        if (!workflow?.outputs) return;
+        if (!workflow?.state) return;
 
         // Clear all output values
-        const clearedOutputs = workflow.outputs.map(output => ({
-            ...output,
-            value: undefined
-        }));
-        updateWorkflow({ outputs: clearedOutputs });
+        const clearedState = workflow.state.map(variable =>
+            variable.io_type === 'output' ? { ...variable, value: undefined } : variable
+        );
+        updateWorkflow({ state: clearedState });
         setActiveStep(0);
         setStepExecuted(false);
     }, [workflow, updateWorkflow]);
