@@ -19,28 +19,25 @@ import StepDetail from '../components/StepDetail';
 import WorkflowNavigation from '../components/WorkflowNavigation';
 import WorkflowMenuBar from '../components/WorkflowMenuBar';
 
-// Engine
-import { WorkflowEngine } from '../lib/workflow/workflowEngine';
 
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
     const navigate = useNavigate();
     const {
         workflow,
-        updateWorkflow,
         hasUnsavedChanges,
-        loadWorkflow,
         isLoading,
         activeStep,
-        setActiveStep,
         isExecuting,
         stepExecuted,
-        executeCurrentStep,
+        loadWorkflow,
+        setActiveStep,
         moveToNextStep,
         moveToPreviousStep,
-        resetWorkflow,
+        executeCurrentStep,
         updateWorkflowByAction,
-        updateWorkflowStep
+        updateWorkflowStep,
+        resetWorkflow,
     } = useWorkflows();
 
     // State

@@ -1,5 +1,5 @@
 import { api, handleApiError } from './index';
-import { Workflow, WorkflowStepType } from '../../types/workflows';
+import { Workflow, WorkflowStatus, WorkflowStepId, WorkflowStepType } from '../../types/workflows';
 
 export const workflowApi = {
     getWorkflows: async (): Promise<Workflow[]> => {
@@ -47,17 +47,11 @@ export const workflowApi = {
                         }
                     } : {})
                 })),
-                inputs: workflow.inputs?.map(input => ({
-                    variable_id: input.variable_id,
-                    name: input.name,
-                    schema: input.schema,
-                    io_type: 'input'
-                })),
-                outputs: workflow.outputs?.map(output => ({
-                    variable_id: output.variable_id,
-                    name: output.name,
-                    schema: output.schema,
-                    io_type: 'output'
+                state: workflow.state?.map(variable => ({
+                    variable_id: variable.variable_id,
+                    name: variable.name,
+                    schema: variable.schema,
+                    io_type: variable.io_type
                 }))
             };
 
@@ -96,17 +90,11 @@ export const workflowApi = {
                         }
                     } : {})
                 })),
-                inputs: workflow.inputs?.map(input => ({
-                    variable_id: input.variable_id,
-                    name: input.name,
-                    schema: input.schema,
-                    io_type: 'input'
-                })),
-                outputs: workflow.outputs?.map(output => ({
-                    variable_id: output.variable_id,
-                    name: output.name,
-                    schema: output.schema,
-                    io_type: 'output'
+                state: workflow.state?.map(variable => ({
+                    variable_id: variable.variable_id,
+                    name: variable.name,
+                    schema: variable.schema,
+                    io_type: variable.io_type
                 }))
             };
 
@@ -143,4 +131,44 @@ export const workflowApi = {
             throw handleApiError(error);
         }
     }
-}; 
+};
+
+// Helper function to convert frontend workflow to API format
+const workflowToApiFormat = (workflow: Workflow) => ({
+    name: workflow.name,
+    description: workflow.description,
+    status: workflow.status,
+    steps: workflow.steps?.map(step => ({
+        label: step.label,
+        description: step.description,
+        step_type: step.step_type,
+        tool_id: step.tool?.tool_id,
+        prompt_template_id: step.prompt_template_id,
+        parameter_mappings: step.parameter_mappings,
+        output_mappings: step.output_mappings,
+        evaluation_config: step.evaluation_config,
+        sequence_number: step.sequence_number
+    })),
+    state: workflow.state?.map(variable => ({
+        variable_id: variable.variable_id,
+        name: variable.name,
+        schema: variable.schema,
+        io_type: variable.io_type
+    }))
+});
+
+// Helper function to convert API response to frontend format
+const apiToWorkflowFormat = (data: any): Workflow => ({
+    workflow_id: data.workflow_id,
+    name: data.name,
+    description: data.description,
+    status: data.status as WorkflowStatus,
+    error: data.error,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    steps: data.steps?.map((step: any) => ({
+        ...step,
+        step_id: step.step_id as WorkflowStepId
+    })) ?? [],
+    state: data.state ?? []
+}); 

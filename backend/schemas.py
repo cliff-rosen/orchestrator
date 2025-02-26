@@ -497,8 +497,7 @@ class WorkflowCreate(BaseModel):
     description: Optional[str] = None
     status: str
     steps: Optional[List[WorkflowStepCreate]] = None
-    inputs: Optional[List[WorkflowVariableCreate]] = None
-    outputs: Optional[List[WorkflowVariableCreate]] = None
+    state: Optional[List[WorkflowVariableCreate]] = None
 
     class Config:
         from_attributes = True
@@ -509,8 +508,7 @@ class WorkflowUpdate(BaseModel):
     description: Optional[str] = Field(None, description="New description for the workflow")
     status: Optional[str] = Field(None, description="New status for the workflow")
     steps: Optional[List[WorkflowStepCreate]] = Field(None, description="Updated steps for the workflow")
-    inputs: Optional[List[WorkflowVariableCreate]] = Field(None, description="Updated input variables for the workflow")
-    outputs: Optional[List[WorkflowVariableCreate]] = Field(None, description="Updated output variables for the workflow")
+    state: Optional[List[WorkflowVariableCreate]] = Field(None, description="Updated state variables for the workflow")
 
 class WorkflowResponse(WorkflowBase):
     """Schema for workflow responses"""
@@ -520,8 +518,7 @@ class WorkflowResponse(WorkflowBase):
     created_at: datetime
     updated_at: datetime
     steps: List[WorkflowStepResponse] = Field(default_factory=list)
-    inputs: List[WorkflowVariableResponse] = Field(default_factory=list)
-    outputs: List[WorkflowVariableResponse] = Field(default_factory=list)
+    state: List[WorkflowVariableResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

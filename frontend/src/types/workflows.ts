@@ -125,6 +125,9 @@ export interface Workflow {
     name: string;
     description?: string;
     status: WorkflowStatus;
+    error?: string;
+    created_at?: string;
+    updated_at?: string;
     // Combined state array containing both inputs and outputs
     state?: WorkflowVariable[];
     steps: WorkflowStep[];

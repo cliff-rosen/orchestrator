@@ -66,39 +66,22 @@ class WorkflowService:
                 )
                 self.db.add(step)
 
-        # Create input variables if provided
-        if workflow_data.inputs:
-            for input_data in workflow_data.inputs:
-                schema = input_data.schema.model_dump()
-                input_var = WorkflowVariable(
-                    variable_id=input_data.variable_id or str(uuid4()),
+        # Create state variables if provided
+        if workflow_data.state:
+            for var_data in workflow_data.state:
+                schema = var_data.schema.model_dump()
+                var = WorkflowVariable(
+                    variable_id=var_data.variable_id or str(uuid4()),
                     workflow_id=workflow.workflow_id,
-                    name=input_data.name,
+                    name=var_data.name,
                     description=schema.get('description'),
                     type=schema['type'],
                     schema=schema,
-                    io_type='input',
+                    io_type=var_data.io_type,
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
                 )
-                self.db.add(input_var)
-
-        # Create output variables if provided
-        if workflow_data.outputs:
-            for output_data in workflow_data.outputs:
-                schema = output_data.schema.model_dump()
-                output_var = WorkflowVariable(
-                    variable_id=output_data.variable_id or str(uuid4()),
-                    workflow_id=workflow.workflow_id,
-                    name=output_data.name,
-                    description=schema.get('description'),
-                    type=schema['type'],
-                    schema=schema,
-                    io_type='output',
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
-                )
-                self.db.add(output_var)
+                self.db.add(var)
 
         try:
             self.db.commit()
@@ -158,8 +141,7 @@ class WorkflowService:
                 created_at=workflow.created_at,
                 updated_at=workflow.updated_at,
                 steps=[],
-                inputs=[],
-                outputs=[]
+                state=[]
             )
 
             # Add workflow steps with tool information
@@ -205,7 +187,7 @@ class WorkflowService:
                 )
                 response.steps.append(step_response)
 
-            # Add workflow variables
+            # Add workflow variables to state
             for variable in workflow.variables:
                 variable_response = WorkflowVariableResponse(
                     variable_id=variable.variable_id,
@@ -217,12 +199,7 @@ class WorkflowService:
                     created_at=variable.created_at,
                     updated_at=variable.updated_at
                 )
-                
-                # Sort variables into inputs and outputs
-                if variable.io_type == "input":
-                    response.inputs.append(variable_response)
-                else:
-                    response.outputs.append(variable_response)
+                response.state.append(variable_response)
 
             return response
 
@@ -462,51 +439,30 @@ class WorkflowService:
                     )
                     self.db.add(step)
             
-            # Update variables if provided
-            print(f"Updating variables")
-            if 'inputs' in update_data or 'outputs' in update_data:
+            # Update state variables if provided
+            if workflow_data.state is not None:
                 # Delete existing variables
                 self.db.query(WorkflowVariable).filter(
                     WorkflowVariable.workflow_id == workflow_id
                 ).delete()
                 
-                # Create new input variables
-                if 'inputs' in update_data:
-                    for var_data in update_data['inputs']:
-                        # Handle both Pydantic models and dicts
-                        var_dict = var_data.model_dump() if hasattr(var_data, 'model_dump') else var_data
-                        schema = var_dict['schema']
-                        var = WorkflowVariable(
-                            variable_id=var_dict.get('variable_id', str(uuid4())),
-                            workflow_id=workflow_id,
-                            io_type='input',
-                            name=var_dict['name'],
-                            description=schema.get('description'),
-                            type=schema['type'],
-                            schema=schema,
-                            created_at=datetime.utcnow(),
-                            updated_at=datetime.utcnow()
-                        )
-                        self.db.add(var)
-                
-                # Create new output variables
-                if 'outputs' in update_data:
-                    for var_data in update_data['outputs']:
-                        # Handle both Pydantic models and dicts
-                        var_dict = var_data.model_dump() if hasattr(var_data, 'model_dump') else var_data
-                        schema = var_dict['schema']
-                        var = WorkflowVariable(
-                            variable_id=var_dict.get('variable_id', str(uuid4())),
-                            workflow_id=workflow_id,
-                            io_type='output',
-                            name=var_dict['name'],
-                            description=schema.get('description'),
-                            type=schema['type'],
-                            schema=schema,
-                            created_at=datetime.utcnow(),
-                            updated_at=datetime.utcnow()
-                        )
-                        self.db.add(var)
+                # Create new state variables
+                for var_data in workflow_data.state:
+                    # Handle both Pydantic models and dicts
+                    var_dict = var_data.model_dump() if hasattr(var_data, 'model_dump') else var_data
+                    schema = var_dict['schema']
+                    var = WorkflowVariable(
+                        variable_id=var_dict.get('variable_id', str(uuid4())),
+                        workflow_id=workflow_id,
+                        name=var_dict['name'],
+                        description=schema.get('description'),
+                        type=schema['type'],
+                        schema=schema,
+                        io_type=var_dict['io_type'],
+                        created_at=datetime.utcnow(),
+                        updated_at=datetime.utcnow()
+                    )
+                    self.db.add(var)
             
             workflow.updated_at = datetime.utcnow()
             self.db.commit()
