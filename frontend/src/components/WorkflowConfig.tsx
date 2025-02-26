@@ -289,19 +289,35 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
 };
 
 const WorkflowIOEditor: React.FC = () => {
-    const { workflow, updateWorkflow } = useWorkflows();
+    const { workflow, updateWorkflowByAction } = useWorkflows();
     const inputs = workflow?.state?.filter(v => v.io_type === 'input') || [];
     const outputs = workflow?.state?.filter(v => v.io_type === 'output') || [];
     const [activeTab, setActiveTab] = useState<'inputs' | 'outputs'>('inputs');
 
     const handleInputChange = (newInputs: WorkflowVariable[]) => {
         if (!workflow) return;
-        updateWorkflow({ state: newInputs });
+        // Get existing outputs
+        const outputs = workflow.state?.filter(v => v.io_type === 'output') || [];
+        // Combine with new inputs
+        updateWorkflowByAction({
+            type: 'UPDATE_STATE',
+            payload: {
+                state: [...newInputs, ...outputs]
+            }
+        });
     };
 
     const handleOutputChange = (newOutputs: WorkflowVariable[]) => {
         if (!workflow) return;
-        updateWorkflow({ state: newOutputs });
+        // Get existing inputs
+        const inputs = workflow.state?.filter(v => v.io_type === 'input') || [];
+        // Combine with new outputs
+        updateWorkflowByAction({
+            type: 'UPDATE_STATE',
+            payload: {
+                state: [...inputs, ...newOutputs]
+            }
+        });
     };
 
     const handleFileSelect = (file: FileInfo, schema: Schema) => {

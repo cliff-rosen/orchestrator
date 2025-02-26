@@ -106,7 +106,7 @@ export class WorkflowEngine {
             console.log('Updating evaluation outputs:', workflow.state);
             // Generate a shorter variable ID using first 8 chars of step ID plus _eval
             const shortStepId = step.step_id.slice(0, 8);
-            const outputVarName = `${shortStepId}_eval` as WorkflowVariableName;
+            const outputVarName = `eval_${shortStepId}` as WorkflowVariableName;
 
             // Check if the output variable already exists
             const outputVarIndex = updatedState.findIndex(v => v.name === outputVarName);
@@ -310,7 +310,7 @@ export class WorkflowEngine {
         // Update workflow state with tool results
         if (toolResult) {
             console.log('Updating workflow state with tool results:', toolResult);
-            const updatedState = this.getUpdatedWorkflowState(step, toolResult, workflow);
+            const updatedState = this.getUpdatedWorkflowStateFromResults(step, toolResult, workflow);
             console.log('Updated state:', updatedState);
             updateWorkflow({ state: updatedState });
         }
@@ -339,7 +339,7 @@ export class WorkflowEngine {
 
             // Clear evaluation-specific outputs
             if (step.step_type === WorkflowStepType.EVALUATION &&
-                variable.name === `${step.step_id}_result`) {
+                variable.name === `eval_${step.step_id.slice(0, 8)}`) {
                 return { ...variable, value: undefined };
             }
 
@@ -391,6 +391,7 @@ export class WorkflowEngine {
         workflow: Workflow,
         currentStepIndex: number
     ): number {
+        console.log('Getting next step index for workflow:', workflow.workflow_id);
         const currentStep = workflow.steps[currentStepIndex];
         if (!currentStep) return currentStepIndex;
 
@@ -398,7 +399,7 @@ export class WorkflowEngine {
         if (currentStep.step_type === WorkflowStepType.EVALUATION) {
             // Find evaluation result in workflow outputs
             const evalResult = workflow.state?.find(
-                o => o.name === `${currentStep.step_id}_result`
+                o => o.name === `eval_${currentStep.step_id.slice(0, 8)}`
             )?.value as EvaluationResult | undefined;
 
             if (evalResult?.next_action === 'jump' && evalResult?.target_step_index) {
@@ -449,6 +450,15 @@ export class WorkflowEngine {
 
             case 'UPDATE_STATE':
                 if (!action.payload.state) return workflow;
+                // Validate variable name uniqueness
+                const names = new Set<string>();
+                for (const variable of action.payload.state) {
+                    if (names.has(variable.name)) {
+                        console.error(`Duplicate variable name found: ${variable.name}`);
+                        return workflow;
+                    }
+                    names.add(variable.name);
+                }
                 return {
                     ...workflow,
                     state: action.payload.state
