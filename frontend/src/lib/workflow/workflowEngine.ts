@@ -7,9 +7,18 @@ import {
     WorkflowStepType,
     Workflow
 } from '../../types/workflows';
-import { ToolParameterName, ToolOutputName } from '../../types/tools';
+import { ToolParameterName, ToolOutputName, Tool } from '../../types/tools';
 import { SchemaValueType } from '../../types/schema';
 import { ToolEngine } from '../tool/toolEngine';
+
+type WorkflowStateAction = {
+    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE',
+    payload: {
+        stepId: string,
+        mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
+        tool?: Tool
+    }
+};
 
 export class WorkflowEngine {
     /**
@@ -332,27 +341,63 @@ export class WorkflowEngine {
     }
 
     /**
-     * Handles changing a step's type between ACTION and EVALUATION
+     * Updates workflow state based on an action
      */
-    static handleStepTypeChange(step: WorkflowStep): WorkflowStep {
-        const newType = step.step_type === WorkflowStepType.ACTION ? WorkflowStepType.EVALUATION : WorkflowStepType.ACTION;
-
+    static updateWorkflowState(workflow: Workflow, action: WorkflowStateAction): Workflow {
         return {
-            ...step,
-            step_type: newType,
-            // Clear tool-specific data when switching to evaluation
-            ...(step.step_type === WorkflowStepType.ACTION ? {
-                tool: undefined,
-                tool_id: undefined,
-                parameter_mappings: {},
-                output_mappings: {},
-                prompt_template_id: undefined,
-                evaluation_config: {
-                    conditions: [],
-                    default_action: 'continue',
-                    maximum_jumps: 3
+            ...workflow,
+            steps: workflow.steps.map(step => {
+                if (step.step_id === action.payload.stepId) {
+                    switch (action.type) {
+                        case 'UPDATE_PARAMETER_MAPPINGS':
+                            return {
+                                ...step,
+                                parameter_mappings: action.payload.mappings as Record<ToolParameterName, WorkflowVariableName>
+                            };
+                        case 'UPDATE_OUTPUT_MAPPINGS':
+                            return {
+                                ...step,
+                                output_mappings: action.payload.mappings as Record<ToolOutputName, WorkflowVariableName>
+                            };
+                        case 'UPDATE_STEP_TOOL':
+                            return {
+                                ...step,
+                                tool: action.payload.tool,
+                                tool_id: action.payload.tool?.tool_id,
+                                // Clear mappings when tool changes
+                                parameter_mappings: {},
+                                output_mappings: {},
+                                // Clear prompt template when tool changes
+                                prompt_template_id: undefined
+                            };
+                        case 'UPDATE_STEP_TYPE':
+                            const newType = step.step_type === WorkflowStepType.ACTION
+                                ? WorkflowStepType.EVALUATION
+                                : WorkflowStepType.ACTION;
+
+                            return {
+                                ...step,
+                                step_type: newType,
+                                // Clear tool-specific data when switching to evaluation
+                                ...(step.step_type === WorkflowStepType.ACTION ? {
+                                    tool: undefined,
+                                    tool_id: undefined,
+                                    parameter_mappings: {},
+                                    output_mappings: {},
+                                    prompt_template_id: undefined,
+                                    evaluation_config: {
+                                        conditions: [],
+                                        default_action: 'continue',
+                                        maximum_jumps: 3
+                                    }
+                                } : {})
+                            };
+                        default:
+                            return step;
+                    }
                 }
-            } : {})
+                return step;
+            })
         };
     }
 } 

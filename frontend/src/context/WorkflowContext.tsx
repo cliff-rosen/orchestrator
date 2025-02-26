@@ -2,13 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Workflow, WorkflowStepType, WorkflowStatus, WorkflowStepId, WorkflowVariable, ToolParameterName, ToolOutputName, WorkflowVariableName, Tool, StepExecutionResult } from '../types';
 import { workflowApi } from '../lib/api';
 import { WorkflowEngine } from '../lib/workflow/workflowEngine';
-import {
-    WorkflowStep,
-    DEFAULT_WORKFLOW,
-    getWorkflowInputs,
-    getWorkflowOutputs,
-    addWorkflowVariable
-} from '../types/workflows';
+
 
 interface WorkflowContextType {
     // Public State
@@ -31,7 +25,7 @@ interface WorkflowContextType {
     exitWorkflow(): void
     // New granular update method
     updateWorkflowState(action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL',
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE',
         payload: {
             stepId: string,
             mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
@@ -261,7 +255,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, []);
 
     const updateWorkflowState = useCallback((action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL',
+        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE',
         payload: {
             stepId: string,
             mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
@@ -271,39 +265,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setWorkflow(currentWorkflow => {
             if (!currentWorkflow) return null;
 
-            const newWorkflow = {
-                ...currentWorkflow,
-                steps: currentWorkflow.steps.map(step => {
-                    if (step.step_id === action.payload.stepId) {
-                        switch (action.type) {
-                            case 'UPDATE_PARAMETER_MAPPINGS':
-                                return {
-                                    ...step,
-                                    parameter_mappings: action.payload.mappings as Record<ToolParameterName, WorkflowVariableName>
-                                };
-                            case 'UPDATE_OUTPUT_MAPPINGS':
-                                return {
-                                    ...step,
-                                    output_mappings: action.payload.mappings as Record<ToolOutputName, WorkflowVariableName>
-                                };
-                            case 'UPDATE_STEP_TOOL':
-                                return {
-                                    ...step,
-                                    tool: action.payload.tool,
-                                    tool_id: action.payload.tool?.tool_id,
-                                    // Clear mappings when tool changes
-                                    parameter_mappings: {},
-                                    output_mappings: {},
-                                    // Clear prompt template when tool changes
-                                    prompt_template_id: undefined
-                                };
-                            default:
-                                return step;
-                        }
-                    }
-                    return step;
-                })
-            };
+            const newWorkflow = WorkflowEngine.updateWorkflowState(currentWorkflow, action);
 
             // Compare with original workflow to determine if there are unsaved changes
             if (originalWorkflow) {
@@ -315,7 +277,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
             return newWorkflow;
         });
-    }, [originalWorkflow]); // Now we only depend on originalWorkflow
+    }, [originalWorkflow]);
 
     // Workflow Execution Methods
     const executeCurrentStep = useCallback(async (): Promise<StepExecutionResult> => {

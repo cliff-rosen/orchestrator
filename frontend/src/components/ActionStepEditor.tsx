@@ -7,7 +7,7 @@ import { Tool } from '../types/tools';
 import { toolApi } from '../lib/api/toolApi';
 import EvaluationStepEditor from './EvaluationStepEditor';
 import ToolActionEditor from './ToolActionEditor';
-import { WorkflowEngine } from '../lib/workflow/workflowEngine';
+import { useWorkflows } from '../context/WorkflowContext';
 
 interface ActionStepEditorProps {
     step: WorkflowStep;
@@ -17,11 +17,13 @@ interface ActionStepEditorProps {
 
 const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
     step,
-    onStepUpdate
+    onStepUpdate,
+    onDeleteRequest
 }) => {
     const [tools, setTools] = useState<Tool[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { updateWorkflowState } = useWorkflows();
 
     useEffect(() => {
         const loadTools = async () => {
@@ -39,9 +41,13 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
         loadTools();
     }, []);
 
-    const handleStepTypeChange = () => {
-        const updatedStep = WorkflowEngine.handleStepTypeChange(step);
-        onStepUpdate(updatedStep);
+    const handleTypeChange = () => {
+        updateWorkflowState({
+            type: 'UPDATE_STEP_TYPE',
+            payload: {
+                stepId: step.step_id
+            }
+        });
     };
 
     if (loading) {
@@ -67,7 +73,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                     {/* Step Type Selection */}
                     <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 p-1 bg-gray-50 dark:bg-gray-900">
                         <button
-                            onClick={handleStepTypeChange}
+                            onClick={handleTypeChange}
                             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors
                                 ${step.step_type === WorkflowStepType.ACTION
                                     ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
@@ -77,7 +83,7 @@ const ActionStepEditor: React.FC<ActionStepEditorProps> = ({
                             Action
                         </button>
                         <button
-                            onClick={handleStepTypeChange}
+                            onClick={handleTypeChange}
                             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors
                                 ${step.step_type === WorkflowStepType.EVALUATION
                                     ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
