@@ -74,15 +74,19 @@ const Workflow: React.FC = () => {
         }
     }, [workflowId, navigate, loadWorkflow]);
 
-    useEffect(() => {
+    const isMissingInputs = useMemo(() => {
         const missingInputs = workflow?.state?.filter(variable => variable.io_type === 'input' && !variable.value);
-        console.log('***** workflow?.state changed *****', missingInputs);
-        if (missingInputs && missingInputs.length > 0) {
+        console.log('***** missingInputs *****', missingInputs);
+        return missingInputs && missingInputs.length > 0;
+    }, [workflow?.state]);
+
+    useEffect(() => {
+        if (isMissingInputs) {
             setIsInputRequired(true);
         } else {
             setIsInputRequired(false);
         }
-    }, [workflow?.state]);
+    }, [isMissingInputs]);
 
     // Prompt user before leaving if there are unsaved changes
     useEffect(() => {
