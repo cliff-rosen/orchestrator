@@ -8,6 +8,7 @@ import EvaluationStepRunner from './EvaluationStepRunner';
 interface StepDetailProps {
     step: RuntimeWorkflowStep;
     isEditMode: boolean;
+    isInputRequired: boolean;
     stepExecuted: boolean;
     isExecuting: boolean;
     onStepUpdate: (step: RuntimeWorkflowStep) => void;
@@ -17,6 +18,7 @@ interface StepDetailProps {
 const StepDetail: React.FC<StepDetailProps> = ({
     step,
     isEditMode,
+    isInputRequired,
     stepExecuted,
     isExecuting,
     onStepUpdate,
@@ -26,13 +28,9 @@ const StepDetail: React.FC<StepDetailProps> = ({
         return <div>Error: No step provided</div>;
     }
 
-    const isInputStep = step.step_type === WorkflowStepType.INPUT;
-    const isEvaluationStep = step.step_type === WorkflowStepType.EVALUATION;
 
-    // In edit mode, input steps are configured in WorkflowConfig
-    if (isEditMode && isInputStep) {
-        return <div className="text-red-600">Input steps cannot be edited here. Please use the Schema configuration.</div>;
-    }
+    const isInputStep = isInputRequired
+    const isEvaluationStep = step.step_type === WorkflowStepType.EVALUATION;
 
     // In edit mode, action and evaluation steps use the editor
     if (isEditMode) {

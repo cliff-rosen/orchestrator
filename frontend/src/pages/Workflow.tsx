@@ -44,6 +44,7 @@ const Workflow: React.FC = () => {
     const [showConfig, setShowConfig] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(true);
+    const [isInputRequired, setIsInputRequired] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(() => {
         // Initialize from localStorage, default to false if not set
         const saved = localStorage.getItem('workflowNavCollapsed');
@@ -72,6 +73,16 @@ const Workflow: React.FC = () => {
             loadWorkflowData();
         }
     }, [workflowId, navigate, loadWorkflow]);
+
+    useEffect(() => {
+        const missingInputs = workflow?.state?.filter(variable => variable.io_type === 'input' && !variable.value);
+        console.log('***** workflow?.state changed *****', missingInputs);
+        if (missingInputs && missingInputs.length > 0) {
+            setIsInputRequired(true);
+        } else {
+            setIsInputRequired(false);
+        }
+    }, [workflow?.state]);
 
     // Prompt user before leaving if there are unsaved changes
     useEffect(() => {
@@ -189,7 +200,8 @@ const Workflow: React.FC = () => {
     // Memoize all steps
     const allSteps = useMemo(() => {
         if (!workflowSteps) return [];
-        return !isEditMode && inputStep ? [inputStep, ...workflowSteps] : workflowSteps;
+        // return !isEditMode && inputStep ? [inputStep, ...workflowSteps] : workflowSteps;
+        return workflowSteps;
     }, [isEditMode, inputStep, workflowSteps]);
 
     // Memoize current step
@@ -458,6 +470,7 @@ const Workflow: React.FC = () => {
                                             <StepDetail
                                                 step={currentStep}
                                                 isEditMode={isEditMode}
+                                                isInputRequired={isInputRequired}
                                                 stepExecuted={stepExecuted}
                                                 isExecuting={isExecuting}
                                                 onStepUpdate={handleStepUpdate}

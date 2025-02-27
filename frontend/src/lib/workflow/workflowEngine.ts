@@ -395,6 +395,7 @@ export class WorkflowEngine {
     ): number {
 
         const adjustedCurrentStepIndex = currentStepIndex - 1;
+        if (adjustedCurrentStepIndex < 1) return 1;
 
         const currentStep = workflow.steps[adjustedCurrentStepIndex];
         if (!currentStep) return adjustedCurrentStepIndex;
