@@ -17,7 +17,7 @@ export type StepReorderPayload = {
     reorderedSteps: WorkflowStep[];
 };
 
-type WorkflowStateAction = {
+export type WorkflowStateAction = {
     type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE',
     payload: {
         stepId?: string,
@@ -179,6 +179,8 @@ export class WorkflowEngine {
                     ['variable_value' as WorkflowVariableName]: String(metCondition.value) as SchemaValueType,
                     ['operator' as WorkflowVariableName]: metCondition.condition.operator as SchemaValueType,
                     ['comparison_value' as WorkflowVariableName]: String(metCondition.condition.value) as SchemaValueType,
+                    ['reason' as WorkflowVariableName]: `Condition '${metCondition.condition.condition_id}' was met` as SchemaValueType,
+                    ['next_action' as WorkflowVariableName]: 'jump' as SchemaValueType,
                     ['target_step_index' as WorkflowVariableName]: String(metCondition.condition.target_step_index) as SchemaValueType
                 },
                 next_action: 'jump',
@@ -391,23 +393,29 @@ export class WorkflowEngine {
         workflow: Workflow,
         currentStepIndex: number
     ): number {
-        console.log('Getting next step index for workflow:', workflow.workflow_id);
-        const currentStep = workflow.steps[currentStepIndex];
-        if (!currentStep) return currentStepIndex;
 
+        const adjustedCurrentStepIndex = currentStepIndex - 1;
+
+        const currentStep = workflow.steps[adjustedCurrentStepIndex];
+        if (!currentStep) return adjustedCurrentStepIndex;
+
+        console.log('Current step:', currentStep);
         // For evaluation steps, check if we need to jump to a specific step
         if (currentStep.step_type === WorkflowStepType.EVALUATION) {
+            console.log('Evaluating evaluation step:', currentStep.step_id);
             // Find evaluation result in workflow outputs
             const evalResult = workflow.state?.find(
                 o => o.name === `eval_${currentStep.step_id.slice(0, 8)}`
             )?.value as EvaluationResult | undefined;
 
             if (evalResult?.next_action === 'jump' && evalResult?.target_step_index) {
+                console.log('Jump action detected. Target step index:', evalResult.target_step_index);
                 // Convert target_step_index from string to number and adjust for input step offset
                 const targetStep = evalResult.target_step_index;
 
                 // Validate target step index and adjust for input step offset
                 if (targetStep >= 0 && targetStep < workflow.steps.length) {
+                    console.log('Valid target step index. Returning:', targetStep + 1);
                     return targetStep + 1; // Add 1 to account for input step
                 }
             }

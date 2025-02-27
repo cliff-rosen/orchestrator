@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Schema, ValueType } from '../types/schema';
 import { WorkflowVariable, createBasicSchema, WorkflowVariableName } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
@@ -137,6 +137,7 @@ interface VariableEditorProps {
     title: string;
     description: string;
     onFileSelect?: (file: FileInfo, value: Schema) => void;
+    isReadOnly?: boolean;
 }
 
 const VariableEditor: React.FC<VariableEditorProps> = ({
@@ -144,12 +145,14 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
     onChange,
     title,
     description,
-    onFileSelect
+    onFileSelect,
+    isReadOnly = false
 }) => {
     const [newVarName, setNewVarName] = useState('');
     const [selectedVar, setSelectedVar] = useState<string | null>(null);
 
     const handleAddVariable = () => {
+        if (isReadOnly) return;
         if (newVarName) {
             const newVar: WorkflowVariable = {
                 variable_id: `var-${Date.now()}`,
@@ -164,6 +167,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
     };
 
     const handleRemoveVariable = (variable_id: string) => {
+        if (isReadOnly) return;
         onChange(variables.filter(v => v.variable_id !== variable_id));
         if (selectedVar === variable_id) {
             setSelectedVar(null);
@@ -171,6 +175,7 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
     };
 
     const handleVariableChange = (variable_id: string, updates: Partial<WorkflowVariable>) => {
+        if (isReadOnly) return;
         onChange(variables.map(v => {
             if (v.variable_id !== variable_id) return v;
             return { ...v, ...updates };
@@ -180,31 +185,32 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
     return (
         <div className="space-y-6">
             {/* Variable Management UI */}
-            <div className="flex gap-4 items-end">
-                <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        New Variable
-                    </label>
-                    <input
-                        type="text"
-                        value={newVarName}
-                        onChange={(e) => setNewVarName(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-gray-100"
-                        placeholder="Enter variable name"
-                    />
+            {!isReadOnly && (
+                <div className="flex gap-4 items-end">
+                    <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            New Variable
+                        </label>
+                        <input
+                            type="text"
+                            value={newVarName}
+                            onChange={(e) => setNewVarName(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-gray-100"
+                            placeholder="Enter variable name"
+                        />
+                    </div>
+                    <button
+                        onClick={handleAddVariable}
+                        disabled={!newVarName}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                    >
+                        Add Variable
+                    </button>
                 </div>
-                <button
-                    onClick={handleAddVariable}
-                    disabled={!newVarName}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-                >
-                    Add Variable
-                </button>
-            </div>
+            )}
 
-            {/* Variables Display */}
+            {/* Variables List */}
             <div className="grid grid-cols-3 gap-6">
-                {/* Variables List */}
                 <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 rounded-md p-4">
                     <h3 className="font-medium mb-4 text-gray-900 dark:text-gray-100">
                         {title}
@@ -224,12 +230,14 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                                 >
                                     {variable.name}
                                 </button>
-                                <button
-                                    onClick={() => handleRemoveVariable(variable.variable_id)}
-                                    className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-                                >
-                                    ×
-                                </button>
+                                {!isReadOnly && (
+                                    <button
+                                        onClick={() => handleRemoveVariable(variable.variable_id)}
+                                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                                    >
+                                        ×
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -246,38 +254,66 @@ const VariableEditor: React.FC<VariableEditorProps> = ({
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Variable Name
                                         </label>
-                                        <input
-                                            value={variable.name}
-                                            onChange={e => handleVariableChange(variable.variable_id, {
-                                                name: e.target.value as WorkflowVariableName
-                                            })}
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-gray-100"
-                                        />
+                                        {isReadOnly ? (
+                                            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-100">
+                                                {variable.name}
+                                            </div>
+                                        ) : (
+                                            <input
+                                                value={variable.name}
+                                                onChange={e => handleVariableChange(variable.variable_id, {
+                                                    name: e.target.value as WorkflowVariableName
+                                                })}
+                                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-gray-100"
+                                            />
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Description
                                         </label>
-                                        <textarea
-                                            value={variable.schema.description || ''}
-                                            onChange={e => handleVariableChange(variable.variable_id, {
-                                                schema: { ...variable.schema, description: e.target.value }
-                                            })}
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-gray-100"
-                                            rows={2}
-                                        />
+                                        {isReadOnly ? (
+                                            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-100">
+                                                {variable.schema.description || 'No description'}
+                                            </div>
+                                        ) : (
+                                            <textarea
+                                                value={variable.schema.description || ''}
+                                                onChange={e => handleVariableChange(variable.variable_id, {
+                                                    schema: { ...variable.schema, description: e.target.value }
+                                                })}
+                                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-gray-100"
+                                                rows={2}
+                                            />
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Schema
+                                            Current Value
                                         </label>
-                                        <SchemaField
-                                            value={variable.schema}
-                                            onChange={schema => handleVariableChange(variable.variable_id, { schema })}
-                                            onRemove={() => { }}
-                                            onFileSelect={onFileSelect}
-                                        />
+                                        <div className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-md text-gray-900 dark:text-gray-100">
+                                            {variable.value !== undefined ? (
+                                                <pre className="whitespace-pre-wrap text-sm">
+                                                    {JSON.stringify(variable.value, null, 2)}
+                                                </pre>
+                                            ) : (
+                                                <span className="text-gray-500 dark:text-gray-400 text-sm">No value set</span>
+                                            )}
+                                        </div>
                                     </div>
+                                    {!isReadOnly && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                Schema
+                                            </label>
+                                            <SchemaField
+                                                value={variable.schema}
+                                                onChange={schema => handleVariableChange(variable.variable_id, { schema })}
+                                                onRemove={() => { }}
+                                                onFileSelect={onFileSelect}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -292,7 +328,9 @@ const WorkflowIOEditor: React.FC = () => {
     const { workflow, updateWorkflowByAction } = useWorkflows();
     const inputs = workflow?.state?.filter(v => v.io_type === 'input') || [];
     const outputs = workflow?.state?.filter(v => v.io_type === 'output') || [];
-    const [activeTab, setActiveTab] = useState<'inputs' | 'outputs'>('inputs');
+    const evaluations = workflow?.state?.filter(v => v.io_type === 'evaluation') || [];
+
+    const [activeTab, setActiveTab] = useState<'inputs' | 'outputs' | 'evaluations'>('inputs');
 
     const handleInputChange = (newInputs: WorkflowVariable[]) => {
         if (!workflow) return;
@@ -340,7 +378,7 @@ const WorkflowIOEditor: React.FC = () => {
         // Update the workflow with the new variables
         if (activeTab === 'inputs') {
             handleInputChange(updatedVariables);
-        } else {
+        } else if (activeTab === 'outputs') {
             handleOutputChange(updatedVariables);
         }
     };
@@ -388,6 +426,20 @@ const WorkflowIOEditor: React.FC = () => {
                             {outputs.length}
                         </span>
                     </button>
+                    <button
+                        onClick={() => setActiveTab('evaluations')}
+                        className={`px-4 py-2 font-medium border-b-2 -mb-px transition-colors flex items-center gap-2
+                            ${activeTab === 'evaluations'
+                                ? 'border-blue-500 text-blue-700 dark:text-blue-300'
+                                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        Evaluation Variables
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 
+                                       text-blue-600 dark:text-blue-400">
+                            {evaluations.length}
+                        </span>
+                    </button>
                 </div>
             </div>
 
@@ -409,7 +461,7 @@ const WorkflowIOEditor: React.FC = () => {
                             onFileSelect={handleFileSelect}
                         />
                     </div>
-                ) : (
+                ) : activeTab === 'outputs' ? (
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
                             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -423,6 +475,22 @@ const WorkflowIOEditor: React.FC = () => {
                             title="Output Variables"
                             description="Variables that will store workflow results"
                             onFileSelect={handleFileSelect}
+                        />
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                View variables created by evaluation steps in your workflow.
+                                These variables store evaluation results and control workflow branching.
+                            </p>
+                        </div>
+                        <VariableEditor
+                            variables={evaluations}
+                            onChange={() => { }} // No-op since evaluations are read-only
+                            title="Evaluation Variables"
+                            description="Variables created by evaluation steps"
+                            isReadOnly={true}
                         />
                     </div>
                 )}

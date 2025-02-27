@@ -25,7 +25,9 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
         if (!isExecuted || !workflow?.state) return null;
         // Use the new shorter format for evaluation result variables
         const shortStepId = step.step_id.slice(0, 8);
-        return workflow.state.find(o => o.name === `eval_${shortStepId}`)?.value as EvaluationResult | undefined;
+        const res = workflow.state.find(o => o.name === `eval_${shortStepId}`)?.value as EvaluationResult | undefined;
+        console.log('res', res);
+        return res;
     }, [isExecuted, workflow?.state, step.step_id]);
 
     if (!step.evaluation_config) {
@@ -47,8 +49,12 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
                 {/* Display conditions */}
                 <div className="space-y-4">
                     {step.evaluation_config.conditions.map((condition, index) => {
+                        console.log('**************************************');
+                        console.log('evaluationResult', evaluationResult?.condition_met);
+                        console.log('condition', condition.condition_id);
+                        console.log('**************************************');
                         const variableValue = availableVariables.find(v => v.name === condition.variable)?.value;
-                        const isConditionMet = (evaluationResult?.outputs as Record<string, string>)?.condition_met === condition.condition_id;
+                        const isConditionMet = (evaluationResult as Record<string, string>)?.condition_met === condition.condition_id;
 
                         return (
                             <div

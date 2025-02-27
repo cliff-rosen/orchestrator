@@ -5,16 +5,12 @@ import {
     WorkflowStatus,
     WorkflowStepId,
     WorkflowVariable,
-    ToolParameterName,
-    ToolOutputName,
-    WorkflowVariableName,
-    Tool,
     StepExecutionResult,
     WorkflowStep,
     RuntimeWorkflowStep
 } from '../types';
 import { workflowApi } from '../lib/api';
-import { WorkflowEngine, StepReorderPayload } from '../lib/workflow/workflowEngine';
+import { WorkflowEngine, WorkflowStateAction } from '../lib/workflow/workflowEngine';
 
 
 interface WorkflowContextType {
@@ -25,7 +21,6 @@ interface WorkflowContextType {
     isLoading: boolean
     error: string | null
     activeStep: number
-    setActiveStep: (step: number) => void
     isExecuting: boolean
     stepExecuted: boolean
 
@@ -36,23 +31,14 @@ interface WorkflowContextType {
     saveWorkflow(): Promise<void>
     exitWorkflow(): void
     // New granular update method
-    updateWorkflowByAction(action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE',
-        payload: {
-            stepId?: string,
-            mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
-            tool?: Tool,
-            newStep?: WorkflowStep,
-            reorder?: StepReorderPayload,
-            state?: WorkflowVariable[]
-        }
-    }): void
+    updateWorkflowByAction(action: WorkflowStateAction): void
 
     // legacy update methods
     updateWorkflow(updates: Partial<Workflow>): void
     updateWorkflowStep(step: WorkflowStep | RuntimeWorkflowStep): void
 
     // Workflow Execution
+    setActiveStep: (step: number) => void
     executeCurrentStep(): Promise<StepExecutionResult>
     moveToNextStep(): void
     moveToPreviousStep(): void
@@ -318,17 +304,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         sessionStorage.removeItem('originalWorkflow');
     }, []);
 
-    const updateWorkflowByAction = useCallback((action: {
-        type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE',
-        payload: {
-            stepId?: string,
-            mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
-            tool?: Tool,
-            newStep?: WorkflowStep,
-            reorder?: StepReorderPayload,
-            state?: WorkflowVariable[]
-        }
-    }) => {
+    const updateWorkflowByAction = useCallback((action: WorkflowStateAction) => {
         setWorkflow(currentWorkflow => {
             if (!currentWorkflow) return null;
 
@@ -404,10 +380,14 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const resetWorkflow = useCallback(() => {
         if (!workflow?.state) return;
 
-        // Clear all output values
-        const clearedState = workflow.state.map(variable =>
-            variable.io_type === 'output' ? { ...variable, value: undefined } : variable
-        );
+        // Clear output values and remove evaluation variables
+        const clearedState = workflow.state
+            .filter(variable => variable.io_type !== 'evaluation') // Remove evaluation variables
+            .map(variable =>
+                variable.io_type === 'output'
+                    ? { ...variable, value: undefined }
+                    : variable
+            );
         updateWorkflow({ state: clearedState });
         setActiveStep(0);
         setStepExecuted(false);
