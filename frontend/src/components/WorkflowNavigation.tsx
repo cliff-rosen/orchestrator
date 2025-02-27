@@ -3,6 +3,7 @@ import { WorkflowStepType } from '../types/workflows';
 
 interface WorkflowNavigationProps {
     isEditMode: boolean;
+    isInputRequired: boolean;
     activeStep: number;
     totalSteps: number;
     step_type: WorkflowStepType;
@@ -12,10 +13,12 @@ interface WorkflowNavigationProps {
     onNext: () => void;
     onExecute: () => void;
     onRestart: () => void;
+    onInputSubmit: () => void;
 }
 
 const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
     isEditMode,
+    isInputRequired,
     activeStep,
     totalSteps,
     step_type,
@@ -24,13 +27,15 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
     onBack,
     onNext,
     onExecute,
-    onRestart
+    onRestart,
+    onInputSubmit
 }) => {
     // Only show navigation in run mode
     if (isEditMode) return null;
 
     const isInputStep = step_type === WorkflowStepType.INPUT;
     const isLastStep = activeStep === totalSteps - 1;
+
 
     return (
         <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg">
@@ -120,7 +125,7 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                             </button>
                         )}
 
-                        {/* Start/Next button */}
+                        {/* Next button */}
                         {(isInputStep || stepExecuted) && !isLastStep && (
                             <button
                                 onClick={onNext}
@@ -135,6 +140,27 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                                           transition-colors`}
                             >
                                 <span>{isInputStep ? 'Start Workflow' : 'Next Step'}</span>
+                                <svg className="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        )}
+
+                        {/* Submit input button */}
+                        {isInputRequired && (
+                            <button
+                                onClick={onInputSubmit}
+                                disabled={isLoading}
+                                className={`inline-flex items-center justify-center rounded-md
+                                          px-3 py-1.5 text-sm font-medium
+                                          ${isLoading
+                                        ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                        : 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30'
+                                    }
+                                          focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500
+                                          transition-colors`}
+                            >
+                                <span>{'Start Workflow'}</span>
                                 <svg className="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                 </svg>

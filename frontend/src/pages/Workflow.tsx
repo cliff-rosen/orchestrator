@@ -296,6 +296,12 @@ const Workflow: React.FC = () => {
         }
     };
 
+    const handleInputSubmit = () => {
+        if (isMissingInputs) {
+            setIsInputRequired(false);
+        }
+    }
+
     ///////////////////////// Workflow preparation /////////////////////////
 
     if (!workflow) return null;
@@ -499,6 +505,7 @@ const Workflow: React.FC = () => {
                                         <WorkflowNavigation
                                             isEditMode={isEditMode}
                                             activeStep={activeStep}
+                                            isInputRequired={isInputRequired}
                                             totalSteps={allSteps.length}
                                             step_type={currentStep?.step_type as WorkflowStepType || WorkflowStepType.ACTION}
                                             isLoading={isLoading || isExecuting}
@@ -507,6 +514,7 @@ const Workflow: React.FC = () => {
                                             onNext={handleNext}
                                             onExecute={executeCurrentStep}
                                             onRestart={handleNewQuestion}
+                                            onInputSubmit={handleInputSubmit}
                                         />
                                     )}
                                 </>
