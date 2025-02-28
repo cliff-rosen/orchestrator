@@ -52,7 +52,6 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
                 const firstInput = containerRef.current.querySelector('input, textarea, select') as HTMLElement;
                 if (firstInput) {
                     firstInput.focus();
-                    console.log('Input focused:', firstInput);
                 }
             }
         }, 250); // Longer delay to ensure the DOM is fully updated
