@@ -405,11 +405,10 @@ export class WorkflowEngine {
         currentStepIndex: number
     ): number {
 
-        const adjustedCurrentStepIndex = currentStepIndex - 1;
-        if (adjustedCurrentStepIndex < 1) return 1;
+        if (currentStepIndex < 1) return 1;
 
-        const currentStep = workflow.steps[adjustedCurrentStepIndex];
-        if (!currentStep) return adjustedCurrentStepIndex;
+        const currentStep = workflow.steps[currentStepIndex];
+        if (!currentStep) return currentStepIndex;
 
         console.log('Current step:', currentStep);
         // For evaluation steps, check if we need to jump to a specific step

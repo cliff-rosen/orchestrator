@@ -78,26 +78,25 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
                                     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                                 }`}
                             >
-                                {!isEditMode && index === 0 ? (
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                ) : (
-                                    !isEditMode ? index : index + 1
-                                )}
+                                {!isEditMode ? index + 1 : index + 1}
                             </div>
                         </button>
                     ))}
+
                     {isEditMode && (
                         <button
                             onClick={onAddStep}
-                            className="w-full flex justify-center p-2 text-gray-600 dark:text-gray-300 
-                                     hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-md transition-colors"
+                            className="w-full flex justify-center p-2 rounded-md transition-colors
+                                text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                             title="Add Step"
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full text-sm
+                                border-2 border-dashed border-blue-400 dark:border-blue-500 text-blue-500 dark:text-blue-400"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                            </div>
                         </button>
                     )}
                 </div>
@@ -135,26 +134,15 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
 
             {/* Add Step Button - Fixed at bottom */}
             {isEditMode && (
-                <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="p-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 sticky bottom-0">
                     <button
                         onClick={onAddStep}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 
-                                 bg-gray-50 dark:bg-gray-800 rounded-md text-gray-600 dark:text-gray-300 
-                                 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400
-                                 transition-colors text-sm font-medium"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium
+                            text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors
+                            border-2 border-dashed border-blue-300 dark:border-blue-500/50"
                     >
-                        <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                            />
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
                         <span>Add Step</span>
                     </button>
