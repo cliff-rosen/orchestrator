@@ -10,7 +10,7 @@ import {
     EvaluationResult
 } from '../../types/workflows';
 import { ToolParameterName, ToolOutputName, Tool } from '../../types/tools';
-import { SchemaValueType } from '../../types/schema';
+import { SchemaValueType, Schema } from '../../types/schema';
 import { ToolEngine } from '../tool/toolEngine';
 
 export type StepReorderPayload = {
@@ -83,6 +83,132 @@ export class WorkflowEngine {
         });
 
         return result;
+    }
+
+    /**
+     * Gets the required input variable names for a workflow step
+     * Used to determine which inputs need to be collected from the user
+     * before executing a step
+     */
+    static getRequiredInputsForStep(
+        step: WorkflowStep
+    ): WorkflowVariableName[] {
+        let requiredInputNames: WorkflowVariableName[] = [];
+
+        // For action steps, get inputs from parameter mappings
+        if (step.step_type === WorkflowStepType.ACTION && step.parameter_mappings) {
+            requiredInputNames = Object.values(step.parameter_mappings)
+                .filter(mapping => typeof mapping === 'string')
+                .map(mapping => mapping as WorkflowVariableName);
+        }
+        // For evaluation steps, get inputs from evaluation conditions
+        else if (step.step_type === WorkflowStepType.EVALUATION && step.evaluation_config) {
+            // Extract variable names from all conditions
+            requiredInputNames = step.evaluation_config.conditions
+                .map(condition => condition.variable as WorkflowVariableName)
+                .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+        }
+
+        return requiredInputNames;
+    }
+
+    /**
+     * Gets default value for a schema type
+     * Used to initialize form values and create default variables
+     */
+    static getDefaultValueForSchema(schema: Schema): SchemaValueType {
+        if (schema.type === 'string') return '';
+        if (schema.type === 'number') return 0;
+        if (schema.type === 'boolean') return false;
+        if (schema.type === 'file') return {
+            file_id: '',
+            name: '',
+            content: new Uint8Array(),
+            mime_type: '',
+            size: 0,
+            created_at: '',
+            updated_at: ''
+        };
+        if (schema.type === 'object') {
+            const result: Record<string, SchemaValueType> = {};
+            if (schema.fields) {
+                for (const [key, fieldSchema] of Object.entries(schema.fields)) {
+                    result[key] = this.getDefaultValueForSchema(fieldSchema);
+                }
+            }
+            return result;
+        }
+        return '';
+    }
+
+    /**
+     * Formats a value for display in the UI
+     * Handles truncation and special formatting for different types
+     */
+    static formatValueForDisplay(
+        value: any,
+        schema: Schema | undefined,
+        options: {
+            maxTextLength?: number,
+            maxArrayLength?: number,
+            maxArrayItemLength?: number
+        } = {}
+    ): string {
+        // Default options
+        const {
+            maxTextLength = 200,
+            maxArrayLength = 3,
+            maxArrayItemLength = 100
+        } = options;
+
+        // Handle undefined/null
+        if (value === undefined || value === null) {
+            return 'No value';
+        }
+
+        // Handle arrays
+        if (Array.isArray(value)) {
+            if (value.length === 0) return '[]';
+
+            const items = value.slice(0, maxArrayLength).map(item => {
+                const itemStr = typeof item === 'object'
+                    ? JSON.stringify(item)
+                    : String(item);
+
+                return itemStr.length > maxArrayItemLength
+                    ? `${itemStr.substring(0, maxArrayItemLength)}...`
+                    : itemStr;
+            });
+
+            const hasMore = value.length > maxArrayLength;
+            return `[${items.join(', ')}${hasMore ? `, ... (${value.length - maxArrayLength} more)` : ''}]`;
+        }
+
+        // Handle objects
+        if (typeof value === 'object') {
+            // Handle file objects
+            if (schema?.type === 'file' && value.file_id) {
+                return `File: ${value.name || value.file_id}`;
+            }
+
+            // Handle other objects
+            const json = JSON.stringify(value, null, 2);
+            if (json.length > maxTextLength) {
+                return `${json.substring(0, maxTextLength)}...`;
+            }
+            return json;
+        }
+
+        // Handle strings
+        if (typeof value === 'string') {
+            if (value.length > maxTextLength) {
+                return `${value.substring(0, maxTextLength)}...`;
+            }
+            return value;
+        }
+
+        // Handle other primitives
+        return String(value);
     }
 
     /**

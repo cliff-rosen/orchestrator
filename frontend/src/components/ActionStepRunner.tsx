@@ -5,14 +5,13 @@ import React, { useState, useMemo } from 'react';
 import { useWorkflows } from '../context/WorkflowContext';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
 import { fileApi } from '../lib/api/fileApi';
-import { WorkflowStep, WorkflowVariableName, Workflow } from '../types/workflows';
+import { WorkflowStep, WorkflowVariableName } from '../types/workflows';
 import { isFileValue } from '../types/schema';
 import Dialog from './common/Dialog';
 import FileLibrary from './FileLibrary';
 import PromptTemplateEditor from './PromptTemplateEditor';
 import MarkdownRenderer from './common/MarkdownRenderer';
 import { WorkflowEngine } from '../lib/workflow/workflowEngine';
-import { ToolParameterName, ToolOutputName } from '../types/tools';
 
 interface ActionStepRunnerProps {
     actionStep: WorkflowStep;

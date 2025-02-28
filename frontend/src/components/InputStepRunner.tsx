@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useWorkflows } from '../context/WorkflowContext';
 import SchemaForm from './SchemaForm';
-import { WorkflowVariable, WorkflowStepType } from '@/types/workflows';
+import { WorkflowVariable } from '@/types/workflows';
 import { Schema, SchemaValueType } from '@/types/schema';
 import Dialog from './common/Dialog';
 import { Button } from './ui/button';
@@ -13,13 +13,13 @@ import { WorkflowEngine } from '@/lib/workflow/workflowEngine';
 interface InputStepRunnerProps {
     isOpen: boolean;
     onClose: () => void;
-    onContinue: () => void;
+    onInputSubmit: () => void;
 }
 
 const InputStepRunner: React.FC<InputStepRunnerProps> = ({
     isOpen,
     onClose,
-    onContinue
+    onInputSubmit
 }) => {
     const { workflow, activeStep, updateWorkflowByAction, resetWorkflow } = useWorkflows();
     const allInputs = workflow?.state || [];
@@ -33,21 +33,7 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
         if (!workflow?.steps[activeStep]) return;
 
         const currentStep = workflow.steps[activeStep];
-        let requiredInputNames: string[] = [];
-
-        // For action steps, get inputs from parameter mappings
-        if (currentStep.step_type === WorkflowStepType.ACTION && currentStep.parameter_mappings) {
-            requiredInputNames = Object.values(currentStep.parameter_mappings)
-                .filter(mapping => typeof mapping === 'string')
-                .map(mapping => mapping as string);
-        }
-        // For evaluation steps, get inputs from evaluation conditions
-        else if (currentStep.step_type === WorkflowStepType.EVALUATION && currentStep.evaluation_config) {
-            // Extract variable names from all conditions
-            requiredInputNames = currentStep.evaluation_config.conditions
-                .map(condition => condition.variable as string)
-                .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
-        }
+        const requiredInputNames = WorkflowEngine.getRequiredInputsForStep(currentStep);
 
         setRequiredInputs(requiredInputNames);
         console.log('requiredInputs for current step:', requiredInputNames);
@@ -76,41 +62,26 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
         if (e.key === 'Enter' && !e.shiftKey) {
             if (e.target instanceof HTMLInputElement && e.target.type !== 'textarea') {
                 e.preventDefault();
-                handleContinue();
+                handleInputSubmit();
             }
         } else if (e.key === 'Escape') {
             onClose();
         }
-    }, [onContinue, onClose]);
+    }, [onInputSubmit, onClose]);
 
     // Handle continue button click with workflow reset
-    const handleContinue = useCallback(() => {
-        if (workflow) {
-            // Reset workflow state before starting execution
-            // This will clear all evaluation variables including jump counters
-            // and reset all output values to undefined
-            // This ensures we start with a clean slate for each workflow run
-            resetWorkflow();
-        }
-        onContinue();
-    }, [workflow, resetWorkflow, onContinue]);
+    const handleInputSubmit = useCallback(() => {
+        // We don't want to reset the workflow when starting execution
+        // This allows users to run from any step
+        // if (workflow) {
+        //     resetWorkflow();
+        // }
+        onInputSubmit();
+    }, [onInputSubmit]);
 
     // Helper function to get default value based on schema type
     const getDefaultValue = (schema: Schema): SchemaValueType => {
-        if (schema.type === 'string') return '';
-        if (schema.type === 'number') return 0;
-        if (schema.type === 'boolean') return false;
-        if (schema.type === 'file') return { file_id: '', name: '', content: new Uint8Array(), mime_type: '', size: 0, created_at: '', updated_at: '' };
-        if (schema.type === 'object') {
-            const result: Record<string, SchemaValueType> = {};
-            if (schema.fields) {
-                for (const [key, fieldSchema] of Object.entries(schema.fields)) {
-                    result[key] = getDefaultValue(fieldSchema);
-                }
-            }
-            return result;
-        }
-        return '';
+        return WorkflowEngine.getDefaultValueForSchema(schema);
     };
 
     const handleInputChange = (input: string, value: any) => {
@@ -187,7 +158,7 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
                         Cancel
                     </Button>
                     <Button
-                        onClick={handleContinue}
+                        onClick={handleInputSubmit}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                         Continue to Run

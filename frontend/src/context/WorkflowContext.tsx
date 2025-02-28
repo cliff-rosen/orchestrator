@@ -45,6 +45,7 @@ interface WorkflowContextType {
     moveToNextStep(): void
     moveToPreviousStep(): void
     resetWorkflow(): void
+    resetWorkflowState(): void
 
 }
 
@@ -413,6 +414,37 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setStepRequestsInput(true);
     }, [workflow, updateWorkflow, updateWorkflowByAction]);
 
+    // Reset workflow state without changing the active step
+    // This is used when switching to run mode to allow running from any step
+    const resetWorkflowState = useCallback(() => {
+        if (!workflow?.state) return;
+
+        // Use the RESET_EXECUTION action to reset workflow state
+        // This will clear all values except jump counters
+        updateWorkflowByAction({
+            type: 'RESET_EXECUTION',
+            payload: {}
+        });
+
+        // Then explicitly remove all evaluation variables including jump counters
+        const clearedState = workflow.state
+            .filter(variable =>
+                // Remove all evaluation variables including jump counters
+                variable.io_type !== 'evaluation' &&
+                !variable.name.startsWith('jump_count_') &&
+                !variable.name.startsWith('eval_')
+            )
+            .map(variable =>
+                variable.io_type === 'output'
+                    ? { ...variable, value: undefined }
+                    : variable
+            );
+
+        updateWorkflow({ state: clearedState });
+        setStepExecuted(false);
+        setStepRequestsInput(true);
+    }, [workflow, updateWorkflow, updateWorkflowByAction]);
+
     // Initial load
     useEffect(() => {
         loadWorkflows();
@@ -450,7 +482,8 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         executeCurrentStep,
         moveToNextStep,
         moveToPreviousStep,
-        resetWorkflow
+        resetWorkflow,
+        resetWorkflowState
     };
 
     return (

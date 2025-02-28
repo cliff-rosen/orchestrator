@@ -41,6 +41,7 @@ const Workflow: React.FC = () => {
         updateWorkflowByAction,
         updateWorkflowStep,
         resetWorkflow,
+        resetWorkflowState,
     } = useWorkflows();
 
     // State
@@ -195,6 +196,8 @@ const Workflow: React.FC = () => {
     const handleToggleEditMode = () => {
         if (isEditMode) {
             // When switching to run mode, show the input modal
+            // Reset workflow state but keep the active step
+            resetWorkflowState();
             setShowInputModal(true);
             setStepRequestsInput(true);
         } else {
@@ -242,29 +245,7 @@ const Workflow: React.FC = () => {
             <div className="flex flex-col h-full">
                 <WorkflowMenuBar
                     isEditMode={isEditMode}
-                    onToggleEditMode={() => {
-                        const newIsEditMode = !isEditMode;
-                        if (newIsEditMode) {
-                            // When switching to edit mode, keep the same step index but adjust for input step offset
-                            const editModeIndex = activeStep > 0 ? activeStep - 1 : 0;
-                            setActiveStep(editModeIndex);
-                        } else {
-                            // When switching to run mode
-                            // Check if any inputs are not supplied
-                            const hasUnsetInputs = workflow?.state?.some(variable =>
-                                variable.io_type === 'input' && (variable.value === undefined || variable.value === null)
-                            );
-
-                            if (hasUnsetInputs) {
-                                // Go to input step if any inputs need values
-                                setActiveStep(0);
-                            } else {
-                                // Stay on current step but adjust index for input step
-                                setActiveStep(activeStep + 1);
-                            }
-                        }
-                        setIsEditMode(newIsEditMode);
-                    }}
+                    onToggleEditMode={handleToggleEditMode}
                 />
                 <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                     <div className="text-center">
@@ -386,7 +367,7 @@ const Workflow: React.FC = () => {
                                             <InputStepRunner
                                                 isOpen={showInputModal}
                                                 onClose={handleInputCancel}
-                                                onContinue={handleInputSubmit}
+                                                onInputSubmit={handleInputSubmit}
                                             />
                                         ) : (
                                             currentStep ? (
