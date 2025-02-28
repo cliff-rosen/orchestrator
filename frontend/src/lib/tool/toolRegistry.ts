@@ -66,7 +66,7 @@ const registerAllTools = () => {
     registerToolExecutor('echo', async (toolId: string, parameters: ResolvedParameters) => {
         const input = (parameters as Record<string, string>)['input'];
         await new Promise(resolve => setTimeout(resolve, 1000));
-        return { ['output' as ToolOutputName]: `Echo: ${input}` as SchemaValueType };
+        return { ['output' as ToolOutputName]: `${input}` as SchemaValueType };
     });
 
     registerToolExecutor('concatenate', async (toolId: string, parameters: ResolvedParameters) => {

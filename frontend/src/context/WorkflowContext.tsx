@@ -386,19 +386,32 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const resetWorkflow = useCallback(() => {
         if (!workflow?.state) return;
 
-        // Clear output values and remove evaluation variables
+        // Use the RESET_EXECUTION action to reset workflow state
+        // This will clear all values except jump counters
+        updateWorkflowByAction({
+            type: 'RESET_EXECUTION',
+            payload: {}
+        });
+
+        // Then explicitly remove all evaluation variables including jump counters
         const clearedState = workflow.state
-            .filter(variable => variable.io_type !== 'evaluation') // Remove evaluation variables
+            .filter(variable =>
+                // Remove all evaluation variables including jump counters
+                variable.io_type !== 'evaluation' &&
+                !variable.name.startsWith('jump_count_') &&
+                !variable.name.startsWith('eval_')
+            )
             .map(variable =>
                 variable.io_type === 'output'
                     ? { ...variable, value: undefined }
                     : variable
             );
+
         updateWorkflow({ state: clearedState });
         setActiveStep(0);
         setStepExecuted(false);
         setStepRequestsInput(true);
-    }, [workflow, updateWorkflow]);
+    }, [workflow, updateWorkflow, updateWorkflowByAction]);
 
     // Initial load
     useEffect(() => {

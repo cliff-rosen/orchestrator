@@ -154,6 +154,18 @@ export class WorkflowEngine {
             variables.set(variable.name, variable.value);
         });
 
+        // Get current jump count
+        const jumpCounterName = `jump_count_${step.step_id.slice(0, 8)}` as WorkflowVariableName;
+        let jumpCount = 0;
+        const jumpCountVar = workflow.state?.find(v => v.name === jumpCounterName);
+        if (jumpCountVar?.value !== undefined) {
+            jumpCount = Number(jumpCountVar.value);
+        }
+
+        // Check if we've reached the maximum jumps limit
+        const maxJumps = step.evaluation_config.maximum_jumps || 3; // Default to 3 if not specified
+        const maxJumpsReached = jumpCount >= maxJumps;
+
         // Find first matching condition
         let metCondition = null;
         for (const condition of step.evaluation_config.conditions) {
@@ -170,7 +182,7 @@ export class WorkflowEngine {
         }
 
         // Return evaluation result that matches the EvaluationResult interface
-        if (metCondition) {
+        if (metCondition && !maxJumpsReached) {
             return {
                 success: true,
                 outputs: {
@@ -181,18 +193,41 @@ export class WorkflowEngine {
                     ['comparison_value' as WorkflowVariableName]: String(metCondition.condition.value) as SchemaValueType,
                     ['reason' as WorkflowVariableName]: `Condition '${metCondition.condition.condition_id}' was met` as SchemaValueType,
                     ['next_action' as WorkflowVariableName]: 'jump' as SchemaValueType,
-                    ['target_step_index' as WorkflowVariableName]: String(metCondition.condition.target_step_index) as SchemaValueType
+                    ['target_step_index' as WorkflowVariableName]: String(metCondition.condition.target_step_index) as SchemaValueType,
+                    ['jump_count' as WorkflowVariableName]: String(jumpCount) as SchemaValueType,
+                    ['max_jumps' as WorkflowVariableName]: String(maxJumps) as SchemaValueType
                 },
                 next_action: 'jump',
                 target_step_index: metCondition.condition.target_step_index,
                 reason: `Condition '${metCondition.condition.condition_id}' was met`
+            };
+        } else if (metCondition && maxJumpsReached) {
+            // Condition met but max jumps reached
+            return {
+                success: true,
+                outputs: {
+                    ['condition_met' as WorkflowVariableName]: metCondition.condition.condition_id as SchemaValueType,
+                    ['variable_name' as WorkflowVariableName]: metCondition.condition.variable as SchemaValueType,
+                    ['variable_value' as WorkflowVariableName]: String(metCondition.value) as SchemaValueType,
+                    ['operator' as WorkflowVariableName]: metCondition.condition.operator as SchemaValueType,
+                    ['comparison_value' as WorkflowVariableName]: String(metCondition.condition.value) as SchemaValueType,
+                    ['reason' as WorkflowVariableName]: `Condition '${metCondition.condition.condition_id}' was met but maximum jumps (${maxJumps}) reached` as SchemaValueType,
+                    ['next_action' as WorkflowVariableName]: 'continue' as SchemaValueType,
+                    ['jump_count' as WorkflowVariableName]: String(jumpCount) as SchemaValueType,
+                    ['max_jumps' as WorkflowVariableName]: String(maxJumps) as SchemaValueType,
+                    ['max_jumps_reached' as WorkflowVariableName]: 'true' as SchemaValueType
+                },
+                next_action: 'continue',
+                reason: `Condition '${metCondition.condition.condition_id}' was met but maximum jumps (${maxJumps}) reached`
             };
         } else {
             return {
                 success: true,
                 outputs: {
                     ['condition_met' as WorkflowVariableName]: 'none' as SchemaValueType,
-                    ['reason' as WorkflowVariableName]: 'No conditions met - continuing to next step' as SchemaValueType
+                    ['reason' as WorkflowVariableName]: 'No conditions met - continuing to next step' as SchemaValueType,
+                    ['jump_count' as WorkflowVariableName]: String(jumpCount) as SchemaValueType,
+                    ['max_jumps' as WorkflowVariableName]: String(maxJumps) as SchemaValueType
                 },
                 next_action: step.evaluation_config.default_action as 'continue' | 'end',
                 reason: 'No conditions were met'
@@ -309,9 +344,8 @@ export class WorkflowEngine {
         // Execute the tool
         const toolResult = await ToolEngine.executeTool(step.tool, parameters);
 
-        console.log("***********")
         console.log('executeToolStep called', toolResult);
-        console.log("***********")
+
 
         // Update workflow state with tool results
         if (toolResult) {
@@ -419,14 +453,68 @@ export class WorkflowEngine {
                 o => o.name === `eval_${currentStep.step_id.slice(0, 8)}`
             )?.value as EvaluationResult | undefined;
 
+            // Find or create the jump counter for this evaluation step
+            const jumpCounterName = `jump_count_${currentStep.step_id.slice(0, 8)}` as WorkflowVariableName;
+            let jumpCount = 0;
+
+            // Look for existing jump counter in workflow state
+            const jumpCountVar = workflow.state?.find(v => v.name === jumpCounterName);
+            if (jumpCountVar?.value !== undefined) {
+                jumpCount = Number(jumpCountVar.value);
+            }
+
             if (evalResult?.next_action === 'jump' && evalResult?.target_step_index) {
                 console.log('Jump action detected. Target step index:', evalResult.target_step_index);
-                // Convert target_step_index from string to number and adjust for input step offset
+                // Check if we've reached the maximum jumps limit
+                const maxJumps = currentStep.evaluation_config?.maximum_jumps || 3; // Default to 3 if not specified
+
+                console.log(`Jump count: ${jumpCount}, Maximum jumps: ${maxJumps}`);
+
+                if (jumpCount >= maxJumps) {
+                    console.log(`Maximum jumps (${maxJumps}) reached. Continuing to next step instead of jumping.`);
+                    return currentStepIndex + 1;
+                }
+
+                // This is left over form when input steps were used
                 const targetStep = evalResult.target_step_index;
 
                 // Validate target step index and adjust for input step offset
                 if (targetStep >= 0 && targetStep < workflow.steps.length) {
-                    console.log('Valid target step index. Returning:', targetStep + 1);
+
+                    // Increment jump counter in workflow state
+                    // This is the only place where we should increment the counter
+                    // because we know a jump is actually happening
+                    const updatedState = [...(workflow.state || [])];
+                    const jumpCountVarIndex = updatedState.findIndex(v => v.name === jumpCounterName);
+
+                    if (jumpCountVarIndex !== -1) {
+                        // Update existing counter
+                        updatedState[jumpCountVarIndex] = {
+                            ...updatedState[jumpCountVarIndex],
+                            value: jumpCount + 1
+                        };
+                    } else {
+                        // Create new counter
+                        updatedState.push({
+                            name: jumpCounterName,
+                            variable_id: jumpCounterName,
+                            description: 'Jump counter for evaluation step',
+                            schema: {
+                                type: 'number',
+                                is_array: false
+                            },
+                            value: 1,
+                            io_type: 'evaluation'
+                        });
+                    }
+
+                    // We need to update the workflow state here
+                    // This is a bit of a hack since we're modifying state directly
+                    // but it's necessary to ensure the counter is updated before the next step
+                    if (workflow.state) {
+                        workflow.state = updatedState;
+                    }
+
                     return targetStep + 1; // Add 1 to account for input step
                 }
             }
@@ -434,6 +522,28 @@ export class WorkflowEngine {
 
         // Default behavior - go to next step
         return currentStepIndex + 1;
+    }
+
+    /**
+     * Resets all jump counters in the workflow state
+     * This should be called when starting a new workflow execution
+     * 
+     * NOTE: This method is no longer used directly. Jump counters are now reset
+     * as part of the resetWorkflow method in WorkflowContext.tsx
+     */
+    static resetJumpCounters(
+        workflow: Workflow,
+        updateWorkflow: (updates: Partial<Workflow>) => void
+    ): void {
+        if (!workflow.state) return;
+
+        const updatedState = workflow.state.filter(variable => {
+            // Remove all jump counter variables
+            return !variable.name.startsWith('jump_count_');
+        });
+
+        updateWorkflow({ state: updatedState });
+        console.log('Reset all jump counters for workflow execution');
     }
 
     /**
@@ -484,9 +594,14 @@ export class WorkflowEngine {
                 };
 
             case 'RESET_EXECUTION':
+                // This action resets all variable values while preserving the variables themselves
+                // It's used as part of the workflow reset process
                 return {
                     ...workflow,
-                    state: workflow.state?.map(variable => ({ ...variable, value: undefined }))
+                    state: workflow.state?.map(variable => {
+                        // Reset all variable values to undefined
+                        return { ...variable, value: undefined };
+                    }) || []
                 };
 
             default:

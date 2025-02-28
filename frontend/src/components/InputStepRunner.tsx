@@ -4,10 +4,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useWorkflows } from '../context/WorkflowContext';
 import SchemaForm from './SchemaForm';
-import { WorkflowVariable } from '@/types/workflows';
+import { WorkflowVariable, WorkflowStepType } from '@/types/workflows';
 import { Schema, SchemaValueType } from '@/types/schema';
 import Dialog from './common/Dialog';
 import { Button } from './ui/button';
+import { WorkflowEngine } from '@/lib/workflow/workflowEngine';
 
 interface InputStepRunnerProps {
     isOpen: boolean;
@@ -20,7 +21,7 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
     onClose,
     onContinue
 }) => {
-    const { workflow, activeStep, updateWorkflowByAction } = useWorkflows();
+    const { workflow, activeStep, updateWorkflowByAction, resetWorkflow } = useWorkflows();
     const allInputs = workflow?.state || [];
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -29,13 +30,24 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
 
     // useEffect to find all inputs required for the current step
     useEffect(() => {
-        if (!workflow?.steps[activeStep]?.parameter_mappings) return;
+        if (!workflow?.steps[activeStep]) return;
 
-        const paramMappings = workflow.steps[activeStep].parameter_mappings;
-        // Get input variable names directly from parameter mappings
-        const requiredInputNames = Object.values(paramMappings)
-            .filter(mapping => typeof mapping === 'string')
-            .map(mapping => mapping as string);
+        const currentStep = workflow.steps[activeStep];
+        let requiredInputNames: string[] = [];
+
+        // For action steps, get inputs from parameter mappings
+        if (currentStep.step_type === WorkflowStepType.ACTION && currentStep.parameter_mappings) {
+            requiredInputNames = Object.values(currentStep.parameter_mappings)
+                .filter(mapping => typeof mapping === 'string')
+                .map(mapping => mapping as string);
+        }
+        // For evaluation steps, get inputs from evaluation conditions
+        else if (currentStep.step_type === WorkflowStepType.EVALUATION && currentStep.evaluation_config) {
+            // Extract variable names from all conditions
+            requiredInputNames = currentStep.evaluation_config.conditions
+                .map(condition => condition.variable as string)
+                .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+        }
 
         setRequiredInputs(requiredInputNames);
         console.log('requiredInputs for current step:', requiredInputNames);
@@ -64,12 +76,24 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
         if (e.key === 'Enter' && !e.shiftKey) {
             if (e.target instanceof HTMLInputElement && e.target.type !== 'textarea') {
                 e.preventDefault();
-                onContinue();
+                handleContinue();
             }
         } else if (e.key === 'Escape') {
             onClose();
         }
     }, [onContinue, onClose]);
+
+    // Handle continue button click with workflow reset
+    const handleContinue = useCallback(() => {
+        if (workflow) {
+            // Reset workflow state before starting execution
+            // This will clear all evaluation variables including jump counters
+            // and reset all output values to undefined
+            // This ensures we start with a clean slate for each workflow run
+            resetWorkflow();
+        }
+        onContinue();
+    }, [workflow, resetWorkflow, onContinue]);
 
     // Helper function to get default value based on schema type
     const getDefaultValue = (schema: Schema): SchemaValueType => {
@@ -163,7 +187,7 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
                         Cancel
                     </Button>
                     <Button
-                        onClick={onContinue}
+                        onClick={handleContinue}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                         Continue to Run
