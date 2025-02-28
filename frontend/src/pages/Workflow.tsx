@@ -317,9 +317,12 @@ const Workflow: React.FC = () => {
     }
 
     const handleInputCancel = () => {
+        console.log('Input modal canceled - switching back to edit mode');
         setShowInputModal(false);
         // Switch back to edit mode if canceling inputs
         setIsEditMode(true);
+        setStepRequestsInput(false);
+
     }
 
     ///////////////////////// Workflow preparation /////////////////////////
