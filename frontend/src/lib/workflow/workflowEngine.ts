@@ -90,6 +90,10 @@ export class WorkflowEngine {
         // If step is type tool, we need to update the outputs with the tool results
         if (step.step_type === WorkflowStepType.ACTION) {
             for (const [outputName, varName] of Object.entries(step.output_mappings)) {
+                console.log("***********")
+                console.log('outputName', outputName);
+                console.log('varName', varName);
+                console.log("***********")
                 const value = outputs[outputName as ToolOutputName];
                 const outputVarIndex = updatedState.findIndex(v => v.name === varName);
 
@@ -318,6 +322,7 @@ export class WorkflowEngine {
             console.log('Updating workflow state with tool results:', toolResult);
             const updatedState = this.getUpdatedWorkflowStateFromResults(step, toolResult, workflow);
             console.log('Updated state:', updatedState);
+            // update using updateWorkflowByAction
             updateWorkflow({ state: updatedState });
         }
 

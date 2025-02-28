@@ -352,7 +352,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setError(null);
 
             // Make sure we don't pass a negative index to executeStep
-            const stepIndex = Math.max(0, activeStep - 1);
+            const stepIndex = Math.max(0, activeStep);
 
             // Execute step using WorkflowEngine - all state management handled internally
             const result = await WorkflowEngine.executeStep(workflow, stepIndex, updateWorkflow);
