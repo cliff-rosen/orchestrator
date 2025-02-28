@@ -1,17 +1,18 @@
 // Rename from ActionStepContent.tsx
 // This is for executing action steps in run mode 
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useWorkflows } from '../context/WorkflowContext';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
 import { fileApi } from '../lib/api/fileApi';
-import { WorkflowStep, WorkflowVariableName, getWorkflowInputs, getWorkflowOutputs } from '../types/workflows';
+import { WorkflowStep, WorkflowVariableName, Workflow } from '../types/workflows';
 import { isFileValue } from '../types/schema';
 import Dialog from './common/Dialog';
 import FileLibrary from './FileLibrary';
 import PromptTemplateEditor from './PromptTemplateEditor';
 import MarkdownRenderer from './common/MarkdownRenderer';
-import { executeStep, getActionButtonText, isStepDisabled } from '../lib/workflow/workflowRuntime';
+import { WorkflowEngine } from '../lib/workflow/workflowEngine';
+import { ToolParameterName, ToolOutputName } from '../types/tools';
 
 interface ActionStepRunnerProps {
     actionStep: WorkflowStep;
@@ -50,9 +51,16 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     const [selectedParam, setSelectedParam] = useState<{ paramName: string, varName: string } | null>(null);
     const [fileNames, setFileNames] = useState<Record<string, string[]>>({});
     const [showTemplateEditor, setShowTemplateEditor] = useState(false);
-    const [inputValues, setInputValues] = useState<Record<string, any>>({});
-    const [outputValues, setOutputValues] = useState<Record<string, any>>({});
     const [expandedValues, setExpandedValues] = useState<Record<string, boolean>>({});
+
+    // Compute input and output values using WorkflowEngine methods
+    const inputValues = useMemo(() =>
+        WorkflowEngine.getStepInputValuesForUI(actionStep, workflow),
+        [workflow, actionStep]);
+
+    const outputValues = useMemo(() =>
+        WorkflowEngine.getStepOutputValuesForUI(actionStep, workflow),
+        [workflow, actionStep]);
 
     // Load file names for file values
     React.useEffect(() => {
@@ -72,80 +80,6 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             setFileNames(newFileNames as unknown as Record<string, string[]>);
         };
         loadFileNames();
-    }, [workflow, actionStep]);
-
-    // Compute input and output values
-    React.useEffect(() => {
-        console.log('ActionStepRunner - Current step:', {
-            step_id: actionStep.step_id,
-            parameter_mappings: actionStep.parameter_mappings,
-            tool: actionStep.tool?.name,
-            tool_parameters: actionStep.tool?.signature.parameters.map(p => p.name)
-        });
-
-        const workflowState = workflow?.state || [];
-        console.log('ActionStepRunner - Current workflow:', {
-            workflow_id: workflow?.workflow_id,
-            inputs: workflow ? getWorkflowInputs(workflow).map(v => ({
-                id: v.variable_id,
-                name: v.name,
-                value: v.value
-            })) : [],
-            outputs: workflow ? getWorkflowOutputs(workflow).map(v => ({
-                id: v.variable_id,
-                name: v.name,
-                value: v.value
-            })) : []
-        });
-
-        const newInputValues: Record<string, any> = {};
-        if (actionStep.parameter_mappings) {
-            Object.entries(actionStep.parameter_mappings).forEach(([paramName, varName]) => {
-                console.log(`\nProcessing parameter mapping: "${paramName}" -> "${varName}"`);
-                console.log('Tool parameter exists:', actionStep.tool?.signature.parameters.some(p => p.name === paramName));
-
-                const variable = workflowState.find(v => v.name === varName);
-
-                if (!variable) {
-                    console.warn(`No variable found with name "${varName}" in workflow state`);
-                    newInputValues[paramName] = {
-                        value: null,
-                        schema: null
-                    };
-                    return;
-                }
-
-                console.log('Using variable:', {
-                    id: variable.variable_id,
-                    schema: variable.schema,
-                    value: variable.value,
-                    io_type: variable.io_type
-                });
-
-                newInputValues[paramName] = {
-                    value: variable.value,
-                    schema: variable.schema
-                };
-                console.log(`Set inputValues[${paramName}] to:`, newInputValues[paramName]);
-            });
-        } else {
-            console.warn('No parameter mappings found for step:', actionStep.step_id);
-        }
-        console.log('ActionStepRunner - Final resolved input values:', newInputValues);
-        setInputValues(newInputValues);
-
-        // Compute output values
-        const newOutputValues: Record<string, any> = {};
-        if (actionStep.output_mappings) {
-            Object.entries(actionStep.output_mappings).forEach(([outputName, varName]) => {
-                const variable = workflowState.find(v => v.name === varName);
-                newOutputValues[outputName] = {
-                    value: variable?.value,
-                    schema: variable?.schema
-                };
-            });
-        }
-        setOutputValues(newOutputValues);
     }, [workflow, actionStep]);
 
     // Get the current prompt template if this is an LLM tool

@@ -19,27 +19,25 @@ import WorkflowNavigation from '../components/WorkflowNavigation';
 import WorkflowMenuBar from '../components/WorkflowMenuBar';
 import InputStepRunner from '../components/InputStepRunner';
 
-// Utilities
-import { getStepValidationErrors } from '../lib/workflow/workflowRuntime';
 
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
     const navigate = useNavigate();
     const {
         workflow,
-        hasUnsavedChanges,
-        isLoading,
         activeStep,
-        isExecuting,
         stepExecuted,
         stepRequestsInput,
-        setStepExecuted,
-        setStepRequestsInput,
+        hasUnsavedChanges,
+        isLoading,
+        isExecuting,
         loadWorkflow,
         setActiveStep,
+        setStepRequestsInput,
+        executeCurrentStep,
+        setStepExecuted,
         moveToNextStep,
         moveToPreviousStep,
-        executeCurrentStep,
         updateWorkflowByAction,
         updateWorkflowStep,
         resetWorkflow,
@@ -126,19 +124,19 @@ const Workflow: React.FC = () => {
     }, [currentStep, workflowSteps?.length, setActiveStep]);
 
     // Effect to log step changes
-    useEffect(() => {
-        console.log('All prepared steps:', workflowSteps.map(step => ({
-            step_id: step.step_id,
-            tool: step.tool,
-            parameter_mappings: step.parameter_mappings
-        })));
+    // useEffect(() => {
+    //     console.log('All prepared steps:', workflowSteps.map(step => ({
+    //         step_id: step.step_id,
+    //         tool: step.tool,
+    //         parameter_mappings: step.parameter_mappings
+    //     })));
 
-        console.log('Current step being passed to StepDetail:', currentStep && {
-            step_id: currentStep.step_id,
-            tool: currentStep.tool,
-            parameter_mappings: currentStep.parameter_mappings
-        });
-    }, [workflowSteps, currentStep]);
+    //     console.log('Current step being passed to StepDetail:', currentStep && {
+    //         step_id: currentStep.step_id,
+    //         tool: currentStep.tool,
+    //         parameter_mappings: currentStep.parameter_mappings
+    //     });
+    // }, [workflowSteps, currentStep]);
 
     //////////////////////// Handlers ////////////////////////
 

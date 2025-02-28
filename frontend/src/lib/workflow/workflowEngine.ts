@@ -53,6 +53,62 @@ export class WorkflowEngine {
     }
 
     /**
+     * Gets input values for a step formatted for UI display
+     * This is a public wrapper around the private getResolvedParameters method
+     * that formats the data for UI components
+     */
+    static getStepInputValuesForUI(
+        step: WorkflowStep,
+        workflow: Workflow | null
+    ): Record<string, { value: any, schema: any }> {
+        if (!step.parameter_mappings || !workflow?.state) return {};
+
+        const result: Record<string, { value: any, schema: any }> = {};
+
+        Object.entries(step.parameter_mappings).forEach(([paramName, varName]) => {
+            const variable = workflow.state?.find(v => v.name === varName);
+
+            if (!variable) {
+                result[paramName] = {
+                    value: null,
+                    schema: null
+                };
+                return;
+            }
+
+            result[paramName] = {
+                value: variable.value,
+                schema: variable.schema
+            };
+        });
+
+        return result;
+    }
+
+    /**
+     * Gets output values for a step formatted for UI display
+     */
+    static getStepOutputValuesForUI(
+        step: WorkflowStep,
+        workflow: Workflow | null
+    ): Record<string, { value: any, schema: any }> {
+        if (!step.output_mappings || !workflow?.state) return {};
+
+        const result: Record<string, { value: any, schema: any }> = {};
+
+        Object.entries(step.output_mappings).forEach(([outputName, varName]) => {
+            const variable = workflow.state?.find(v => v.name === varName);
+
+            result[outputName] = {
+                value: variable?.value,
+                schema: variable?.schema
+            };
+        });
+
+        return result;
+    }
+
+    /**
      * Resolves parameter mappings for a workflow step
      */
     private static getResolvedParameters(
