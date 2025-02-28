@@ -174,50 +174,21 @@ const Workflow: React.FC = () => {
         });
     }, [workflow, createRuntimeStep, isEditMode]);
 
-    // Memoize the input step (only needed in run mode)
-    const inputStep = useMemo(() => {
-        if (!workflow || isEditMode) return null;
-
-        return {
-            step_id: `input-step-${workflow.workflow_id}` as WorkflowStepId,
-            label: 'Input Values',
-            description: 'Provide values for workflow inputs',
-            step_type: WorkflowStepType.INPUT,
-            workflow_id: workflow.workflow_id,
-            sequence_number: -1,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            parameter_mappings: {},
-            output_mappings: {},
-            action: executeCurrentStep,
-            actionButtonText: () => 'Next Step',
-            isDisabled: () => false,
-            getValidationErrors: () => []
-        } as RuntimeWorkflowStep;
-    }, [workflow, isEditMode, executeCurrentStep]);
-
-    // Memoize all steps
-    const allSteps = useMemo(() => {
-        if (!workflowSteps) return [];
-        // return !isEditMode && inputStep ? [inputStep, ...workflowSteps] : workflowSteps;
-        return workflowSteps;
-    }, [isEditMode, inputStep, workflowSteps]);
-
     // Memoize current step
     const currentStep = useMemo(() => {
-        return allSteps[activeStep];
-    }, [allSteps, activeStep]);
+        return workflowSteps[activeStep];
+    }, [workflowSteps, activeStep]);
 
     // Effect to handle invalid active step
     useEffect(() => {
-        if (!currentStep && allSteps.length > 0) {
+        if (!currentStep && workflowSteps?.length && workflowSteps?.length > 0) {
             setActiveStep(0);
         }
-    }, [currentStep, allSteps.length, setActiveStep]);
+    }, [currentStep, workflowSteps?.length, setActiveStep]);
 
     // Effect to log step changes
     useEffect(() => {
-        console.log('All prepared steps:', allSteps.map(step => ({
+        console.log('All prepared steps:', workflowSteps.map(step => ({
             step_id: step.step_id,
             tool: step.tool,
             parameter_mappings: step.parameter_mappings
@@ -228,7 +199,7 @@ const Workflow: React.FC = () => {
             tool: currentStep.tool,
             parameter_mappings: currentStep.parameter_mappings
         });
-    }, [allSteps, currentStep]);
+    }, [workflowSteps, currentStep]);
 
     //////////////////////// Handlers ////////////////////////
 
@@ -281,12 +252,6 @@ const Workflow: React.FC = () => {
         moveToPreviousStep();
     };
 
-    const handleNewQuestion = async (): Promise<void> => {
-        resetWorkflow();
-        setStepRequestsInput(true);
-        setStepExecuted(false);
-    };
-
     const handleStepClick = (index: number) => {
         if (isEditMode) {
             setActiveStep(index);
@@ -305,6 +270,12 @@ const Workflow: React.FC = () => {
         setIsEditMode(!isEditMode);
         setStepExecuted(false);
     }
+
+    const handleNewQuestion = async (): Promise<void> => {
+        resetWorkflow();
+        setStepRequestsInput(true);
+        setStepExecuted(false);
+    };
 
     const handleExecute = () => {
         setStepRequestsInput(false);
@@ -455,7 +426,7 @@ const Workflow: React.FC = () => {
                     {/* Show Steps List when not in config mode */}
                     {!showConfig && (
                         <WorkflowStepsList
-                            steps={allSteps}
+                            steps={workflowSteps}
                             activeStep={activeStep}
                             isEditMode={isEditMode}
                             onStepClick={handleStepClick}
@@ -514,7 +485,7 @@ const Workflow: React.FC = () => {
                                             isEditMode={isEditMode}
                                             activeStep={activeStep}
                                             isInputRequired={stepRequestsInput}
-                                            totalSteps={allSteps.length}
+                                            totalSteps={workflowSteps.length}
                                             step_type={currentStep?.step_type as WorkflowStepType || WorkflowStepType.ACTION}
                                             isLoading={isLoading || isExecuting}
                                             stepExecuted={stepExecuted}
