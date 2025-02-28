@@ -78,7 +78,6 @@ const Workflow: React.FC = () => {
         }
     }, [workflowId, navigate, loadWorkflow]);
 
-
     // Prompt user before leaving if there are unsaved changes
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -96,6 +95,13 @@ const Workflow: React.FC = () => {
     useEffect(() => {
         localStorage.setItem('workflowNavCollapsed', JSON.stringify(isCollapsed));
     }, [isCollapsed]);
+
+    // When input is requested, show the input modal
+    useEffect(() => {
+        if (stepRequestsInput) {
+            setShowInputModal(true);
+        }
+    }, [stepRequestsInput]);
 
     // Memoize the createRuntimeStep function
     const createRuntimeStep = useCallback((step: WorkflowStep, index: number): RuntimeWorkflowStep => {
