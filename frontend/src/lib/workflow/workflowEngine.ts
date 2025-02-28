@@ -18,7 +18,7 @@ export type StepReorderPayload = {
 };
 
 export type WorkflowStateAction = {
-    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE',
+    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE' | 'RESET_EXECUTION',
     payload: {
         stepId?: string,
         mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
@@ -309,6 +309,10 @@ export class WorkflowEngine {
         // Execute the tool
         const toolResult = await ToolEngine.executeTool(step.tool, parameters);
 
+        console.log("***********")
+        console.log('executeToolStep called', toolResult);
+        console.log("***********")
+
         // Update workflow state with tool results
         if (toolResult) {
             console.log('Updating workflow state with tool results:', toolResult);
@@ -359,9 +363,15 @@ export class WorkflowEngine {
         stepIndex: number,
         updateWorkflow: (updates: Partial<Workflow>) => void
     ): Promise<StepExecutionResult> {
+
         try {
             // Get the step from workflow
             const step = workflow.steps[stepIndex];
+
+            console.log("***********")
+            console.log('executeStep called', step);
+            console.log("***********")
+
             if (!step) {
                 return {
                     success: false,
