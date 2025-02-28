@@ -1,5 +1,5 @@
 import React from 'react';
-import { WorkflowStep, EvaluationResult } from '../types/workflows';
+import { WorkflowStep, EvaluationOutputs } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
 
 interface EvaluationStepRunnerProps {
@@ -24,138 +24,174 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
     const evaluationResultVar = workflow?.state?.find(
         v => v.name === `eval_${step.step_id.slice(0, 8)}`
     );
-    const evaluationResult = evaluationResultVar?.value as EvaluationResult | undefined;
+
+    // The value stored in the workflow state is actually just the outputs object from EvaluationResult
+    // not the full EvaluationResult object as defined in the types
+    const evaluationOutputs = evaluationResultVar?.value as EvaluationOutputs | undefined;
 
     // If we don't have an evaluation config, show an error
     if (!step.evaluation_config) {
         return (
-            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
+            <div className="p-4 bg-red-50/50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-lg text-red-700 dark:text-red-400">
                 <h2 className="text-lg font-semibold mb-2">Error</h2>
                 <p>This evaluation step is missing its configuration. Please edit this step to set up conditions.</p>
             </div>
         );
     }
 
+    // Get the condition that was met (if any) from the outputs
+    const conditionMet = evaluationOutputs?.condition_met;
+
+    // Get other useful values from the outputs
+    const nextAction = evaluationOutputs?.next_action;
+    const targetStepIndex = evaluationOutputs?.target_step_index ?
+        Number(evaluationOutputs.target_step_index) : undefined;
+    const reason = evaluationOutputs?.reason;
+    const maxJumpsReached = evaluationOutputs?.max_jumps_reached === 'true';
+    const jumpCount = evaluationOutputs?.jump_count ? Number(evaluationOutputs.jump_count) : 0;
+    const maxJumps = evaluationOutputs?.max_jumps ? Number(evaluationOutputs.max_jumps) : step.evaluation_config.maximum_jumps;
+
     // Render the evaluation step
     return (
         <div className="space-y-6">
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <h2 className="text-lg font-semibold mb-3 text-blue-700 dark:text-blue-400">
+            {/* Evaluation Step Header */}
+            <div className="p-4 bg-blue-50/40 dark:bg-blue-900/5 border border-blue-100 dark:border-blue-800/30 rounded-lg">
+                <h2 className="text-lg font-semibold mb-3 text-blue-600 dark:text-blue-300">
                     <span className="mr-2">⚖️</span>
                     Evaluation Step
                 </h2>
-                <p className="mb-2 text-blue-600 dark:text-blue-400">
+                <p className="mb-2 text-blue-500/80 dark:text-blue-300/80">
                     This step evaluates conditions and determines which path to take in the workflow.
                 </p>
-                {isExecuted && evaluationResult && (
-                    <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded border border-blue-200 dark:border-blue-800">
-                        <h3 className="font-medium mb-1 text-blue-600 dark:text-blue-400">Evaluation Result</h3>
-                        <p>{evaluationResult.reason || 'Evaluation complete'}</p>
+                {isExecuted && maxJumpsReached && (
+                    <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700/40 rounded text-gray-600 dark:text-gray-300 text-sm">
+                        <span className="font-medium">Note:</span> Maximum jumps ({maxJumps}) reached. The workflow will continue to the next step.
                     </div>
                 )}
             </div>
 
-            <div className="space-y-4">
-                {step.evaluation_config.conditions.map((condition, index) => {
-                    console.log('**************************************');
-                    console.log('evaluationResult outputs', evaluationResult?.outputs);
-                    console.log('condition', condition.condition_id);
-                    console.log('**************************************');
-                    const variableValue = availableVariables.find(v => v.name === condition.variable)?.value;
+            {/* List of Conditions */}
+            <div className="space-y-3">
+                <h3 className="text-md font-medium text-gray-700 dark:text-gray-300">Conditions</h3>
+                <div className="space-y-2">
+                    {step.evaluation_config.conditions.map((condition, index) => {
+                        const variableValue = availableVariables.find(v => v.name === condition.variable)?.value;
 
-                    // Access condition_met as a string key
-                    const conditionMet = evaluationResult?.outputs ? evaluationResult.outputs['condition_met' as any] : undefined;
-                    const isConditionMet = conditionMet === condition.condition_id;
+                        // Check if this condition was met
+                        const isConditionMet = isExecuted &&
+                            conditionMet !== undefined &&
+                            conditionMet !== 'none' &&
+                            String(conditionMet) === String(condition.condition_id);
 
-                    return (
-                        <div
-                            key={index}
-                            className={`border rounded-lg p-4 transition-colors ${isExecuted ? (
-                                isConditionMet
-                                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                                    : 'border-gray-200 dark:border-gray-700'
-                            ) : 'border-gray-200 dark:border-gray-700'
-                                }`}
-                        >
-                            <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] gap-2 items-center">
-                                <div className="text-sm">
-                                    <div className="font-medium text-gray-700 dark:text-gray-300">
-                                        {condition.variable}
-                                    </div>
-                                    {isExecuted && (
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                                            Current value: {variableValue !== undefined ? String(variableValue) : 'undefined'}
+                        return (
+                            <div
+                                key={index}
+                                className={`border rounded-lg p-3 transition-colors ${isConditionMet
+                                    ? maxJumpsReached
+                                        ? 'border-gray-200 bg-gray-50/70 dark:bg-gray-800/70 dark:border-gray-700/50'
+                                        : 'border-emerald-200 bg-emerald-50/30 dark:bg-emerald-900/5 dark:border-emerald-700/30'
+                                    : 'border-gray-100 dark:border-gray-700/50 bg-white dark:bg-gray-800/50'
+                                    }`}
+                            >
+                                <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] gap-2 items-center">
+                                    <div className="text-sm">
+                                        <div className={`font-medium ${isConditionMet
+                                            ? maxJumpsReached
+                                                ? 'text-gray-700 dark:text-gray-300'
+                                                : 'text-emerald-600 dark:text-emerald-300'
+                                            : 'text-gray-700 dark:text-gray-300'}`}>
+                                            {condition.variable}
                                         </div>
-                                    )}
+                                        {isExecuted && (
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                Current value: {variableValue !== undefined ? String(variableValue) : 'undefined'}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className={`font-medium ${isConditionMet
+                                        ? maxJumpsReached
+                                            ? 'text-gray-500 dark:text-gray-400'
+                                            : 'text-emerald-500 dark:text-emerald-300/80'
+                                        : 'text-gray-500 dark:text-gray-400'}`}>
+                                        {condition.operator}
+                                    </div>
+                                    <div className={`text-sm ${isConditionMet
+                                        ? maxJumpsReached
+                                            ? 'text-gray-700 dark:text-gray-300'
+                                            : 'text-emerald-600 dark:text-emerald-300'
+                                        : 'text-gray-700 dark:text-gray-300'}`}>
+                                        {condition.value}
+                                    </div>
+                                    <div className={`${isConditionMet
+                                        ? maxJumpsReached
+                                            ? 'text-gray-500 dark:text-gray-400'
+                                            : 'text-emerald-500 dark:text-emerald-300/80'
+                                        : 'text-gray-400 dark:text-gray-500'}`}>
+                                        →
+                                    </div>
+                                    <div className={`text-sm font-medium ${isConditionMet
+                                        ? maxJumpsReached
+                                            ? 'text-gray-700 dark:text-gray-300'
+                                            : 'text-emerald-600 dark:text-emerald-300'
+                                        : 'text-gray-700 dark:text-gray-300'}`}>
+                                        {condition.target_step_index !== undefined
+                                            ? `Jump to step ${condition.target_step_index + 1}`
+                                            : 'Next step'
+                                        }
+                                    </div>
                                 </div>
-                                <div className="text-gray-500 dark:text-gray-400 font-medium">
-                                    {condition.operator}
-                                </div>
-                                <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    {condition.value}
-                                </div>
-                                <div className="text-gray-500 dark:text-gray-400">
-                                    →
-                                </div>
-                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {condition.target_step_index !== undefined
-                                        ? `Jump to step ${condition.target_step_index + 1}`
-                                        : 'Next step'
-                                    }
-                                </div>
+                                {isConditionMet && (
+                                    <div className={`mt-2 text-sm flex items-center ${maxJumpsReached
+                                        ? 'text-gray-500 dark:text-gray-400'
+                                        : 'text-emerald-500 dark:text-emerald-300/80'}`}>
+                                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        {maxJumpsReached
+                                            ? 'Maximum jumps reached'
+                                            : 'Condition met'}
+                                    </div>
+                                )}
                             </div>
-                            {isExecuted && isConditionMet && (
-                                <div className="mt-2 text-sm text-green-600 dark:text-green-400 flex items-center">
-                                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Condition met
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Execution status */}
             {isExecuting && (
-                <div className="mt-4 flex items-center text-blue-600 dark:text-blue-400">
+                <div className="mt-4 flex items-center text-blue-500/80 dark:text-blue-300/80">
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent mr-2" />
                     Evaluating conditions...
                 </div>
             )}
 
-            {isExecuted && evaluationResult && (
-                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+            {/* Evaluation Result - Only shown after execution */}
+            {isExecuted && evaluationOutputs && (
+                <div className="mt-4 p-4 bg-gray-50/50 dark:bg-gray-800/30 rounded-lg border border-gray-100 dark:border-gray-700/50">
+                    <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
                         Evaluation Result
                     </h4>
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-gray-500 dark:text-gray-400">Result:</span>
-                            <span className="text-gray-900 dark:text-gray-100">
-                                {(evaluationResult.outputs as Record<string, string>)?.condition_met === 'none' ? 'No conditions met' : 'Condition met'}
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-500 dark:text-gray-400">Next Action:</span>
-                            <span className="text-gray-900 dark:text-gray-100">
-                                {evaluationResult.next_action === 'jump' ? 'Jump to step' : 'Continue'}
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-500 dark:text-gray-400">Target Step:</span>
-                            <span className="text-gray-900 dark:text-gray-100">
-                                {evaluationResult.target_step_index !== undefined ? `Step ${evaluationResult.target_step_index + 1}` : 'Next step'}
-                            </span>
-                        </div>
-                        {evaluationResult.reason && (
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 dark:text-gray-400">Reason:</span>
-                                <span className="text-gray-900 dark:text-gray-100">{evaluationResult.reason}</span>
-                            </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-300">
+                        {nextAction === 'jump' && targetStepIndex !== undefined ? (
+                            <p>
+                                A condition was met. The workflow will jump to Step {targetStepIndex + 1}.
+                            </p>
+                        ) : (
+                            <p>
+                                {conditionMet === 'none' || conditionMet === undefined
+                                    ? 'No conditions were met. The workflow will continue to the next step.'
+                                    : maxJumpsReached
+                                        ? `A condition was met, but maximum jumps (${maxJumps}) have been reached. The workflow will continue to the next step.`
+                                        : 'A condition was met. The workflow will continue to the next step.'}
+                            </p>
                         )}
                     </div>
+                    {isExecuted && jumpCount > 0 && (
+                        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Jump count: {jumpCount} / {maxJumps}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

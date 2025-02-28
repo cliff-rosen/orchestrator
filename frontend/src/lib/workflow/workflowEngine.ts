@@ -113,6 +113,8 @@ export class WorkflowEngine {
             if (outputVarIndex !== -1) {
                 updatedState[outputVarIndex] = {
                     ...updatedState[outputVarIndex],
+                    // NOTE: We're only storing the outputs object here, not the full EvaluationResult.
+                    // This is why in EvaluationStepRunner we cast the value to EvaluationOutputs.
                     value: outputs
                 };
             } else {
@@ -124,6 +126,8 @@ export class WorkflowEngine {
                         type: 'object',
                         is_array: false
                     },
+                    // NOTE: We're only storing the outputs object here, not the full EvaluationResult.
+                    // This is why in EvaluationStepRunner we cast the value to EvaluationOutputs.
                     value: outputs,
                     io_type: 'evaluation'
                 });

@@ -23,11 +23,30 @@ export interface StepExecutionResult {
     outputs?: Record<WorkflowVariableName, SchemaValueType>;
 }
 
+/**
+ * Represents the structure of evaluation outputs that are stored in the workflow state
+ */
+export interface EvaluationOutputs {
+    condition_met?: string;  // Made optional to fix TypeScript errors
+    variable_name?: string;
+    variable_value?: string;
+    operator?: string;
+    comparison_value?: string;
+    reason?: string;
+    next_action?: string;
+    target_step_index?: string;
+    jump_count?: string;
+    max_jumps?: string;
+    max_jumps_reached?: string;
+    [key: WorkflowVariableName]: SchemaValueType; // Index signature to make it compatible with Record<WorkflowVariableName, SchemaValueType>
+}
+
 // Evaluation result that determines the next step in workflow
-export interface EvaluationResult extends StepExecutionResult {
+export interface EvaluationResult extends Omit<StepExecutionResult, 'outputs'> {
     next_action: 'continue' | 'jump' | 'end';
     target_step_index?: number;  // Only required when next_action is 'jump'
     reason?: string;  // Optional explanation for the decision
+    outputs?: EvaluationOutputs;  // Typed outputs for evaluation steps
 }
 
 // Evaluation condition operators
