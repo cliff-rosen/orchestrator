@@ -1,14 +1,21 @@
 // Rename from InputStepContent.tsx
 // This is for collecting input values in run mode 
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useWorkflows } from '../context/WorkflowContext';
 import SchemaForm from './SchemaForm';
 import { WorkflowVariable } from '@/types/workflows';
 
 const InputStepRunner: React.FC = () => {
-    const { workflow, updateWorkflowByAction } = useWorkflows();
+    const { workflow, activeStep, updateWorkflowByAction } = useWorkflows();
     const inputs = workflow?.state?.filter(variable => variable.io_type === 'input') || [];
+
+
+    // useEffect to find all inputs required for the current step
+    useEffect(() => {
+        const requiredInputs = workflow?.steps[activeStep].parameter_mappings;
+        console.log('requiredInputs', requiredInputs);
+    }, [workflow, activeStep]);
 
     const handleInputChange = (input: string, value: any) => {
         console.log('handleInputChange', input, value);

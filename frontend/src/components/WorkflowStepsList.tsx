@@ -1,5 +1,5 @@
 import React from 'react';
-import { RuntimeWorkflowStep, WorkflowStepType } from '../types/workflows';
+import { RuntimeWorkflowStep } from '../types/workflows';
 import {
     DndContext,
     closestCenter,

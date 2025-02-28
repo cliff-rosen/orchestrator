@@ -18,7 +18,7 @@ import WorkflowStepsList from '../components/WorkflowStepsList';
 import StepDetail from '../components/StepDetail';
 import WorkflowNavigation from '../components/WorkflowNavigation';
 import WorkflowMenuBar from '../components/WorkflowMenuBar';
-
+import InputStepRunner from '../components/InputStepRunner';
 
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
@@ -30,6 +30,9 @@ const Workflow: React.FC = () => {
         activeStep,
         isExecuting,
         stepExecuted,
+        stepRequestsInput,
+        setStepExecuted,
+        setStepRequestsInput,
         loadWorkflow,
         setActiveStep,
         moveToNextStep,
@@ -44,7 +47,6 @@ const Workflow: React.FC = () => {
     const [showConfig, setShowConfig] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(true);
-    const [isInputRequired, setIsInputRequired] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(() => {
         // Initialize from localStorage, default to false if not set
         const saved = localStorage.getItem('workflowNavCollapsed');
@@ -79,14 +81,6 @@ const Workflow: React.FC = () => {
         console.log('***** missingInputs *****', missingInputs);
         return missingInputs && missingInputs.length > 0;
     }, [workflow?.state]);
-
-    useEffect(() => {
-        if (isMissingInputs) {
-            setIsInputRequired(true);
-        } else {
-            setIsInputRequired(false);
-        }
-    }, [isMissingInputs]);
 
     // Prompt user before leaving if there are unsaved changes
     useEffect(() => {
@@ -288,6 +282,8 @@ const Workflow: React.FC = () => {
 
     const handleNewQuestion = async (): Promise<void> => {
         resetWorkflow();
+        setStepRequestsInput(true);
+        setStepExecuted(false);
     };
 
     const handleStepClick = (index: number) => {
@@ -297,9 +293,22 @@ const Workflow: React.FC = () => {
     };
 
     const handleInputSubmit = () => {
-        if (isMissingInputs) {
-            setIsInputRequired(false);
+        if (!isMissingInputs) {
+            setStepRequestsInput(false);
         }
+    }
+
+    const handleToggleEditMode = () => {
+
+        if (isEditMode) {
+            setStepRequestsInput(true);
+        } else {
+            setStepRequestsInput(false);
+        }
+
+        setIsEditMode(!isEditMode);
+        setStepExecuted(false);
+
     }
 
     ///////////////////////// Workflow preparation /////////////////////////
@@ -352,29 +361,7 @@ const Workflow: React.FC = () => {
         <div className="flex flex-col h-full">
             <WorkflowMenuBar
                 isEditMode={isEditMode}
-                onToggleEditMode={() => {
-                    const newIsEditMode = !isEditMode;
-                    if (newIsEditMode) {
-                        // When switching to edit mode, keep the same step index but adjust for input step offset
-                        const editModeIndex = activeStep > 0 ? activeStep - 1 : 0;
-                        setActiveStep(editModeIndex);
-                    } else {
-                        // When switching to run mode
-                        // Check if any inputs are not supplied
-                        const hasUnsetInputs = workflow?.state?.some(variable =>
-                            variable.io_type === 'input' && (variable.value === undefined || variable.value === null)
-                        );
-
-                        if (hasUnsetInputs) {
-                            // Go to input step if any inputs need values
-                            setActiveStep(0);
-                        } else {
-                            // Stay on current step but adjust index for input step
-                            setActiveStep(activeStep + 1);
-                        }
-                    }
-                    setIsEditMode(newIsEditMode);
-                }}
+                onToggleEditMode={handleToggleEditMode}
             />
 
             {/* Main Content Area */}
@@ -476,28 +463,31 @@ const Workflow: React.FC = () => {
                                 <>
                                     {/* Step Detail */}
                                     <div>
-                                        {currentStep ? (
-                                            <StepDetail
-                                                step={currentStep}
-                                                isEditMode={isEditMode}
-                                                isInputRequired={isInputRequired}
-                                                stepExecuted={stepExecuted}
-                                                isExecuting={isExecuting}
-                                                onStepUpdate={handleStepUpdate}
-                                                onStepDelete={handleStepDelete}
-                                            />
+                                        {stepRequestsInput ? (
+                                            <InputStepRunner />
                                         ) : (
-                                            <div className="text-center py-8">
-                                                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                                                    No steps in this workflow yet. Click the "Add Step" button to get started.
-                                                </p>
-                                                <button
-                                                    onClick={handleAddStep}
-                                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                                >
-                                                    Add First Step
-                                                </button>
-                                            </div>
+                                            currentStep ? (
+                                                <StepDetail
+                                                    step={currentStep}
+                                                    isEditMode={isEditMode}
+                                                    stepExecuted={stepExecuted}
+                                                    isExecuting={isExecuting}
+                                                    onStepUpdate={handleStepUpdate}
+                                                    onStepDelete={handleStepDelete}
+                                                />
+                                            ) : (
+                                                <div className="text-center py-8">
+                                                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                                                        No steps in this workflow yet. Click the "Add Step" button to get started.
+                                                    </p>
+                                                    <button
+                                                        onClick={handleAddStep}
+                                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                    >
+                                                        Add First Step
+                                                    </button>
+                                                </div>
+                                            )
                                         )}
                                     </div>
 
@@ -505,7 +495,7 @@ const Workflow: React.FC = () => {
                                         <WorkflowNavigation
                                             isEditMode={isEditMode}
                                             activeStep={activeStep}
-                                            isInputRequired={isInputRequired}
+                                            isInputRequired={stepRequestsInput}
                                             totalSteps={allSteps.length}
                                             step_type={currentStep?.step_type as WorkflowStepType || WorkflowStepType.ACTION}
                                             isLoading={isLoading || isExecuting}

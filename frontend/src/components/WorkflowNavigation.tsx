@@ -66,7 +66,7 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                     <div className="flex items-center space-x-4">
 
                         {/* Action buttons */}
-                        {step_type === WorkflowStepType.ACTION && !isInputStep && (
+                        {step_type === WorkflowStepType.ACTION && !isInputRequired && (
                             <button
                                 onClick={onExecute}
                                 disabled={isLoading}

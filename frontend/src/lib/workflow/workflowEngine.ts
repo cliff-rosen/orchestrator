@@ -473,6 +473,12 @@ export class WorkflowEngine {
                     state: action.payload.state
                 };
 
+            case 'RESET_EXECUTION':
+                return {
+                    ...workflow,
+                    state: workflow.state?.map(variable => ({ ...variable, value: undefined }))
+                };
+
             default:
                 // Handle existing step update cases
                 return {

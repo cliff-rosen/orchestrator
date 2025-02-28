@@ -18,11 +18,12 @@ interface WorkflowContextType {
     workflows: Workflow[]
     workflow: Workflow | null
     hasUnsavedChanges: boolean
-    isLoading: boolean
-    error: string | null
     activeStep: number
     isExecuting: boolean
     stepExecuted: boolean
+    stepRequestsInput: boolean
+    isLoading: boolean
+    error: string | null
 
     // User Operations
     loadWorkflows(): Promise<void>
@@ -39,6 +40,8 @@ interface WorkflowContextType {
 
     // Workflow Execution
     setActiveStep: (step: number) => void
+    setStepExecuted: (executed: boolean) => void
+    setStepRequestsInput: (requestsInput: boolean) => void
     executeCurrentStep(): Promise<StepExecutionResult>
     moveToNextStep(): void
     moveToPreviousStep(): void
@@ -53,11 +56,12 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [workflows, setWorkflows] = useState<Workflow[]>([]);
     const [workflow, setWorkflow] = useState<Workflow | null>(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [activeStep, setActiveStep] = useState(0);
     const [isExecuting, setIsExecuting] = useState(false);
     const [stepExecuted, setStepExecuted] = useState(false);
+    const [stepRequestsInput, setStepRequestsInput] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     // Add state to track original workflow
     const [originalWorkflow, setOriginalWorkflow] = useState<Workflow | null>(null);
 
@@ -391,6 +395,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateWorkflow({ state: clearedState });
         setActiveStep(0);
         setStepExecuted(false);
+        setStepRequestsInput(true);
     }, [workflow, updateWorkflow]);
 
     // Initial load
@@ -403,14 +408,20 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         workflows,
         workflow,
         hasUnsavedChanges,
-        isLoading,
-        error,
         activeStep,
-        setActiveStep,
         isExecuting,
         stepExecuted,
+        stepRequestsInput,
+        isLoading,
+        error,
 
-        // User Operations
+        // Setters
+        setActiveStep,
+        setStepExecuted,
+        setStepRequestsInput,
+
+
+        // Workflow Operations
         createWorkflow,
         loadWorkflow,
         loadWorkflows,

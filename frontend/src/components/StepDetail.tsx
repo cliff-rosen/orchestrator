@@ -1,14 +1,12 @@
 import React from 'react';
 import { RuntimeWorkflowStep, WorkflowStepType, WorkflowStep } from '../types/workflows';
 import ActionStepEditor from './ActionStepEditor';
-import InputStepRunner from './InputStepRunner';
 import ActionStepRunner from './ActionStepRunner';
 import EvaluationStepRunner from './EvaluationStepRunner';
 
 interface StepDetailProps {
     step: RuntimeWorkflowStep;
     isEditMode: boolean;
-    isInputRequired: boolean;
     stepExecuted: boolean;
     isExecuting: boolean;
     onStepUpdate: (step: RuntimeWorkflowStep) => void;
@@ -18,7 +16,6 @@ interface StepDetailProps {
 const StepDetail: React.FC<StepDetailProps> = ({
     step,
     isEditMode,
-    isInputRequired,
     stepExecuted,
     isExecuting,
     onStepUpdate,
@@ -27,9 +24,6 @@ const StepDetail: React.FC<StepDetailProps> = ({
     if (!step) {
         return <div>Error: No step provided</div>;
     }
-
-
-    const isInputStep = isInputRequired
     const isEvaluationStep = step.step_type === WorkflowStepType.EVALUATION;
 
     // In edit mode, action and evaluation steps use the editor
@@ -59,11 +53,6 @@ const StepDetail: React.FC<StepDetailProps> = ({
                 onDeleteRequest={() => onStepDelete(step.step_id)}
             />
         );
-    }
-
-    // In run mode, show appropriate runner based on step type
-    if (isInputStep) {
-        return <InputStepRunner />;
     }
 
     if (isEvaluationStep) {
