@@ -6,9 +6,10 @@ interface SchemaFormProps {
     schema: Schema;
     value: SchemaValueType;
     onChange: (value: SchemaValueType) => void;
+    inputRef?: React.RefObject<HTMLInputElement>;
 }
 
-const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
+const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange, inputRef }) => {
     if (schema.type === 'object' && !schema.is_array) {
         const objectValue = (value as Record<string, SchemaValueType>) || {};
         return (
@@ -96,6 +97,7 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
                 onChange={e => onChange(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                          bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                ref={inputRef}
             />
         );
     }
@@ -108,6 +110,7 @@ const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange }) => {
                 onChange={e => onChange(parseFloat(e.target.value))}
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
                          bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                ref={inputRef}
             />
         );
     }

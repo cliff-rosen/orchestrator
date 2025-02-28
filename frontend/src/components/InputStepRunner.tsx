@@ -1,7 +1,7 @@
 // Rename from InputStepContent.tsx
 // This is for collecting input values in run mode 
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useWorkflows } from '../context/WorkflowContext';
 import SchemaForm from './SchemaForm';
 import { WorkflowVariable } from '@/types/workflows';
@@ -21,7 +21,8 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
     onContinue
 }) => {
     const { workflow, activeStep, updateWorkflowByAction } = useWorkflows();
-    const allInputs = workflow?.state?.filter(variable => variable.io_type === 'input') || [];
+    const allInputs = workflow?.state || [];
+    const containerRef = useRef<HTMLDivElement>(null);
 
     // State to keep track of required inputs for the current step
     const [requiredInputs, setRequiredInputs] = useState<string[]>([]);
@@ -39,6 +40,37 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
         setRequiredInputs(requiredInputNames);
         console.log('requiredInputs for current step:', requiredInputNames);
     }, [workflow, activeStep]);
+
+    // Focus the first input when the modal is shown
+    useEffect(() => {
+        if (!isOpen) return;
+
+        // Give a longer timeout to ensure DOM is fully rendered
+        const focusTimer = setTimeout(() => {
+            if (containerRef.current) {
+                // Find the first input element within the container
+                const firstInput = containerRef.current.querySelector('input, textarea, select') as HTMLElement;
+                if (firstInput) {
+                    firstInput.focus();
+                    console.log('Input focused:', firstInput);
+                }
+            }
+        }, 250); // Longer delay to ensure the DOM is fully updated
+
+        return () => clearTimeout(focusTimer);
+    }, [isOpen]);
+
+    // Handle keyboard navigation
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.target instanceof HTMLInputElement && e.target.type !== 'textarea') {
+                e.preventDefault();
+                onContinue();
+            }
+        } else if (e.key === 'Escape') {
+            onClose();
+        }
+    }, [onContinue, onClose]);
 
     // Helper function to get default value based on schema type
     const getDefaultValue = (schema: Schema): SchemaValueType => {
@@ -85,7 +117,7 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
 
     return (
         <Dialog isOpen={isOpen} onClose={onClose} title={`Start ${currentStepName}`} maxWidth="2xl">
-            <div className="space-y-6">
+            <div className="space-y-6" ref={containerRef} onKeyDown={handleKeyDown} tabIndex={-1}>
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                     <h2 className="text-xl font-bold text-blue-800 dark:text-blue-300">
                         Ready to Begin
@@ -103,7 +135,7 @@ const InputStepRunner: React.FC<InputStepRunnerProps> = ({
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {stepInputs.map((input) => (
+                        {stepInputs.map((input, index) => (
                             <div key={input.name} className="space-y-2 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                                 <h3 className="font-medium text-gray-800 dark:text-gray-200">
                                     {input.name}
