@@ -1,5 +1,5 @@
 import React from 'react';
-import { RuntimeWorkflowStep } from '../types/workflows';
+import { WorkflowStep } from '../types/workflows';
 import {
     DndContext,
     closestCenter,
@@ -18,12 +18,12 @@ import {
 import { SortableStep } from './SortableStep';
 
 interface WorkflowStepsListProps {
-    steps: RuntimeWorkflowStep[];
+    steps: WorkflowStep[];
     activeStep: number;
     isEditMode: boolean;
     onStepClick: (index: number) => void;
     onAddStep: () => void;
-    onReorder?: (steps: RuntimeWorkflowStep[]) => void;
+    onReorder?: (steps: WorkflowStep[]) => void;
     onStepDelete: (stepId: string) => void;
     isCollapsed?: boolean;
 }

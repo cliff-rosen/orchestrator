@@ -5,15 +5,16 @@ import React, { useState } from 'react';
 import { useWorkflows } from '../context/WorkflowContext';
 import { usePromptTemplates } from '../context/PromptTemplateContext';
 import { fileApi } from '../lib/api/fileApi';
-import { RuntimeWorkflowStep, WorkflowVariableName, getWorkflowInputs, getWorkflowOutputs } from '../types/workflows';
+import { WorkflowStep, WorkflowVariableName, getWorkflowInputs, getWorkflowOutputs } from '../types/workflows';
 import { isFileValue } from '../types/schema';
 import Dialog from './common/Dialog';
 import FileLibrary from './FileLibrary';
 import PromptTemplateEditor from './PromptTemplateEditor';
 import MarkdownRenderer from './common/MarkdownRenderer';
+import { executeStep, getActionButtonText, isStepDisabled } from '../lib/workflow/workflowRuntime';
 
 interface ActionStepRunnerProps {
-    actionStep: RuntimeWorkflowStep;
+    actionStep: WorkflowStep;
     isExecuted: boolean;
     isExecuting: boolean;
 }

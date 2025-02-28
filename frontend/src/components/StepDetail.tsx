@@ -1,15 +1,15 @@
 import React from 'react';
-import { RuntimeWorkflowStep, WorkflowStepType, WorkflowStep } from '../types/workflows';
+import { WorkflowStepType, WorkflowStep } from '../types/workflows';
 import ActionStepEditor from './ActionStepEditor';
 import ActionStepRunner from './ActionStepRunner';
 import EvaluationStepRunner from './EvaluationStepRunner';
 
 interface StepDetailProps {
-    step: RuntimeWorkflowStep;
+    step: WorkflowStep;
     isEditMode: boolean;
     stepExecuted: boolean;
     isExecuting: boolean;
-    onStepUpdate: (step: RuntimeWorkflowStep) => void;
+    onStepUpdate: (step: WorkflowStep) => void;
     onStepDelete: (stepId: string) => void;
 }
 
@@ -28,28 +28,10 @@ const StepDetail: React.FC<StepDetailProps> = ({
 
     // In edit mode, action and evaluation steps use the editor
     if (isEditMode) {
-        // Convert RuntimeWorkflowStep to WorkflowStep for ActionStepEditor
-        const {
-            action,
-            actionButtonText,
-            isDisabled,
-            getValidationErrors,
-            ...workflowStep
-        } = step;
-
         return (
             <ActionStepEditor
-                step={workflowStep as WorkflowStep}
-                onStepUpdate={(updatedStep) => {
-                    // Add back runtime properties when updating
-                    onStepUpdate({
-                        ...updatedStep,
-                        action,
-                        actionButtonText,
-                        isDisabled,
-                        getValidationErrors
-                    } as RuntimeWorkflowStep);
-                }}
+                step={step}
+                onStepUpdate={onStepUpdate}
                 onDeleteRequest={() => onStepDelete(step.step_id)}
             />
         );

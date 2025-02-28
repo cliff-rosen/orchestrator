@@ -6,8 +6,7 @@ import {
     WorkflowStepId,
     WorkflowVariable,
     StepExecutionResult,
-    WorkflowStep,
-    RuntimeWorkflowStep
+    WorkflowStep
 } from '../types';
 import { workflowApi } from '../lib/api';
 import { WorkflowEngine, WorkflowStateAction } from '../lib/workflow/workflowEngine';
@@ -36,7 +35,7 @@ interface WorkflowContextType {
 
     // legacy update methods
     updateWorkflow(updates: Partial<Workflow>): void
-    updateWorkflowStep(step: WorkflowStep | RuntimeWorkflowStep): void
+    updateWorkflowStep(step: WorkflowStep): void
 
     // Workflow Execution
     setActiveStep: (step: number) => void
@@ -229,7 +228,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     }, [workflow, originalWorkflow]);
 
-    const updateWorkflowStep = useCallback((step: WorkflowStep | RuntimeWorkflowStep) => {
+    const updateWorkflowStep = useCallback((step: WorkflowStep) => {
         console.log('updateWorkflowStep called with step:', step);
         if (!workflow) return;
 

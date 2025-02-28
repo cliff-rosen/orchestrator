@@ -56,16 +56,17 @@ export interface EvaluationConfig {
 }
 
 // Runtime step that includes execution functions
-export interface RuntimeWorkflowStep extends WorkflowStep {
-    // Execute the step and return its results
-    action: () => Promise<StepExecutionResult>;
-    // Get the text to display on the action button
-    actionButtonText: () => string;
-    // Check if the step can be executed
-    isDisabled: () => boolean;
-    // Get any validation errors that would prevent execution
-    getValidationErrors: () => string[];
-}
+// NOTE: This interface has been removed in favor of utility functions in lib/workflow/workflowRuntime.ts
+// export interface RuntimeWorkflowStep extends WorkflowStep {
+//     // Execute the step and return its results
+//     action: () => Promise<StepExecutionResult>;
+//     // Get the text to display on the action button
+//     actionButtonText: () => string;
+//     // Check if the step can be executed
+//     isDisabled: () => boolean;
+//     // Get any validation errors that would prevent execution
+//     getValidationErrors: () => string[];
+// }
 
 // Workflow variable extends base Variable with I/O type and required flag
 export interface WorkflowVariable extends Omit<Variable, 'name'> {

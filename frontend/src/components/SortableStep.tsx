@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { RuntimeWorkflowStep } from '../types/workflows';
+import { WorkflowStep } from '../types/workflows';
 import { GripVertical } from 'lucide-react';
 
 interface SortableStepProps {
-    step: RuntimeWorkflowStep;
+    step: WorkflowStep;
     index: number;
     isActive: boolean;
     isCompleted: boolean;

@@ -5,7 +5,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     WorkflowStep,
     WorkflowStepType,
-    RuntimeWorkflowStep,
     WorkflowStepId
 } from '../types/workflows';
 
@@ -19,6 +18,9 @@ import StepDetail from '../components/StepDetail';
 import WorkflowNavigation from '../components/WorkflowNavigation';
 import WorkflowMenuBar from '../components/WorkflowMenuBar';
 import InputStepRunner from '../components/InputStepRunner';
+
+// Utilities
+import { getStepValidationErrors } from '../lib/workflow/workflowRuntime';
 
 const Workflow: React.FC = () => {
     const { workflowId } = useParams();
@@ -103,82 +105,13 @@ const Workflow: React.FC = () => {
         }
     }, [stepRequestsInput]);
 
-    // Memoize the createRuntimeStep function
-    const createRuntimeStep = useCallback((step: WorkflowStep, index: number): RuntimeWorkflowStep => {
-        return {
-            ...step,
-            action: async () => {
-                if (index === activeStep) {
-                    return executeCurrentStep();
-                }
-                return {
-                    success: false,
-                    error: 'Step is not active'
-                };
-            },
-            actionButtonText: () => {
-                if (index === activeStep) {
-                    return stepExecuted ? 'Next Step' : 'Execute Tool';
-                }
-                return 'Execute Tool';
-            },
-            isDisabled: () => {
-                return index !== activeStep || isExecuting;
-            },
-            getValidationErrors: () => {
-                const errors: string[] = [];
-
-                if (!step.tool) {
-                    errors.push('No tool selected');
-                }
-
-                if (step.tool?.tool_type === 'llm' && !step.prompt_template_id) {
-                    errors.push('No prompt template selected');
-                }
-
-                // Check parameter mappings
-                if (step.parameter_mappings) {
-                    for (const [paramName, varName] of Object.entries(step.parameter_mappings)) {
-                        // Look for the variable in the workflow state, filtering by io_type
-                        const inputVars = workflow?.state?.filter(v => v.io_type === 'input') || [];
-                        const outputVars = workflow?.state?.filter(v => v.io_type === 'output') || [];
-
-                        const variable = inputVars.find(v => v.name === varName) ||
-                            outputVars.find(v => v.name === varName);
-
-                        if (!variable) {
-                            errors.push(`Missing variable mapping for parameter: ${paramName}`);
-                        }
-                    }
-                }
-
-                return errors;
-            }
-        };
-    }, [activeStep, stepExecuted, isExecuting, workflow, executeCurrentStep]);
-
     // Memoize the workflow steps
     const workflowSteps = useMemo(() => {
         if (!workflow) return [];
 
-        return workflow.steps.map((step, index) => {
-            // In edit mode, provide dummy runtime properties
-            if (isEditMode) {
-                return {
-                    ...step,
-                    action: async () => ({ success: false, error: 'Not executable in edit mode' }),
-                    actionButtonText: () => 'Edit',
-                    isDisabled: () => true,
-                    getValidationErrors: () => []
-                } as RuntimeWorkflowStep;
-            }
-
-            // In run mode, create full runtime step
-            const runtimeStep = createRuntimeStep(step, index);
-
-            return runtimeStep;
-        });
-    }, [workflow, createRuntimeStep, isEditMode]);
+        // Just return the raw workflow steps - runtime operations are now handled by utility functions
+        return workflow.steps;
+    }, [workflow]);
 
     // Memoize current step
     const currentStep = useMemo(() => {
@@ -209,17 +142,14 @@ const Workflow: React.FC = () => {
 
     //////////////////////// Handlers ////////////////////////
 
-    const handleStepReorder = (reorderedSteps: RuntimeWorkflowStep[]) => {
+    const handleStepReorder = (reorderedSteps: WorkflowStep[]) => {
         if (!workflow) return;
-
-        // Convert runtime steps back to workflow steps
-        const workflowSteps = reorderedSteps.map(({ action, actionButtonText, isDisabled, getValidationErrors, ...step }) => step);
 
         updateWorkflowByAction({
             type: 'REORDER_STEPS',
             payload: {
                 reorder: {
-                    reorderedSteps: workflowSteps
+                    reorderedSteps: reorderedSteps
                 }
             }
         });
@@ -234,7 +164,7 @@ const Workflow: React.FC = () => {
         });
     };
 
-    const handleStepUpdate = (step: WorkflowStep | RuntimeWorkflowStep) => {
+    const handleStepUpdate = (step: WorkflowStep) => {
         console.log('handleStepUpdate called with step:', step);
         updateWorkflowStep(step);
     };
