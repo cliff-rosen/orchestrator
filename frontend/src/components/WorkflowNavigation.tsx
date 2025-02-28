@@ -33,7 +33,6 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
     // Only show navigation in run mode
     if (isEditMode) return null;
 
-    const isInputStep = step_type === WorkflowStepType.INPUT;
     const isLastStep = activeStep === totalSteps - 1;
 
 
@@ -96,7 +95,7 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                             </button>
                         )}
 
-                        {step_type === WorkflowStepType.EVALUATION && !isInputStep && (
+                        {step_type === WorkflowStepType.EVALUATION && !isInputRequired && (
                             <button
                                 onClick={onExecute}
                                 disabled={isLoading}
@@ -126,7 +125,7 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                         )}
 
                         {/* Next button */}
-                        {(isInputStep || stepExecuted) && !isLastStep && (
+                        {(stepExecuted) && !isLastStep && (
                             <button
                                 onClick={onNext}
                                 disabled={isLoading}
@@ -139,7 +138,7 @@ const WorkflowNavigation: React.FC<WorkflowNavigationProps> = ({
                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500
                                           transition-colors`}
                             >
-                                <span>{isInputStep ? 'Start Workflow' : 'Next Step'}</span>
+                                <span>{'Next Step'}</span>
                                 <svg className="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                 </svg>

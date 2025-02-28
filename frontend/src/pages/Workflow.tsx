@@ -52,6 +52,8 @@ const Workflow: React.FC = () => {
         const saved = localStorage.getItem('workflowNavCollapsed');
         return saved ? JSON.parse(saved) : false;
     });
+    // State for input modal
+    const [showInputModal, setShowInputModal] = useState(false);
 
     // Initialize workflow based on URL parameter
     useEffect(() => {
@@ -136,8 +138,12 @@ const Workflow: React.FC = () => {
                 // Check parameter mappings
                 if (step.parameter_mappings) {
                     for (const [paramName, varName] of Object.entries(step.parameter_mappings)) {
-                        const variable = workflow?.inputs?.find(v => v.name === varName) ||
-                            workflow?.outputs?.find(v => v.name === varName);
+                        // Look for the variable in the workflow state, filtering by io_type
+                        const inputVars = workflow?.state?.filter(v => v.io_type === 'input') || [];
+                        const outputVars = workflow?.state?.filter(v => v.io_type === 'output') || [];
+
+                        const variable = inputVars.find(v => v.name === varName) ||
+                            outputVars.find(v => v.name === varName);
 
                         if (!variable) {
                             errors.push(`Missing variable mapping for parameter: ${paramName}`);
@@ -292,15 +298,10 @@ const Workflow: React.FC = () => {
         }
     };
 
-    const handleInputSubmit = () => {
-        if (!isMissingInputs) {
-            setStepRequestsInput(false);
-        }
-    }
-
     const handleToggleEditMode = () => {
-
         if (isEditMode) {
+            // When switching to run mode, show the input modal
+            setShowInputModal(true);
             setStepRequestsInput(true);
         } else {
             setStepRequestsInput(false);
@@ -308,7 +309,22 @@ const Workflow: React.FC = () => {
 
         setIsEditMode(!isEditMode);
         setStepExecuted(false);
+    }
 
+    const handleExecute = () => {
+        setStepRequestsInput(false);
+        executeCurrentStep();
+    }
+
+    const handleInputSubmit = () => {
+        setShowInputModal(false);
+        setStepRequestsInput(false);
+    }
+
+    const handleInputCancel = () => {
+        setShowInputModal(false);
+        // Switch back to edit mode if canceling inputs
+        setIsEditMode(true);
     }
 
     ///////////////////////// Workflow preparation /////////////////////////
@@ -464,7 +480,11 @@ const Workflow: React.FC = () => {
                                     {/* Step Detail */}
                                     <div>
                                         {stepRequestsInput ? (
-                                            <InputStepRunner />
+                                            <InputStepRunner
+                                                isOpen={showInputModal}
+                                                onClose={handleInputCancel}
+                                                onContinue={handleInputSubmit}
+                                            />
                                         ) : (
                                             currentStep ? (
                                                 <StepDetail
@@ -502,7 +522,7 @@ const Workflow: React.FC = () => {
                                             stepExecuted={stepExecuted}
                                             onBack={handleBack}
                                             onNext={handleNext}
-                                            onExecute={executeCurrentStep}
+                                            onExecute={handleExecute}
                                             onRestart={handleNewQuestion}
                                             onInputSubmit={handleInputSubmit}
                                         />
