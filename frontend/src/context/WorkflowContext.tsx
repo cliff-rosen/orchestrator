@@ -282,6 +282,27 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setWorkflow(savedWorkflow);
             setOriginalWorkflow(savedWorkflow); // Update the original state after saving
             setHasUnsavedChanges(false);
+
+            // If this was a new workflow, add it to the workflows collection
+            if (workflow.workflow_id === 'new') {
+                setWorkflows(prevWorkflows => {
+                    // Make sure we don't add duplicates
+                    const exists = prevWorkflows.some(w => w.workflow_id === savedWorkflow.workflow_id);
+                    if (exists) {
+                        return prevWorkflows.map(w =>
+                            w.workflow_id === savedWorkflow.workflow_id ? savedWorkflow : w
+                        );
+                    }
+                    return [...prevWorkflows, savedWorkflow];
+                });
+            } else {
+                // If this was an update, update the workflow in the collection
+                setWorkflows(prevWorkflows =>
+                    prevWorkflows.map(w =>
+                        w.workflow_id === savedWorkflow.workflow_id ? savedWorkflow : w
+                    )
+                );
+            }
         } catch (error) {
             setError('Failed to save workflow');
             console.error('Error saving workflow:', error);
