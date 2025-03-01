@@ -68,7 +68,12 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
         if (!workflow) return;
 
         const updatedWorkflow = addWorkflowVariable(workflow, newVariable);
-        updateWorkflow(updatedWorkflow);
+        updateWorkflowByAction({
+            type: 'UPDATE_WORKFLOW',
+            payload: {
+                workflowUpdates: { state: updatedWorkflow.state }
+            }
+        });
     };
 
     return (

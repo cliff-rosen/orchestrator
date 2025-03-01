@@ -12,7 +12,7 @@ const WorkflowMenuBar: React.FC<WorkflowMenuBarProps> = ({
     onToggleEditMode,
 }) => {
     const navigate = useNavigate();
-    const { workflow, hasUnsavedChanges, saveWorkflow, exitWorkflow, updateWorkflow } = useWorkflows();
+    const { workflow, hasUnsavedChanges, saveWorkflow, exitWorkflow, updateWorkflowByAction } = useWorkflows();
     const [editingName, setEditingName] = useState(false);
 
     // Auto-enter edit mode for new workflows
@@ -74,7 +74,12 @@ const WorkflowMenuBar: React.FC<WorkflowMenuBarProps> = ({
                             <input
                                 type="text"
                                 value={workflow.name}
-                                onChange={(e) => updateWorkflow({ name: e.target.value })}
+                                onChange={(e) => updateWorkflowByAction({
+                                    type: 'UPDATE_WORKFLOW',
+                                    payload: {
+                                        workflowUpdates: { name: e.target.value }
+                                    }
+                                })}
                                 onBlur={() => setEditingName(false)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {

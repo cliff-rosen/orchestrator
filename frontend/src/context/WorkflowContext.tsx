@@ -178,56 +178,50 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     }, [createWorkflow, isLoading, workflow?.workflow_id]);
 
+    const updateWorkflowByAction = useCallback((action: WorkflowStateAction) => {
+        setWorkflow(currentWorkflow => {
+            if (!currentWorkflow) return null;
+
+            const newWorkflow = WorkflowEngine.updateWorkflowByAction(currentWorkflow, action);
+
+            // Set active step to the new step when adding a step
+            if (action.type === 'ADD_STEP') {
+                setActiveStep(newWorkflow.steps.length - 1);
+            }
+            // Adjust active step when deleting a step
+            else if (action.type === 'DELETE_STEP' && action.payload.stepId) {
+                const deletedStepIndex = currentWorkflow.steps.findIndex(s => s.step_id === action.payload.stepId);
+                if (deletedStepIndex !== -1 && deletedStepIndex <= activeStep) {
+                    setActiveStep(Math.max(0, activeStep - 1));
+                }
+            }
+
+            // Compare with original workflow to determine if there are unsaved changes
+            if (originalWorkflow) {
+                const hasChanges = JSON.stringify(newWorkflow) !== JSON.stringify(originalWorkflow);
+                setHasUnsavedChanges(hasChanges);
+            } else {
+                setHasUnsavedChanges(true);
+            }
+
+            return newWorkflow;
+        });
+    }, [originalWorkflow, activeStep]);
+
     const updateWorkflow = useCallback((updates: Partial<Workflow>) => {
         if (!workflow) return;
 
-        // First, create the base updated workflow
-        const baseWorkflow = {
-            ...workflow,
-            ...updates,
-        };
+        // DEPRECATED: This method is being phased out in favor of updateWorkflowByAction.
+        // Use updateWorkflowByAction with the UPDATE_WORKFLOW action type instead.
+        console.warn('updateWorkflow is deprecated. Use updateWorkflowByAction with UPDATE_WORKFLOW action type instead.');
 
-        // Validate variable name uniqueness
-        const validateVariableNames = (variables: WorkflowVariable[] | undefined): string | null => {
-            if (!variables) return null;
-            const names = new Set<string>();
-            for (const variable of variables) {
-                if (names.has(variable.name)) {
-                    return `Duplicate variable name found: ${variable.name}`;
-                }
-                names.add(variable.name);
+        updateWorkflowByAction({
+            type: 'UPDATE_WORKFLOW',
+            payload: {
+                workflowUpdates: updates
             }
-            return null;
-        };
-
-        // Check for duplicate names in state variables
-        const stateError = validateVariableNames(updates.state);
-        if (stateError) {
-            console.error('Variable name validation failed:', stateError);
-            setError(stateError);
-            return;
-        }
-
-        // Then, handle state updates to ensure we don't lose data
-        const updatedWorkflow = {
-            ...baseWorkflow,
-            state: updates.state ? updates.state.map(variable => ({
-                ...variable,
-                variable_id: variable.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-            })) : baseWorkflow.state || []
-        };
-
-        console.log('Setting workflow to:', updatedWorkflow);
-        setWorkflow(updatedWorkflow);
-
-        // Compare with original workflow to determine if there are unsaved changes
-        if (originalWorkflow) {
-            const hasChanges = JSON.stringify(updatedWorkflow) !== JSON.stringify(originalWorkflow);
-            setHasUnsavedChanges(hasChanges);
-        } else {
-            setHasUnsavedChanges(true);
-        }
-    }, [workflow, originalWorkflow]);
+        });
+    }, [workflow, updateWorkflowByAction]);
 
     const updateWorkflowStep = useCallback((step: WorkflowStep) => {
         console.log('updateWorkflowStep called with step:', step);
@@ -258,15 +252,17 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
         console.log('Updated step:', updatedStep);
 
-        const updatedSteps = workflow.steps.map((s: WorkflowStep) =>
-            s.step_id === step.step_id ? updatedStep : s
-        );
-        console.log('All steps after update:', updatedSteps);
+        // DEPRECATED: This method is being phased out in favor of direct updateWorkflowByAction calls.
+        console.warn('updateWorkflowStep is deprecated. Consider using updateWorkflowByAction directly.');
 
-        updateWorkflow({
-            steps: updatedSteps
+        updateWorkflowByAction({
+            type: 'UPDATE_STEP',
+            payload: {
+                stepId: step.step_id,
+                step: updatedStep
+            }
         });
-    }, [workflow, updateWorkflow]);
+    }, [workflow, updateWorkflowByAction]);
 
     const saveWorkflow = useCallback(async () => {
         if (!workflow) return;
@@ -308,36 +304,6 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         sessionStorage.removeItem('originalWorkflow');
     }, []);
 
-    const updateWorkflowByAction = useCallback((action: WorkflowStateAction) => {
-        setWorkflow(currentWorkflow => {
-            if (!currentWorkflow) return null;
-
-            const newWorkflow = WorkflowEngine.updateWorkflowByAction(currentWorkflow, action);
-
-            // Set active step to the new step when adding a step
-            if (action.type === 'ADD_STEP') {
-                setActiveStep(newWorkflow.steps.length - 1);
-            }
-            // Adjust active step when deleting a step
-            else if (action.type === 'DELETE_STEP' && action.payload.stepId) {
-                const deletedStepIndex = currentWorkflow.steps.findIndex(s => s.step_id === action.payload.stepId);
-                if (deletedStepIndex !== -1 && deletedStepIndex <= activeStep) {
-                    setActiveStep(Math.max(0, activeStep - 1));
-                }
-            }
-
-            // Compare with original workflow to determine if there are unsaved changes
-            if (originalWorkflow) {
-                const hasChanges = JSON.stringify(newWorkflow) !== JSON.stringify(originalWorkflow);
-                setHasUnsavedChanges(hasChanges);
-            } else {
-                setHasUnsavedChanges(true);
-            }
-
-            return newWorkflow;
-        });
-    }, [originalWorkflow, activeStep]);
-
     // Workflow Execution Methods
     const executeCurrentStep = useCallback(async (): Promise<StepExecutionResult> => {
         if (!workflow) {
@@ -355,7 +321,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const stepIndex = Math.max(0, activeStep);
 
             // Execute step using WorkflowEngine - all state management handled internally
-            const result = await WorkflowEngine.executeStep(workflow, stepIndex, updateWorkflow);
+            const result = await WorkflowEngine.executeStep(workflow, stepIndex, updateWorkflowByAction);
 
             // Track UI execution state
             setStepExecuted(true);
@@ -370,7 +336,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } finally {
             setIsExecuting(false);
         }
-    }, [workflow, activeStep, updateWorkflow]);
+    }, [workflow, activeStep, updateWorkflowByAction]);
 
     const moveToNextStep = useCallback(() => {
         if (!workflow) return;
@@ -408,11 +374,17 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     : variable
             );
 
-        updateWorkflow({ state: clearedState });
+        updateWorkflowByAction({
+            type: 'UPDATE_WORKFLOW',
+            payload: {
+                workflowUpdates: { state: clearedState }
+            }
+        });
+
         setActiveStep(0);
         setStepExecuted(false);
         setStepRequestsInput(true);
-    }, [workflow, updateWorkflow, updateWorkflowByAction]);
+    }, [workflow, updateWorkflowByAction]);
 
     // Reset workflow state without changing the active step
     // This is used when switching to run mode to allow running from any step
@@ -440,10 +412,16 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     : variable
             );
 
-        updateWorkflow({ state: clearedState });
+        updateWorkflowByAction({
+            type: 'UPDATE_WORKFLOW',
+            payload: {
+                workflowUpdates: { state: clearedState }
+            }
+        });
+
         setStepExecuted(false);
         setStepRequestsInput(true);
-    }, [workflow, updateWorkflow, updateWorkflowByAction]);
+    }, [workflow, updateWorkflowByAction]);
 
     // Initial load
     useEffect(() => {

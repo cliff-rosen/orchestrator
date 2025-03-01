@@ -18,14 +18,16 @@ export type StepReorderPayload = {
 };
 
 export type WorkflowStateAction = {
-    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE' | 'RESET_EXECUTION',
+    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE' | 'RESET_EXECUTION' | 'UPDATE_WORKFLOW' | 'UPDATE_STEP',
     payload: {
         stepId?: string,
         mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
         tool?: Tool,
         newStep?: WorkflowStep,
         reorder?: StepReorderPayload,
-        state?: WorkflowVariable[]
+        state?: WorkflowVariable[],
+        workflowUpdates?: Partial<Workflow>,
+        step?: WorkflowStep
     }
 };
 
@@ -490,7 +492,7 @@ export class WorkflowEngine {
     private static executeEvaluationStep(
         step: WorkflowStep,
         workflow: Workflow,
-        updateWorkflow: (updates: Partial<Workflow>) => void
+        updateState: (updates: Partial<Workflow>) => void
     ): StepExecutionResult {
         console.log('Executing evaluation step:', step.evaluation_config);
 
@@ -499,7 +501,7 @@ export class WorkflowEngine {
         // Store evaluation result in workflow state
         if (result.success && result.outputs) {
             const updatedState = this.getUpdatedWorkflowStateFromResults(step, result.outputs, workflow);
-            updateWorkflow({ state: updatedState });
+            updateState({ state: updatedState });
         }
 
         return result;
@@ -511,7 +513,7 @@ export class WorkflowEngine {
     private static async executeToolStep(
         step: WorkflowStep,
         workflow: Workflow,
-        updateWorkflow: (updates: Partial<Workflow>) => void
+        updateState: (updates: Partial<Workflow>) => void
     ): Promise<StepExecutionResult> {
         if (!step.tool) {
             return {
@@ -532,14 +534,12 @@ export class WorkflowEngine {
 
         console.log('executeToolStep called', toolResult);
 
-
         // Update workflow state with tool results
         if (toolResult) {
             console.log('Updating workflow state with tool results:', toolResult);
             const updatedState = this.getUpdatedWorkflowStateFromResults(step, toolResult, workflow);
             console.log('Updated state:', updatedState);
-            // update using updateWorkflowByAction
-            updateWorkflow({ state: updatedState });
+            updateState({ state: updatedState });
         }
 
         return {
@@ -554,7 +554,7 @@ export class WorkflowEngine {
     private static clearStepOutputs(
         step: WorkflowStep,
         workflow: Workflow,
-        updateWorkflow: (updates: Partial<Workflow>) => void
+        updateState: (updates: Partial<Workflow>) => void
     ): void {
         if (!workflow.state) return;
 
@@ -573,7 +573,7 @@ export class WorkflowEngine {
             return variable;
         });
 
-        updateWorkflow({ state: updatedState });
+        updateState({ state: updatedState });
     }
 
     /**
@@ -582,9 +582,8 @@ export class WorkflowEngine {
     static async executeStep(
         workflow: Workflow,
         stepIndex: number,
-        updateWorkflow: (updates: Partial<Workflow>) => void
+        updateWorkflowByAction: (action: WorkflowStateAction) => void
     ): Promise<StepExecutionResult> {
-
         try {
             // Get the step from workflow
             const step = workflow.steps[stepIndex];
@@ -601,12 +600,27 @@ export class WorkflowEngine {
             }
 
             // Clear any existing outputs for this step
-            this.clearStepOutputs(step, workflow, updateWorkflow);
+            this.clearStepOutputs(step, workflow, (updates) => {
+                updateWorkflowByAction({
+                    type: 'UPDATE_WORKFLOW',
+                    payload: { workflowUpdates: updates }
+                });
+            });
 
             // Execute based on step type
             return step.step_type === WorkflowStepType.EVALUATION
-                ? this.executeEvaluationStep(step, workflow, updateWorkflow)
-                : await this.executeToolStep(step, workflow, updateWorkflow);
+                ? this.executeEvaluationStep(step, workflow, (updates) => {
+                    updateWorkflowByAction({
+                        type: 'UPDATE_WORKFLOW',
+                        payload: { workflowUpdates: updates }
+                    });
+                })
+                : await this.executeToolStep(step, workflow, (updates) => {
+                    updateWorkflowByAction({
+                        type: 'UPDATE_WORKFLOW',
+                        payload: { workflowUpdates: updates }
+                    });
+                });
 
         } catch (error) {
             return {
@@ -719,7 +733,7 @@ export class WorkflowEngine {
      */
     static resetJumpCounters(
         workflow: Workflow,
-        updateWorkflow: (updates: Partial<Workflow>) => void
+        updateWorkflowByAction: (action: WorkflowStateAction) => void
     ): void {
         if (!workflow.state) return;
 
@@ -728,7 +742,11 @@ export class WorkflowEngine {
             return !variable.name.startsWith('jump_count_');
         });
 
-        updateWorkflow({ state: updatedState });
+        updateWorkflowByAction({
+            type: 'UPDATE_WORKFLOW',
+            payload: { workflowUpdates: { state: updatedState } }
+        });
+
         console.log('Reset all jump counters for workflow execution');
     }
 
@@ -737,6 +755,49 @@ export class WorkflowEngine {
      */
     static updateWorkflowByAction(workflow: Workflow, action: WorkflowStateAction): Workflow {
         switch (action.type) {
+            case 'UPDATE_WORKFLOW':
+                if (!action.payload.workflowUpdates) return workflow;
+
+                // Handle state updates specially to ensure we don't lose data
+                if (action.payload.workflowUpdates.state) {
+                    // Validate variable name uniqueness
+                    const names = new Set<string>();
+                    for (const variable of action.payload.workflowUpdates.state) {
+                        if (names.has(variable.name)) {
+                            console.error(`Duplicate variable name found: ${variable.name}`);
+                            return workflow;
+                        }
+                        names.add(variable.name);
+                    }
+
+                    // Ensure variable_id is set for all variables
+                    const processedState = action.payload.workflowUpdates.state.map(variable => ({
+                        ...variable,
+                        variable_id: variable.variable_id || `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+                    }));
+
+                    return {
+                        ...workflow,
+                        ...action.payload.workflowUpdates,
+                        state: processedState
+                    };
+                }
+
+                // For updates without state changes
+                return {
+                    ...workflow,
+                    ...action.payload.workflowUpdates
+                };
+
+            case 'UPDATE_STEP':
+                if (!action.payload.stepId || !action.payload.step) return workflow;
+                return {
+                    ...workflow,
+                    steps: workflow.steps.map(step =>
+                        step.step_id === action.payload.stepId ? action.payload.step! : step
+                    )
+                };
+
             case 'ADD_STEP':
                 const newStep = WorkflowEngine.createNewStep(workflow);
                 return {

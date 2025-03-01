@@ -42,7 +42,7 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
         isExecuting
     });
 
-    const { workflow, updateWorkflow } = useWorkflows();
+    const { workflow, updateWorkflowByAction } = useWorkflows();
     const { templates } = usePromptTemplates();
     const [editingInput, setEditingInput] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<any>(null);
@@ -104,7 +104,12 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
             return variable;
         });
 
-        updateWorkflow({ state: updatedState });
+        updateWorkflowByAction({
+            type: 'UPDATE_WORKFLOW',
+            payload: {
+                workflowUpdates: { state: updatedState }
+            }
+        });
         setEditingInput(null);
         setEditValue(null);
     };
@@ -526,7 +531,12 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                                 return variable;
                             });
 
-                            updateWorkflow({ state: updatedState });
+                            updateWorkflowByAction({
+                                type: 'UPDATE_WORKFLOW',
+                                payload: {
+                                    workflowUpdates: { state: updatedState }
+                                }
+                            });
                             setShowFileSelector(false);
                             setSelectedParam(null);
                         }}
@@ -553,7 +563,12 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                                     : step
                             );
 
-                            updateWorkflow({ steps: updatedSteps });
+                            updateWorkflowByAction({
+                                type: 'UPDATE_WORKFLOW',
+                                payload: {
+                                    workflowUpdates: { steps: updatedSteps }
+                                }
+                            });
                             setShowTemplateEditor(false);
                         }}
                         onClose={() => setShowTemplateEditor(false)}
