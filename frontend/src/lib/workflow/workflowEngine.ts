@@ -17,8 +17,26 @@ export type StepReorderPayload = {
     reorderedSteps: WorkflowStep[];
 };
 
+/**
+ * Represents an action that can be performed on the workflow state.
+ * This is used to standardize all workflow state updates and ensure consistency.
+ * 
+ * Action types:
+ * - UPDATE_PARAMETER_MAPPINGS: Updates the parameter mappings for a step
+ * - UPDATE_OUTPUT_MAPPINGS: Updates the output mappings for a step
+ * - UPDATE_STEP_TOOL: Updates the tool for a step
+ * - UPDATE_STEP_TYPE: Updates the type of a step
+ * - ADD_STEP: Adds a new step to the workflow
+ * - REORDER_STEPS: Reorders the steps in the workflow
+ * - DELETE_STEP: Deletes a step from the workflow
+ * - UPDATE_STATE: Updates the workflow state variables
+ * - RESET_EXECUTION: Resets the execution state of the workflow
+ * - UPDATE_WORKFLOW: Updates the workflow properties
+ * - UPDATE_STEP: Updates a step in the workflow
+ * - RESET_WORKFLOW_STATE: Resets the workflow state, optionally keeping jump counters
+ */
 export type WorkflowStateAction = {
-    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE' | 'RESET_EXECUTION' | 'UPDATE_WORKFLOW' | 'UPDATE_STEP',
+    type: 'UPDATE_PARAMETER_MAPPINGS' | 'UPDATE_OUTPUT_MAPPINGS' | 'UPDATE_STEP_TOOL' | 'UPDATE_STEP_TYPE' | 'ADD_STEP' | 'REORDER_STEPS' | 'DELETE_STEP' | 'UPDATE_STATE' | 'RESET_EXECUTION' | 'UPDATE_WORKFLOW' | 'UPDATE_STEP' | 'RESET_WORKFLOW_STATE',
     payload: {
         stepId?: string,
         mappings?: Record<ToolParameterName, WorkflowVariableName> | Record<ToolOutputName, WorkflowVariableName>,
@@ -27,7 +45,8 @@ export type WorkflowStateAction = {
         reorder?: StepReorderPayload,
         state?: WorkflowVariable[],
         workflowUpdates?: Partial<Workflow>,
-        step?: WorkflowStep
+        step?: WorkflowStep,
+        keepJumpCounters?: boolean
     }
 };
 
@@ -631,25 +650,29 @@ export class WorkflowEngine {
     }
 
     /**
-     * Determines the next step index in the workflow based on current step and evaluation results
-     * Only used in run mode to handle evaluation step jumps
+     * Gets the next step index based on the current step and workflow state
+     * For evaluation steps, this may involve jumping to a specific step
+     * based on the evaluation result
+     * 
+     * @returns An object containing the next step index and the updated workflow
      */
     static getNextStepIndex(
         workflow: Workflow,
         currentStepIndex: number
-    ): number {
+    ): { nextStepIndex: number, updatedWorkflow: Workflow } {
+        const workflowCopy = { ...workflow, state: [...(workflow.state || [])] };
 
-        if (currentStepIndex < 1) return 1;
+        if (currentStepIndex < 1) return { nextStepIndex: 1, updatedWorkflow: workflowCopy };
 
-        const currentStep = workflow.steps[currentStepIndex];
-        if (!currentStep) return currentStepIndex;
+        const currentStep = workflowCopy.steps[currentStepIndex];
+        if (!currentStep) return { nextStepIndex: currentStepIndex, updatedWorkflow: workflowCopy };
 
         console.log('Current step:', currentStep);
         // For evaluation steps, check if we need to jump to a specific step
         if (currentStep.step_type === WorkflowStepType.EVALUATION) {
             console.log('Evaluating evaluation step:', currentStep.step_id);
             // Find evaluation result in workflow outputs
-            const evalResult = workflow.state?.find(
+            const evalResult = workflowCopy.state?.find(
                 o => o.name === `eval_${currentStep.step_id.slice(0, 8)}`
             )?.value as EvaluationResult | undefined;
 
@@ -658,7 +681,7 @@ export class WorkflowEngine {
             let jumpCount = 0;
 
             // Look for existing jump counter in workflow state
-            const jumpCountVar = workflow.state?.find(v => v.name === jumpCounterName);
+            const jumpCountVar = workflowCopy.state?.find(v => v.name === jumpCounterName);
             if (jumpCountVar?.value !== undefined) {
                 jumpCount = Number(jumpCountVar.value);
             }
@@ -672,19 +695,19 @@ export class WorkflowEngine {
 
                 if (jumpCount >= maxJumps) {
                     console.log(`Maximum jumps (${maxJumps}) reached. Continuing to next step instead of jumping.`);
-                    return currentStepIndex + 1;
+                    return { nextStepIndex: currentStepIndex + 1, updatedWorkflow: workflowCopy };
                 }
 
                 // This is left over form when input steps were used
                 const targetStep = evalResult.target_step_index;
 
                 // Validate target step index and adjust for input step offset
-                if (targetStep >= 0 && targetStep < workflow.steps.length) {
+                if (targetStep >= 0 && targetStep < workflowCopy.steps.length) {
 
                     // Increment jump counter in workflow state
                     // This is the only place where we should increment the counter
                     // because we know a jump is actually happening
-                    const updatedState = [...(workflow.state || [])];
+                    const updatedState = [...(workflowCopy.state || [])];
                     const jumpCountVarIndex = updatedState.findIndex(v => v.name === jumpCounterName);
 
                     if (jumpCountVarIndex !== -1) {
@@ -708,43 +731,37 @@ export class WorkflowEngine {
                         });
                     }
 
-                    // We need to update the workflow state here
-                    // This is a bit of a hack since we're modifying state directly
-                    // but it's necessary to ensure the counter is updated before the next step
-                    if (workflow.state) {
-                        workflow.state = updatedState;
-                    }
+                    // Update the workflow state in our copy
+                    workflowCopy.state = updatedState;
 
-                    return targetStep + 1; // Add 1 to account for input step
+                    return { nextStepIndex: targetStep + 1, updatedWorkflow: workflowCopy }; // Add 1 to account for input step
                 }
             }
         }
 
         // Default behavior - go to next step
-        return currentStepIndex + 1;
+        return { nextStepIndex: currentStepIndex + 1, updatedWorkflow: workflowCopy };
     }
 
     /**
      * Resets all jump counters in the workflow state
      * This should be called when starting a new workflow execution
      * 
-     * NOTE: This method is no longer used directly. Jump counters are now reset
-     * as part of the resetWorkflow method in WorkflowContext.tsx
+     * @deprecated This method is deprecated. Use the RESET_WORKFLOW_STATE action type instead.
      */
     static resetJumpCounters(
         workflow: Workflow,
         updateWorkflowByAction: (action: WorkflowStateAction) => void
     ): void {
+        console.warn('resetJumpCounters is deprecated. Use the RESET_WORKFLOW_STATE action type with keepJumpCounters set to false instead.');
+
         if (!workflow.state) return;
 
-        const updatedState = workflow.state.filter(variable => {
-            // Remove all jump counter variables
-            return !variable.name.startsWith('jump_count_');
-        });
-
         updateWorkflowByAction({
-            type: 'UPDATE_WORKFLOW',
-            payload: { workflowUpdates: { state: updatedState } }
+            type: 'RESET_WORKFLOW_STATE',
+            payload: {
+                keepJumpCounters: false
+            }
         });
 
         console.log('Reset all jump counters for workflow execution');
@@ -849,6 +866,30 @@ export class WorkflowEngine {
                         // Reset all variable values to undefined
                         return { ...variable, value: undefined };
                     }) || []
+                };
+
+            case 'RESET_WORKFLOW_STATE':
+                if (!workflow.state) return workflow;
+
+                // First, handle the basic reset execution which clears values but keeps variables
+                let updatedState = workflow.state.map(variable => ({
+                    ...variable,
+                    value: undefined
+                }));
+
+                // Then, if we're not keeping jump counters, filter them out
+                if (!action.payload.keepJumpCounters) {
+                    updatedState = updatedState.filter(variable =>
+                        // Remove all evaluation variables including jump counters
+                        variable.io_type !== 'evaluation' &&
+                        !variable.name.startsWith('jump_count_') &&
+                        !variable.name.startsWith('eval_')
+                    );
+                }
+
+                return {
+                    ...workflow,
+                    state: updatedState
                 };
 
             default:

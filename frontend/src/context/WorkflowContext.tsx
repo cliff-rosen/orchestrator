@@ -307,9 +307,11 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Workflow Execution Methods
     const executeCurrentStep = useCallback(async (): Promise<StepExecutionResult> => {
         if (!workflow) {
+            const errorMessage = 'No workflow loaded';
+            setError(errorMessage);
             return {
                 success: false,
-                error: 'No workflow loaded'
+                error: errorMessage
             };
         }
 
@@ -320,14 +322,33 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             // Make sure we don't pass a negative index to executeStep
             const stepIndex = Math.max(0, activeStep);
 
+            // Check if the step exists
+            if (!workflow.steps[stepIndex]) {
+                const errorMessage = `Step at index ${stepIndex} does not exist`;
+                setError(errorMessage);
+                return {
+                    success: false,
+                    error: errorMessage
+                };
+            }
+
             // Execute step using WorkflowEngine - all state management handled internally
             const result = await WorkflowEngine.executeStep(workflow, stepIndex, updateWorkflowByAction);
 
             // Track UI execution state
             setStepExecuted(true);
+
+            // If the execution failed, set the error state
+            if (!result.success && result.error) {
+                setError(result.error);
+            }
+
             return result;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            const errorMessage = error instanceof Error
+                ? `Error executing step: ${error.message}`
+                : 'Unknown error occurred during step execution';
+            console.error(errorMessage, error);
             setError(errorMessage);
             return {
                 success: false,
@@ -340,8 +361,16 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const moveToNextStep = useCallback(() => {
         if (!workflow) return;
-        const nextStep = WorkflowEngine.getNextStepIndex(workflow, activeStep);
-        setActiveStep(nextStep);
+
+        // Get the next step index and updated workflow state
+        const { nextStepIndex, updatedWorkflow } = WorkflowEngine.getNextStepIndex(workflow, activeStep);
+
+        // Update the workflow state if it has changed
+        if (updatedWorkflow !== workflow) {
+            setWorkflow(updatedWorkflow);
+        }
+
+        setActiveStep(nextStepIndex);
         setStepExecuted(false);
     }, [workflow, activeStep]);
 
@@ -353,31 +382,12 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const resetWorkflow = useCallback(() => {
         if (!workflow?.state) return;
 
-        // Use the RESET_EXECUTION action to reset workflow state
-        // This will clear all values except jump counters
+        // Use the new RESET_WORKFLOW_STATE action to reset workflow state
+        // This will clear all values and remove evaluation variables including jump counters
         updateWorkflowByAction({
-            type: 'RESET_EXECUTION',
-            payload: {}
-        });
-
-        // Then explicitly remove all evaluation variables including jump counters
-        const clearedState = workflow.state
-            .filter(variable =>
-                // Remove all evaluation variables including jump counters
-                variable.io_type !== 'evaluation' &&
-                !variable.name.startsWith('jump_count_') &&
-                !variable.name.startsWith('eval_')
-            )
-            .map(variable =>
-                variable.io_type === 'output'
-                    ? { ...variable, value: undefined }
-                    : variable
-            );
-
-        updateWorkflowByAction({
-            type: 'UPDATE_WORKFLOW',
+            type: 'RESET_WORKFLOW_STATE',
             payload: {
-                workflowUpdates: { state: clearedState }
+                keepJumpCounters: false
             }
         });
 
@@ -391,31 +401,12 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const resetWorkflowState = useCallback(() => {
         if (!workflow?.state) return;
 
-        // Use the RESET_EXECUTION action to reset workflow state
-        // This will clear all values except jump counters
+        // Use the new RESET_WORKFLOW_STATE action to reset workflow state
+        // This will clear all values and remove evaluation variables including jump counters
         updateWorkflowByAction({
-            type: 'RESET_EXECUTION',
-            payload: {}
-        });
-
-        // Then explicitly remove all evaluation variables including jump counters
-        const clearedState = workflow.state
-            .filter(variable =>
-                // Remove all evaluation variables including jump counters
-                variable.io_type !== 'evaluation' &&
-                !variable.name.startsWith('jump_count_') &&
-                !variable.name.startsWith('eval_')
-            )
-            .map(variable =>
-                variable.io_type === 'output'
-                    ? { ...variable, value: undefined }
-                    : variable
-            );
-
-        updateWorkflowByAction({
-            type: 'UPDATE_WORKFLOW',
+            type: 'RESET_WORKFLOW_STATE',
             payload: {
-                workflowUpdates: { state: clearedState }
+                keepJumpCounters: false
             }
         });
 

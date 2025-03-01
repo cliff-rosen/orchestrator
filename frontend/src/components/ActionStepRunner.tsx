@@ -556,17 +556,15 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
                         onTemplateChange={(templateId: string) => {
                             if (!workflow) return;
 
-                            // Update the step with the new template
-                            const updatedSteps = workflow.steps.map(step =>
-                                step.step_id === actionStep.step_id
-                                    ? { ...step, prompt_template: templateId }
-                                    : step
-                            );
-
+                            // Update the step with the new template using the action-based approach
                             updateWorkflowByAction({
-                                type: 'UPDATE_WORKFLOW',
+                                type: 'UPDATE_STEP',
                                 payload: {
-                                    workflowUpdates: { steps: updatedSteps }
+                                    stepId: actionStep.step_id,
+                                    step: {
+                                        ...actionStep,
+                                        prompt_template_id: templateId
+                                    }
                                 }
                             });
                             setShowTemplateEditor(false);
