@@ -4,7 +4,6 @@ import {
     WorkflowStepType,
     WorkflowStatus,
     WorkflowStepId,
-    WorkflowVariable,
     StepExecutionResult,
     WorkflowStep
 } from '../types';

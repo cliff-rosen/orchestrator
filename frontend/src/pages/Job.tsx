@@ -10,6 +10,7 @@ import { JobLiveOutput } from '../components/job/JobLiveOutput';
 import { JobStepsList } from '../components/job/JobStepsList';
 import { JobInputForm } from '../components/job/JobInputForm';
 import JobMenuBar from '../components/job/JobMenuBar';
+import { getWorkflowInputs } from '../types/workflows';
 
 const Job: React.FC = () => {
     const { jobId } = useParams<{ jobId: string }>();
@@ -31,7 +32,8 @@ const Job: React.FC = () => {
     const { workflows } = useWorkflows();
 
     const workflow = workflows?.find(w => w.workflow_id === currentJob?.workflow_id);
-    const workflowInputs = workflow?.inputs || [];
+    // Use the getWorkflowInputs helper function to get inputs from the workflow state
+    const workflowInputs = workflow ? getWorkflowInputs(workflow) : [];
 
     // Determine if we need inputs based on job status and workflow inputs
     const needsInput = currentJob?.status === JobStatus.PENDING && workflowInputs.length > 0;
