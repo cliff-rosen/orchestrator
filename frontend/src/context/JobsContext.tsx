@@ -6,7 +6,6 @@ import { SchemaValueType, ValueType } from '../types/schema';
 import { useWorkflows } from './WorkflowContext';
 import { toolApi } from '../lib/api/toolApi';
 import { WorkflowEngine } from '../lib/workflow/workflowEngine';
-import { WorkflowStepResult } from '../types/workflows';
 
 interface JobError {
     message: string;
@@ -323,148 +322,186 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const runJob = useCallback(async (): Promise<void> => {
+        // Set initial loading state
         setState(prev => ({ ...prev, isLoading: true, error: undefined }));
+
         try {
-            console.log('JobsContext.tsx runJob');
+            // 1. Validate and get current job (fail fast if no job)
             const job = state.currentJob;
             if (!job) {
-                const error: JobError = {
-                    message: 'No job selected',
-                    code: 'NO_JOB_SELECTED'
-                };
-                setState(prev => ({
-                    ...prev,
-                    isLoading: false,
-                    error
-                }));
-                throw new Error(error.message);
+                throw new Error('No job selected');
             }
 
-            // 1. Prepare inputs for workflow
+            // 2. Prepare all inputs and initial state (all in local variables)
             const preparedInputVariables = job.input_variables.map(variable => ({
                 ...variable,
                 value: state.inputValues[variable.variable_id]
             }));
 
-            // Helper functions for job execution
-            const initializeJob = () => {
-                // Create initial job state
-                const updatedJob = {
-                    ...job,
-                    status: JobStatus.RUNNING,
-                    started_at: new Date().toISOString(),
-                    input_variables: preparedInputVariables,
-                    execution_progress: {
-                        current_step: 0,
-                        total_steps: job.steps.length
-                    },
-                    steps: job.steps.map(step => ({
-                        ...step,
-                        status: step.sequence_number === 0 ? JobStatus.RUNNING : JobStatus.PENDING,
-                        started_at: step.sequence_number === 0 ? new Date().toISOString() : undefined,
-                        output_data: step.status === JobStatus.COMPLETED ? step.output_data : undefined
-                    }))
-                };
-
-                // Initialize execution state
-                const initialExecutionState: JobExecutionState = {
-                    job_id: job.job_id as JobId,
-                    current_step_index: 0,
-                    total_steps: job.steps.length,
-                    is_paused: false,
-                    live_output: 'Initializing job execution...',
-                    status: JobStatus.RUNNING,
-                    step_results: [],
-                    variables: {}
-                };
-
-                // Update state with initial job state
-                setState(prev => ({
-                    ...prev,
-                    jobs: prev.jobs.map(j => j.job_id === job.job_id ? updatedJob : j),
-                    currentJob: updatedJob,
-                    executionState: initialExecutionState,
-                    inputValues: {}, // Reset input values
-                    inputErrors: {}, // Reset input errors
-                    isLoading: false // Set to false as we're now in running state
-                }));
-
-                return { updatedJob, initialExecutionState };
+            // Create a local copy of the job to track execution state
+            let currentJob = {
+                ...job,
+                status: JobStatus.RUNNING,
+                started_at: new Date().toISOString(),
+                input_variables: preparedInputVariables,
+                execution_progress: {
+                    current_step: 0,
+                    total_steps: job.steps.length
+                },
+                steps: job.steps.map(step => ({
+                    ...step,
+                    status: step.sequence_number === 0 ? JobStatus.RUNNING : JobStatus.PENDING,
+                    started_at: step.sequence_number === 0 ? new Date().toISOString() : undefined,
+                    output_data: step.status === JobStatus.COMPLETED ? step.output_data : undefined
+                })) as JobStep[]
             };
 
-            // Prepare step for execution
-            const prepareStepExecution = (currentJob: Job, currentStepIndex: number) => {
-                // Update step status to RUNNING
-                const updatedSteps = currentJob.steps.map((step, idx) => {
-                    if (idx === currentStepIndex) {
-                        return {
-                            ...step,
-                            status: JobStatus.RUNNING,
-                            started_at: new Date().toISOString()
-                        };
-                    } else if (idx < currentStepIndex) {
-                        return {
-                            ...step,
-                            status: JobStatus.COMPLETED
-                        };
-                    }
-                    return step;
-                });
+            // Initialize tracking variables
+            let currentStep = 0;
+            const jobOutputs: Record<WorkflowVariableName, SchemaValueType> = {};
+            const stepResults: StepExecutionResult[] = [];
 
-                const updatedJob = {
-                    ...currentJob,
-                    execution_progress: {
-                        current_step: currentStepIndex,
-                        total_steps: updatedSteps.length
-                    },
-                    steps: updatedSteps
-                };
+            // 3. Update UI with initial job state (first state update)
+            const initialExecutionState: JobExecutionState = {
+                job_id: job.job_id as JobId,
+                current_step_index: 0,
+                total_steps: job.steps.length,
+                is_paused: false,
+                live_output: 'Initializing job execution...',
+                status: JobStatus.RUNNING,
+                step_results: [],
+                variables: {}
+            };
 
-                // Get current step label
-                const currentStepLabel = updatedJob.steps[currentStepIndex]?.label || 'Unknown step';
+            setState(prev => ({
+                ...prev,
+                jobs: prev.jobs.map(j => j.job_id === job.job_id ? currentJob : j),
+                currentJob: currentJob,
+                executionState: initialExecutionState,
+                inputValues: {}, // Reset input values
+                inputErrors: {}, // Reset input errors
+                isLoading: false
+            }));
 
-                // Update state with current step info
+            // Helper function to update UI with current step progress (used sparingly)
+            const updateStepProgress = (message: string) => {
                 setState(prev => ({
                     ...prev,
-                    jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
-                    currentJob: updatedJob,
                     executionState: {
                         ...prev.executionState!,
-                        current_step_index: currentStepIndex,
-                        live_output: `Starting step ${currentStepIndex + 1} of ${updatedJob.steps.length}: ${currentStepLabel}...`
+                        live_output: message
                     }
                 }));
-
-                return updatedJob;
             };
 
-            // Process step result
-            const processStepResult = (
-                stepResult: StepExecutionResult,
-                currentJob: Job,
-                currentStepIndex: number,
-                stepResults: StepExecutionResult[],
-                jobOutputs: Record<WorkflowVariableName, SchemaValueType>
-            ) => {
-                // Store step result
-                const currentStep = currentJob.steps[currentStepIndex];
-                const stepExecutionResult: StepExecutionResult = {
-                    ...stepResult,
-                    step_id: currentStep.step_id,
-                    started_at: currentStep.started_at || new Date().toISOString(),
-                    completed_at: new Date().toISOString()
-                };
-                stepResults.push(stepExecutionResult);
+            // 4. Execute steps in a loop (with minimal state updates)
+            while (currentStep < currentJob.steps.length) {
+                try {
+                    // Update local job state for current step
+                    currentJob = {
+                        ...currentJob,
+                        execution_progress: {
+                            current_step: currentStep,
+                            total_steps: currentJob.steps.length
+                        },
+                        steps: currentJob.steps.map((step, idx) => {
+                            if (idx === currentStep) {
+                                return {
+                                    ...step,
+                                    status: JobStatus.RUNNING,
+                                    started_at: new Date().toISOString()
+                                };
+                            } else if (idx < currentStep) {
+                                return {
+                                    ...step,
+                                    status: JobStatus.COMPLETED
+                                };
+                            }
+                            return step;
+                        }) as JobStep[]
+                    };
 
-                // Process outputs if available
-                if (stepResult.outputs && currentStep.output_mappings) {
-                    // Map outputs to job variables
-                    Object.entries(currentStep.output_mappings).forEach(([outputName, variableName]) => {
-                        const outputs = stepResult.outputs as Record<string, SchemaValueType>;
-                        if (outputs && outputName in outputs) {
-                            jobOutputs[variableName as WorkflowVariableName] = outputs[outputName];
+                    // Update UI with current step (one of the few state updates during execution)
+                    const currentStepLabel = currentJob.steps[currentStep]?.label || 'Unknown step';
+                    updateStepProgress(`Starting step ${currentStep + 1} of ${currentJob.steps.length}: ${currentStepLabel}...`);
+
+                    // Prepare inputs for workflow engine
+                    const workflowInputs = preparedInputVariables.map(v => ({
+                        ...v,
+                        io_type: 'input' as const
+                    }));
+
+                    const workflowOutputs = Object.entries(jobOutputs).map(([name, value]) => ({
+                        name: name as WorkflowVariableName,
+                        variable_id: name,
+                        value,
+                        io_type: 'output' as const,
+                        schema: { type: typeof value as ValueType, is_array: Array.isArray(value) }
+                    }));
+
+                    // Create workflow representation for this step
+                    const stepWorkflow = jobToWorkflow(currentJob, workflowInputs, workflowOutputs);
+
+                    // Execute the step
+                    const stepResult = await WorkflowEngine.executeStep(
+                        stepWorkflow,
+                        currentStep,
+                        // Minimal UI updates during execution
+                        (action) => {
+                            if (action.type === 'UPDATE_STATE' ||
+                                (action.type === 'UPDATE_WORKFLOW' && action.payload.workflowUpdates?.state)) {
+                                updateStepProgress(`Executing step ${currentStep + 1}: ${currentStepLabel}...`);
+                            }
+
+                            // Handle workflow step updates if needed
+                            if (action.type === 'UPDATE_WORKFLOW' && action.payload.workflowUpdates?.steps) {
+                                const updatedSteps = action.payload.workflowUpdates.steps.map(step =>
+                                    workflowStepToJobStep(step, currentJob.job_id)
+                                );
+
+                                // Update local job state only (no setState)
+                                currentJob = {
+                                    ...currentJob,
+                                    steps: updatedSteps
+                                };
+                            }
                         }
-                    });
+                    );
+
+                    // Process step result (all in local variables)
+                    const stepExecutionResult: StepExecutionResult = {
+                        ...stepResult,
+                        step_id: currentJob.steps[currentStep].step_id,
+                        started_at: currentJob.steps[currentStep].started_at || new Date().toISOString(),
+                        completed_at: new Date().toISOString()
+                    };
+                    stepResults.push(stepExecutionResult);
+
+                    // Process outputs
+                    if (stepResult.outputs && currentJob.steps[currentStep].output_mappings) {
+                        Object.entries(currentJob.steps[currentStep].output_mappings).forEach(([outputName, variableName]) => {
+                            const outputs = stepResult.outputs as Record<string, SchemaValueType>;
+                            if (outputs && outputName in outputs) {
+                                jobOutputs[variableName as WorkflowVariableName] = outputs[outputName];
+                            }
+                        });
+                    }
+
+                    // Update local job state with completed step
+                    currentJob = {
+                        ...currentJob,
+                        steps: currentJob.steps.map((s, idx) => {
+                            if (idx === currentStep) {
+                                return {
+                                    ...s,
+                                    status: JobStatus.COMPLETED,
+                                    completed_at: new Date().toISOString(),
+                                    output_data: stepResult.outputs
+                                };
+                            }
+                            return s;
+                        }) as JobStep[]
+                    };
 
                     // Format output for display
                     let outputDisplay = 'No outputs';
@@ -486,356 +523,13 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         outputDisplay = 'Error formatting outputs';
                     }
 
-                    // Update step status to COMPLETED and add output data
-                    const updatedSteps = currentJob.steps.map((s, idx) => {
-                        if (idx === currentStepIndex) {
-                            return {
-                                ...s,
-                                status: JobStatus.COMPLETED,
-                                completed_at: new Date().toISOString(),
-                                output_data: stepResult.outputs
-                            };
-                        }
-                        return s;
-                    });
+                    // Update UI with step completion (one of the few state updates)
+                    updateStepProgress(`Step ${currentStep + 1} completed successfully.\n\nOutputs:\n${outputDisplay}`);
 
-                    const updatedJob = {
-                        ...currentJob,
-                        steps: updatedSteps
-                    };
-
-                    // Update state with completed step
-                    setState(prev => ({
-                        ...prev,
-                        jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
-                        currentJob: updatedJob,
-                        executionState: {
-                            ...prev.executionState!,
-                            step_results: [...stepResults],
-                            live_output: `Step ${currentStepIndex + 1} completed successfully.\n\nOutputs:\n${outputDisplay}`
-                        }
-                    }));
-
-                    return { updatedJob, jobOutputs };
-                }
-
-                return { updatedJob: currentJob, jobOutputs };
-            };
-
-            // Process evaluation step result (for jumps)
-            const processEvaluationStep = (
-                stepResult: StepExecutionResult,
-                currentJob: Job,
-                currentStepIndex: number,
-                nextStepIndex: number
-            ) => {
-                const isJump = nextStepIndex !== currentStepIndex + 1 && nextStepIndex < currentJob.steps.length;
-
-                // Get evaluation outputs
-                const evalOutput = stepResult.outputs || {};
-                const reason = evalOutput['reason' as WorkflowVariableName] || 'No reason provided';
-
-                // Add jump info to output data
-                const updatedSteps = currentJob.steps.map((s, idx) => {
-                    if (idx === currentStepIndex) {
-                        const updatedOutputData = {
-                            ...evalOutput,
-                        };
-
-                        // Add _jump_info using type assertion
-                        (updatedOutputData as any)._jump_info = {
-                            is_jump: isJump,
-                            from_step: currentStepIndex,
-                            to_step: nextStepIndex,
-                            reason: reason
-                        };
-
-                        return {
-                            ...s,
-                            output_data: updatedOutputData
-                        };
-                    }
-                    return s;
-                });
-
-                const updatedJob = {
-                    ...currentJob,
-                    steps: updatedSteps
-                };
-
-                // Update state with jump info
-                setState(prev => ({
-                    ...prev,
-                    currentJob: updatedJob,
-                    jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
-                    executionState: {
-                        ...prev.executionState!,
-                        live_output: isJump
-                            ? `Evaluation step ${currentStepIndex + 1} resulted in a jump to step ${nextStepIndex + 1}. Reason: ${reason}`
-                            : `Evaluation step ${currentStepIndex + 1} completed. Continuing to next step. Reason: ${reason}`
-                    }
-                }));
-
-                return updatedJob;
-            };
-
-            // Handle step execution error
-            const handleStepError = (error: any, currentJob: Job, currentStepIndex: number) => {
-                const jobError: JobError = {
-                    message: error instanceof Error ? error.message : `Error executing step ${currentStepIndex}`,
-                    code: 'STEP_EXECUTION_ERROR',
-                    details: error instanceof Error ? error.stack : undefined
-                };
-
-                // Update the failed step status
-                const updatedSteps = currentJob.steps.map((s, idx) => {
-                    if (idx === currentStepIndex) {
-                        return {
-                            ...s,
-                            status: JobStatus.FAILED,
-                            error_message: jobError.message,
-                            completed_at: new Date().toISOString()
-                        };
-                    }
-                    return s;
-                });
-
-                const updatedJob = {
-                    ...currentJob,
-                    status: JobStatus.FAILED,
-                    error_message: jobError.message,
-                    steps: updatedSteps
-                };
-
-                // Update state with error
-                setState(prev => ({
-                    ...prev,
-                    jobs: prev.jobs.map(j => j.job_id === updatedJob.job_id ? updatedJob : j),
-                    currentJob: updatedJob,
-                    error: jobError,
-                    executionState: {
-                        ...prev.executionState!,
-                        status: JobStatus.FAILED,
-                        live_output: `Error in step ${currentStepIndex + 1}: ${jobError.message}`
-                    },
-                    isLoading: false
-                }));
-
-                return updatedJob;
-            };
-
-            // Finalize job execution
-            const finalizeJob = (
-                currentJob: Job,
-                currentStepIndex: number,
-                stepResults: StepExecutionResult[],
-                jobOutputs: Record<WorkflowVariableName, SchemaValueType>
-            ) => {
-                const isCompleted = currentStepIndex >= currentJob.steps.length;
-
-                // Get the final step's output data if available
-                const finalStep = isCompleted && currentJob.steps.length > 0
-                    ? currentJob.steps[currentJob.steps.length - 1]
-                    : null;
-
-                // Use final step's output_data if available, otherwise use accumulated jobOutputs
-                const finalOutputData = finalStep?.output_data || jobOutputs;
-
-                const completedJob = {
-                    ...currentJob,
-                    status: isCompleted ? JobStatus.COMPLETED : JobStatus.FAILED,
-                    completed_at: new Date().toISOString(),
-                    output_data: finalOutputData,
-                    execution_progress: {
-                        current_step: isCompleted ? currentJob.steps.length : currentStepIndex,
-                        total_steps: currentJob.steps.length
-                    },
-                    steps: currentJob.steps.map((step, idx) => {
-                        // Mark all steps as completed if job is completed
-                        if (isCompleted && idx < currentJob.steps.length) {
-                            return {
-                                ...step,
-                                status: JobStatus.COMPLETED,
-                                completed_at: step.completed_at || new Date().toISOString()
-                            };
-                        }
-                        return step;
-                    })
-                };
-
-                // Format final output summary
-                let outputSummary = 'No outputs';
-                if (finalOutputData && Object.keys(finalOutputData).length > 0) {
-                    try {
-                        outputSummary = Object.entries(finalOutputData)
-                            .map(([key, value]) => {
-                                const displayValue = typeof value === 'object'
-                                    ? JSON.stringify(value, null, 2).substring(0, 100) + (JSON.stringify(value).length > 100 ? '...' : '')
-                                    : String(value);
-                                return `${key}: ${displayValue}`;
-                            })
-                            .join('\n');
-                    } catch (error) {
-                        console.error('Error formatting final step outputs:', error);
-                        outputSummary = 'Error formatting final step outputs';
-                    }
-                }
-
-                // Generate execution path summary
-                let executionPathSummary = '';
-                try {
-                    // Get jumps from evaluation steps
-                    const jumps = currentJob.steps
-                        .filter(step => {
-                            if (step.step_type !== WorkflowStepType.EVALUATION || !step.output_data) return false;
-                            const jumpInfo = (step.output_data as any)._jump_info;
-                            return jumpInfo && jumpInfo.is_jump;
-                        })
-                        .map(step => {
-                            const jumpInfo = (step.output_data as any)._jump_info;
-                            return {
-                                from: jumpInfo.from_step,
-                                to: jumpInfo.to_step,
-                                reason: jumpInfo.reason
-                            };
-                        });
-
-                    // Get completed steps in execution order
-                    const completedSteps = currentJob.steps.filter(step =>
-                        step.status === JobStatus.COMPLETED && step.started_at
-                    ).sort((a, b) =>
-                        new Date(a.started_at!).getTime() - new Date(b.started_at!).getTime()
-                    );
-
-                    if (completedSteps.length > 0) {
-                        executionPathSummary = '\n\nExecution path:\n' +
-                            completedSteps.map((step, index) =>
-                                `${index + 1}. Step ${step.sequence_number + 1}: ${step.label}`
-                            ).join('\n');
-
-                        // Add jump information if there were any jumps
-                        if (jumps.length > 0) {
-                            executionPathSummary += '\n\nJumps that occurred:\n' +
-                                jumps.map(jump =>
-                                    `- Jump from step ${jump.from + 1} to step ${jump.to + 1}. Reason: ${jump.reason}`
-                                ).join('\n');
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error generating execution path summary:', error);
-                }
-
-                const finalMessage = isCompleted
-                    ? `Job completed successfully.\n\nFinal step outputs:\n${outputSummary}${executionPathSummary}`
-                    : 'Job failed to complete. See error details above.';
-
-                // Update state with final job state
-                setState(prev => ({
-                    ...prev,
-                    jobs: prev.jobs.map(j => j.job_id === job.job_id ? completedJob : j),
-                    currentJob: completedJob,
-                    executionState: {
-                        ...prev.executionState!,
-                        current_step_index: isCompleted ? currentJob.steps.length : currentStepIndex,
-                        live_output: finalMessage,
-                        status: isCompleted ? JobStatus.COMPLETED : JobStatus.FAILED,
-                        step_results: stepResults
-                    },
-                    isLoading: false
-                }));
-
-                return completedJob;
-            };
-
-            // Main execution flow
-            const { updatedJob } = initializeJob();
-            let currentJob = updatedJob;
-            let currentStep = 0;
-            const jobOutputs: Record<WorkflowVariableName, SchemaValueType> = {};
-            const stepResults: StepExecutionResult[] = [];
-
-            // 2. Execute steps in a loop
-            while (currentStep < currentJob.steps.length) {
-                try {
-                    // Prepare step for execution
-                    currentJob = prepareStepExecution(currentJob, currentStep);
-
-                    // Prepare inputs for workflow engine
-                    const workflowInputs = preparedInputVariables.map(v => ({
-                        ...v,
-                        io_type: 'input' as const
-                    }));
-
-                    // Convert job outputs to WorkflowVariable format
-                    const workflowOutputs = Object.entries(jobOutputs).map(([name, value]) => ({
-                        name: name as WorkflowVariableName,
-                        variable_id: name,
-                        value,
-                        io_type: 'output' as const,
-                        schema: { type: typeof value as ValueType, is_array: Array.isArray(value) }
-                    }));
-
-                    // Create workflow representation for this step
-                    const stepWorkflow = jobToWorkflow(currentJob, workflowInputs, workflowOutputs);
-
-                    // Execute the step
-                    const stepResult = await WorkflowEngine.executeStep(
-                        stepWorkflow,
-                        currentStep,
-                        (action) => {
-                            // Handle workflow engine updates
-                            setState(prev => {
-                                if (!prev.currentJob) return prev;
-
-                                // If the action updates steps, convert workflow steps to job steps
-                                if (action.type === 'UPDATE_WORKFLOW' && action.payload.workflowUpdates?.steps) {
-                                    const updatedSteps = action.payload.workflowUpdates.steps.map(step =>
-                                        workflowStepToJobStep(step, prev.currentJob!.job_id)
-                                    );
-
-                                    return {
-                                        ...prev,
-                                        currentJob: {
-                                            ...prev.currentJob,
-                                            steps: updatedSteps
-                                        },
-                                        jobs: prev.jobs.map(j => j.job_id === prev.currentJob!.job_id ?
-                                            { ...prev.currentJob!, steps: updatedSteps } : j)
-                                    };
-                                }
-
-                                // If the action updates state, update the live output
-                                if (action.type === 'UPDATE_STATE' ||
-                                    (action.type === 'UPDATE_WORKFLOW' && action.payload.workflowUpdates?.state)) {
-                                    return {
-                                        ...prev,
-                                        executionState: {
-                                            ...prev.executionState!,
-                                            live_output: `Executing step ${currentStep + 1}: ${prev.currentJob.steps[currentStep]?.label || 'Unknown step'}...`
-                                        }
-                                    };
-                                }
-
-                                return prev;
-                            });
-                        }
-                    );
-
-                    // Process step result
-                    const processResult = processStepResult(stepResult, currentJob, currentStep, stepResults, jobOutputs);
-                    currentJob = processResult.updatedJob;
-
-                    // Check if job was cancelled or failed
+                    // Check if job was cancelled or failed (external cancellation)
                     const currentJobState = state.jobs.find(j => j.job_id === job.job_id);
                     if (currentJobState?.status === JobStatus.FAILED) {
-                        setState(prev => ({
-                            ...prev,
-                            executionState: {
-                                ...prev.executionState!,
-                                status: JobStatus.FAILED,
-                                live_output: 'Job execution cancelled or failed.'
-                            }
-                        }));
+                        updateStepProgress('Job execution cancelled or failed.');
                         break;
                     }
 
@@ -845,47 +539,208 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         currentStep
                     );
 
-                    // Check if this was an evaluation step that resulted in a jump
+                    // Handle evaluation steps and jumps
                     const isEvalStep = currentJob.steps[currentStep]?.step_type === WorkflowStepType.EVALUATION;
                     if (isEvalStep) {
-                        currentJob = processEvaluationStep(stepResult, currentJob, currentStep, nextStepIndex);
+                        const isJump = nextStepIndex !== currentStep + 1 && nextStepIndex < currentJob.steps.length;
+                        const evalOutput = stepResult.outputs || {};
+                        const reason = evalOutput['reason' as WorkflowVariableName] || 'No reason provided';
+
+                        // Update evaluation step output with jump info
+                        currentJob = {
+                            ...currentJob,
+                            steps: currentJob.steps.map((s, idx) => {
+                                if (idx === currentStep) {
+                                    const updatedOutputData = {
+                                        ...evalOutput,
+                                    };
+
+                                    // Add _jump_info using type assertion
+                                    (updatedOutputData as any)._jump_info = {
+                                        is_jump: isJump,
+                                        from_step: currentStep,
+                                        to_step: nextStepIndex,
+                                        reason: reason
+                                    };
+
+                                    return {
+                                        ...s,
+                                        output_data: updatedOutputData
+                                    };
+                                }
+                                return s;
+                            }) as JobStep[]
+                        };
+
+                        // Update UI with jump information
+                        const jumpMessage = isJump
+                            ? `Evaluation step ${currentStep + 1} resulted in a jump to step ${nextStepIndex + 1}. Reason: ${reason}`
+                            : `Evaluation step ${currentStep + 1} completed. Continuing to next step. Reason: ${reason}`;
+                        updateStepProgress(jumpMessage);
                     }
 
+                    // Check for progress
                     if (nextStepIndex === currentStep) {
-                        // If we're not progressing, something went wrong
                         throw new Error('Workflow execution stuck - no progress being made');
                     }
 
-                    // Update to show we're moving to the next step
+                    // Update UI before moving to next step
                     if (nextStepIndex < currentJob.steps.length) {
                         const nextStep = currentJob.steps[nextStepIndex];
-                        setState(prev => ({
-                            ...prev,
-                            executionState: {
-                                ...prev.executionState!,
-                                live_output: `Moving to step ${nextStepIndex + 1}: ${nextStep?.label || 'Unknown step'}...`
-                            }
-                        }));
+                        updateStepProgress(`Moving to step ${nextStepIndex + 1}: ${nextStep?.label || 'Unknown step'}...`);
                     }
 
+                    // Update step index
                     currentStep = nextStepIndex;
 
                 } catch (error) {
-                    // Handle step execution error
-                    currentJob = handleStepError(error, currentJob, currentStep);
+                    // Handle step error (in local variables)
+                    const errorMessage = error instanceof Error ? error.message : `Error executing step ${currentStep}`;
+
+                    currentJob = {
+                        ...currentJob,
+                        status: JobStatus.FAILED,
+                        error_message: errorMessage,
+                        steps: currentJob.steps.map((s, idx) => {
+                            if (idx === currentStep) {
+                                return {
+                                    ...s,
+                                    status: JobStatus.FAILED,
+                                    error_message: errorMessage,
+                                    completed_at: new Date().toISOString()
+                                };
+                            }
+                            return s;
+                        }) as JobStep[]
+                    };
+
+                    // Update UI with error
+                    updateStepProgress(`Error in step ${currentStep + 1}: ${errorMessage}`);
                     break;
                 }
             }
 
-            // 3. Finalize job execution
-            finalizeJob(currentJob, currentStep, stepResults, jobOutputs);
+            // 5. Finalize job (in local variables)
+            const isCompleted = currentStep >= currentJob.steps.length;
+
+            // Get the final step's output data if available
+            const finalStep = isCompleted && currentJob.steps.length > 0
+                ? currentJob.steps[currentJob.steps.length - 1]
+                : null;
+
+            // Use final step's output_data if available, otherwise use accumulated jobOutputs
+            const finalOutputData = finalStep?.output_data || jobOutputs;
+
+            const finalJob = {
+                ...currentJob,
+                status: isCompleted ? JobStatus.COMPLETED : JobStatus.FAILED,
+                completed_at: new Date().toISOString(),
+                output_data: finalOutputData,
+                execution_progress: {
+                    current_step: isCompleted ? currentJob.steps.length : currentStep,
+                    total_steps: currentJob.steps.length
+                },
+                steps: currentJob.steps.map((step, idx) => {
+                    if (isCompleted && idx < currentJob.steps.length) {
+                        return {
+                            ...step,
+                            status: JobStatus.COMPLETED,
+                            completed_at: step.completed_at || new Date().toISOString()
+                        };
+                    }
+                    return step;
+                }) as JobStep[]
+            };
+
+            // Format final output summary
+            let outputSummary = 'No outputs';
+            if (finalOutputData && Object.keys(finalOutputData).length > 0) {
+                try {
+                    outputSummary = Object.entries(finalOutputData)
+                        .map(([key, value]) => {
+                            const displayValue = typeof value === 'object'
+                                ? JSON.stringify(value, null, 2).substring(0, 100) + (JSON.stringify(value).length > 100 ? '...' : '')
+                                : String(value);
+                            return `${key}: ${displayValue}`;
+                        })
+                        .join('\n');
+                } catch (error) {
+                    console.error('Error formatting final step outputs:', error);
+                    outputSummary = 'Error formatting final step outputs';
+                }
+            }
+
+            // Generate execution path summary
+            let executionPathSummary = '';
+            try {
+                // Get jumps from evaluation steps
+                const jumps = currentJob.steps
+                    .filter(step => {
+                        if (step.step_type !== WorkflowStepType.EVALUATION || !step.output_data) return false;
+                        const jumpInfo = (step.output_data as any)._jump_info;
+                        return jumpInfo && jumpInfo.is_jump;
+                    })
+                    .map(step => {
+                        const jumpInfo = (step.output_data as any)._jump_info;
+                        return {
+                            from: jumpInfo.from_step,
+                            to: jumpInfo.to_step,
+                            reason: jumpInfo.reason
+                        };
+                    });
+
+                // Get completed steps in execution order
+                const completedSteps = currentJob.steps.filter(step =>
+                    step.status === JobStatus.COMPLETED && step.started_at
+                ).sort((a, b) =>
+                    new Date(a.started_at!).getTime() - new Date(b.started_at!).getTime()
+                );
+
+                if (completedSteps.length > 0) {
+                    executionPathSummary = '\n\nExecution path:\n' +
+                        completedSteps.map((step, index) =>
+                            `${index + 1}. Step ${step.sequence_number + 1}: ${step.label}`
+                        ).join('\n');
+
+                    // Add jump information if there were any jumps
+                    if (jumps.length > 0) {
+                        executionPathSummary += '\n\nJumps that occurred:\n' +
+                            jumps.map(jump =>
+                                `- Jump from step ${jump.from + 1} to step ${jump.to + 1}. Reason: ${jump.reason}`
+                            ).join('\n');
+                    }
+                }
+            } catch (error) {
+                console.error('Error generating execution path summary:', error);
+            }
+
+            const finalMessage = isCompleted
+                ? `Job completed successfully.\n\nFinal step outputs:\n${outputSummary}${executionPathSummary}`
+                : 'Job failed to complete. See error details above.';
+
+            // 6. Final state update with complete job results
+            setState(prev => ({
+                ...prev,
+                jobs: prev.jobs.map(j => j.job_id === job.job_id ? finalJob : j),
+                currentJob: finalJob,
+                executionState: {
+                    ...prev.executionState!,
+                    current_step_index: isCompleted ? finalJob.steps.length : currentStep,
+                    live_output: finalMessage,
+                    status: isCompleted ? JobStatus.COMPLETED : JobStatus.FAILED,
+                    step_results: stepResults
+                },
+                isLoading: false
+            }));
 
         } catch (error) {
+            // Handle overall job error
             const jobError: JobError = {
                 message: error instanceof Error ? error.message : 'Failed to run job',
                 code: 'JOB_RUN_ERROR',
                 details: error instanceof Error ? error.stack : undefined
             };
+
             setState(prev => ({
                 ...prev,
                 isLoading: false,
@@ -896,6 +751,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     live_output: `Job execution failed: ${jobError.message}`
                 } : undefined
             }));
+
             throw error;
         }
     }, [state.currentJob, state.jobs, state.inputValues]);
