@@ -450,6 +450,7 @@ export class WorkflowEngine {
         value: SchemaValueType,
         compareValue: SchemaValueType
     ): boolean {
+
         // Handle null/undefined values
         if (value === null || value === undefined || compareValue === null || compareValue === undefined) {
             return false;
@@ -506,78 +507,118 @@ export class WorkflowEngine {
     }
 
     /**
-     * Handles execution of an evaluation step
+     * Executes a workflow step and returns the updated workflow and execution result
+     * This is a simplified API that returns the updated workflow instead of using callbacks
      */
-    private static executeEvaluationStep(
-        step: WorkflowStep,
+    static async executeStepSimple(
         workflow: Workflow,
-        updateState: (updates: Partial<Workflow>) => void
-    ): StepExecutionResult {
-        console.log('Executing evaluation step:', step.evaluation_config);
+        stepIndex: number
+    ): Promise<{
+        updatedWorkflow: Workflow,
+        result: StepExecutionResult
+    }> {
+        try {
+            // Get the step from workflow
+            const step = workflow.steps[stepIndex];
+            console.log('executeStepSimple called for step:', step);
 
-        const result = this.evaluateConditions(step, workflow);
+            if (!step) {
+                return {
+                    updatedWorkflow: workflow,
+                    result: {
+                        success: false,
+                        error: 'Invalid step index'
+                    }
+                };
+            }
 
-        // Store evaluation result in workflow state
-        if (result.success && result.outputs) {
-            const updatedState = this.getUpdatedWorkflowStateFromResults(step, result.outputs, workflow);
-            updateState({ state: updatedState });
-        }
+            // Create a copy of the workflow to avoid mutating the original
+            const workflowCopy = {
+                ...workflow,
+                state: [...(workflow.state || [])]
+            };
 
-        return result;
-    }
+            // Clear any existing outputs for this step
+            const clearedState = this.clearStepOutputs(step, workflowCopy);
+            workflowCopy.state = clearedState;
 
-    /**
-     * Handles execution of a tool step
-     */
-    private static async executeToolStep(
-        step: WorkflowStep,
-        workflow: Workflow,
-        updateState: (updates: Partial<Workflow>) => void
-    ): Promise<StepExecutionResult> {
-        if (!step.tool) {
+            // Execute based on step type
+            let result: StepExecutionResult;
+
+            if (step.step_type === WorkflowStepType.EVALUATION) {
+                result = this.evaluateConditions(step, workflowCopy);
+
+                // Update workflow state with evaluation results
+                if (result.success && result.outputs) {
+                    workflowCopy.state = this.getUpdatedWorkflowStateFromResults(
+                        step,
+                        result.outputs,
+                        workflowCopy
+                    );
+                }
+            } else {
+                // Execute tool step
+                if (!step.tool) {
+                    return {
+                        updatedWorkflow: workflowCopy,
+                        result: {
+                            success: false,
+                            error: 'No tool configured for this step'
+                        }
+                    };
+                }
+
+                const parameters = this.getResolvedParameters(step, workflowCopy);
+
+                // Add prompt template ID for LLM tools
+                if (step.tool.tool_type === 'llm' && step.prompt_template_id) {
+                    parameters['prompt_template_id' as ToolParameterName] = step.prompt_template_id as SchemaValueType;
+                }
+
+                // Execute the tool
+                const toolResult = await ToolEngine.executeTool(step.tool, parameters);
+
+                // Update workflow state with tool results
+                if (toolResult) {
+                    workflowCopy.state = this.getUpdatedWorkflowStateFromResults(
+                        step,
+                        toolResult,
+                        workflowCopy
+                    );
+                }
+
+                result = {
+                    success: true,
+                    outputs: toolResult
+                };
+            }
+
             return {
-                success: false,
-                error: 'No tool configured for this step'
+                updatedWorkflow: workflowCopy,
+                result
+            };
+        } catch (error) {
+            return {
+                updatedWorkflow: workflow,
+                result: {
+                    success: false,
+                    error: error instanceof Error ? error.message : 'Unknown error occurred'
+                }
             };
         }
-
-        const parameters = this.getResolvedParameters(step, workflow);
-
-        // Add prompt template ID for LLM tools
-        if (step.tool.tool_type === 'llm' && step.prompt_template_id) {
-            parameters['prompt_template_id' as ToolParameterName] = step.prompt_template_id as SchemaValueType;
-        }
-
-        // Execute the tool
-        const toolResult = await ToolEngine.executeTool(step.tool, parameters);
-
-        console.log('executeToolStep called', toolResult);
-
-        // Update workflow state with tool results
-        if (toolResult) {
-            console.log('Updating workflow state with tool results:', toolResult);
-            const updatedState = this.getUpdatedWorkflowStateFromResults(step, toolResult, workflow);
-            console.log('Updated state:', updatedState);
-            updateState({ state: updatedState });
-        }
-
-        return {
-            success: true,
-            outputs: toolResult
-        };
     }
 
     /**
      * Clears outputs for a step before execution
+     * Returns the updated state array
      */
     private static clearStepOutputs(
         step: WorkflowStep,
-        workflow: Workflow,
-        updateState: (updates: Partial<Workflow>) => void
-    ): void {
-        if (!workflow.state) return;
+        workflow: Workflow
+    ): WorkflowVariable[] {
+        if (!workflow.state) return [];
 
-        const updatedState = workflow.state.map(variable => {
+        return workflow.state.map(variable => {
             // Clear mapped outputs
             if (step.output_mappings && Object.values(step.output_mappings).includes(variable.name)) {
                 return { ...variable, value: undefined };
@@ -591,62 +632,6 @@ export class WorkflowEngine {
 
             return variable;
         });
-
-        updateState({ state: updatedState });
-    }
-
-    /**
-     * Executes a workflow step and manages workflow state
-     */
-    static async executeStep(
-        workflow: Workflow,
-        stepIndex: number,
-        updateWorkflowByAction: (action: WorkflowStateAction) => void
-    ): Promise<StepExecutionResult> {
-        try {
-            // Get the step from workflow
-            const step = workflow.steps[stepIndex];
-
-            console.log("***********")
-            console.log('executeStep called', step);
-            console.log("***********")
-
-            if (!step) {
-                return {
-                    success: false,
-                    error: 'Invalid step index'
-                };
-            }
-
-            // Clear any existing outputs for this step
-            this.clearStepOutputs(step, workflow, (updates) => {
-                updateWorkflowByAction({
-                    type: 'UPDATE_WORKFLOW',
-                    payload: { workflowUpdates: updates }
-                });
-            });
-
-            // Execute based on step type
-            return step.step_type === WorkflowStepType.EVALUATION
-                ? this.executeEvaluationStep(step, workflow, (updates) => {
-                    updateWorkflowByAction({
-                        type: 'UPDATE_WORKFLOW',
-                        payload: { workflowUpdates: updates }
-                    });
-                })
-                : await this.executeToolStep(step, workflow, (updates) => {
-                    updateWorkflowByAction({
-                        type: 'UPDATE_WORKFLOW',
-                        payload: { workflowUpdates: updates }
-                    });
-                });
-
-        } catch (error) {
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred'
-            };
-        }
     }
 
     /**
@@ -660,13 +645,18 @@ export class WorkflowEngine {
         workflow: Workflow,
         currentStepIndex: number
     ): { nextStepIndex: number, updatedWorkflow: Workflow } {
+        console.log('getNextStepIndex called with workflow:', workflow);
+        console.log('Current step index:', currentStepIndex);
+
+        // Create a copy of the workflow to avoid mutating the original
         const workflowCopy = { ...workflow, state: [...(workflow.state || [])] };
 
-        // // Basic validation checks
-        // if (currentStepIndex < 1) return { nextStepIndex: 1, updatedWorkflow: workflowCopy };
-
+        // Basic validation checks
         const currentStep = workflowCopy.steps[currentStepIndex];
-        if (!currentStep) return { nextStepIndex: currentStepIndex, updatedWorkflow: workflowCopy };
+        if (!currentStep) {
+            console.warn('Invalid step index or no current step found');
+            return { nextStepIndex: currentStepIndex, updatedWorkflow: workflowCopy };
+        }
 
         console.log('Current step:', currentStep);
 
@@ -678,14 +668,21 @@ export class WorkflowEngine {
 
         // For evaluation steps, check if we need to jump to a specific step
         console.log('Evaluating evaluation step:', currentStep.step_id);
+        console.log('Workflow state:', workflowCopy.state);
 
         // Find evaluation result in workflow outputs
+        const shortStepId = currentStep.step_id.slice(0, 8);
+        const evalVarName = `eval_${shortStepId}`;
+        console.log('Looking for evaluation result with name:', evalVarName);
+
         const evalResult = workflowCopy.state?.find(
-            o => o.name === `eval_${currentStep.step_id.slice(0, 8)}`
+            o => o.name === evalVarName
         )?.value as EvaluationResult | undefined;
 
+        console.log('Found evaluation result:', evalResult);
+
         // Find or create the jump counter for this evaluation step
-        const jumpCounterName = `jump_count_${currentStep.step_id.slice(0, 8)}` as WorkflowVariableName;
+        const jumpCounterName = `jump_count_${shortStepId}` as WorkflowVariableName;
         let jumpCount = 0;
 
         // Look for existing jump counter in workflow state
@@ -952,6 +949,43 @@ export class WorkflowEngine {
                         return step;
                     })
                 };
+        }
+    }
+
+    /**
+     * Executes a workflow step and manages workflow state
+     * @deprecated Use executeStepSimple instead for a more straightforward API
+     */
+    static async executeStep(
+        workflow: Workflow,
+        stepIndex: number,
+        updateWorkflowByAction: (action: WorkflowStateAction) => void
+    ): Promise<StepExecutionResult> {
+        try {
+            console.log('executeStep called (deprecated) - consider using executeStepSimple instead');
+
+            // Use the new simplified implementation
+            const { updatedWorkflow, result } = await this.executeStepSimple(workflow, stepIndex);
+
+            // Update the workflow using the provided action handler
+            if (updatedWorkflow !== workflow) {
+                updateWorkflowByAction({
+                    type: 'UPDATE_WORKFLOW',
+                    payload: {
+                        workflowUpdates: {
+                            state: updatedWorkflow.state,
+                            steps: updatedWorkflow.steps
+                        }
+                    }
+                });
+            }
+
+            return result;
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred'
+            };
         }
     }
 } 
