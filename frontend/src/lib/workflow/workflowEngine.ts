@@ -662,84 +662,87 @@ export class WorkflowEngine {
     ): { nextStepIndex: number, updatedWorkflow: Workflow } {
         const workflowCopy = { ...workflow, state: [...(workflow.state || [])] };
 
+        // Basic validation checks
         if (currentStepIndex < 1) return { nextStepIndex: 1, updatedWorkflow: workflowCopy };
 
         const currentStep = workflowCopy.steps[currentStepIndex];
         if (!currentStep) return { nextStepIndex: currentStepIndex, updatedWorkflow: workflowCopy };
 
         console.log('Current step:', currentStep);
+
+        // First check if this is NOT an evaluation step - handle the simple case first
+        if (currentStep.step_type !== WorkflowStepType.EVALUATION) {
+            // For non-evaluation steps, simply go to the next step
+            return { nextStepIndex: currentStepIndex + 1, updatedWorkflow: workflowCopy };
+        }
+
         // For evaluation steps, check if we need to jump to a specific step
-        if (currentStep.step_type === WorkflowStepType.EVALUATION) {
-            console.log('Evaluating evaluation step:', currentStep.step_id);
-            // Find evaluation result in workflow outputs
-            const evalResult = workflowCopy.state?.find(
-                o => o.name === `eval_${currentStep.step_id.slice(0, 8)}`
-            )?.value as EvaluationResult | undefined;
+        console.log('Evaluating evaluation step:', currentStep.step_id);
 
-            // Find or create the jump counter for this evaluation step
-            const jumpCounterName = `jump_count_${currentStep.step_id.slice(0, 8)}` as WorkflowVariableName;
-            let jumpCount = 0;
+        // Find evaluation result in workflow outputs
+        const evalResult = workflowCopy.state?.find(
+            o => o.name === `eval_${currentStep.step_id.slice(0, 8)}`
+        )?.value as EvaluationResult | undefined;
 
-            // Look for existing jump counter in workflow state
-            const jumpCountVar = workflowCopy.state?.find(v => v.name === jumpCounterName);
-            if (jumpCountVar?.value !== undefined) {
-                jumpCount = Number(jumpCountVar.value);
+        // Find or create the jump counter for this evaluation step
+        const jumpCounterName = `jump_count_${currentStep.step_id.slice(0, 8)}` as WorkflowVariableName;
+        let jumpCount = 0;
+
+        // Look for existing jump counter in workflow state
+        const jumpCountVar = workflowCopy.state?.find(v => v.name === jumpCounterName);
+        if (jumpCountVar?.value !== undefined) {
+            jumpCount = Number(jumpCountVar.value);
+        }
+
+        if (evalResult?.next_action === 'jump' && evalResult?.target_step_index !== undefined) {
+            console.log('Jump action detected. Target step index:', evalResult.target_step_index);
+            // Check if we've reached the maximum jumps limit
+            const maxJumps = currentStep.evaluation_config?.maximum_jumps || 3; // Default to 3 if not specified
+
+            console.log(`Jump count: ${jumpCount}, Maximum jumps: ${maxJumps}`);
+
+            if (jumpCount >= maxJumps) {
+                console.log(`Maximum jumps (${maxJumps}) reached. Continuing to next step instead of jumping.`);
+                return { nextStepIndex: currentStepIndex + 1, updatedWorkflow: workflowCopy };
             }
 
-            if (evalResult?.next_action === 'jump' && evalResult?.target_step_index) {
-                console.log('Jump action detected. Target step index:', evalResult.target_step_index);
-                // Check if we've reached the maximum jumps limit
-                const maxJumps = currentStep.evaluation_config?.maximum_jumps || 3; // Default to 3 if not specified
+            const targetStep = evalResult.target_step_index;
 
-                console.log(`Jump count: ${jumpCount}, Maximum jumps: ${maxJumps}`);
+            // Validate target step index
+            if (targetStep >= 0 && targetStep < workflowCopy.steps.length) {
+                // Increment jump counter in workflow state
+                const updatedState = [...(workflowCopy.state || [])];
+                const jumpCountVarIndex = updatedState.findIndex(v => v.name === jumpCounterName);
 
-                if (jumpCount >= maxJumps) {
-                    console.log(`Maximum jumps (${maxJumps}) reached. Continuing to next step instead of jumping.`);
-                    return { nextStepIndex: currentStepIndex + 1, updatedWorkflow: workflowCopy };
+                if (jumpCountVarIndex !== -1) {
+                    // Update existing counter
+                    updatedState[jumpCountVarIndex] = {
+                        ...updatedState[jumpCountVarIndex],
+                        value: jumpCount + 1
+                    };
+                } else {
+                    // Create new counter
+                    updatedState.push({
+                        name: jumpCounterName,
+                        variable_id: jumpCounterName,
+                        description: 'Jump counter for evaluation step',
+                        schema: {
+                            type: 'number',
+                            is_array: false
+                        },
+                        value: 1,
+                        io_type: 'evaluation'
+                    });
                 }
 
-                // This is left over form when input steps were used
-                const targetStep = evalResult.target_step_index;
+                // Update the workflow state in our copy
+                workflowCopy.state = updatedState;
 
-                // Validate target step index and adjust for input step offset
-                if (targetStep >= 0 && targetStep < workflowCopy.steps.length) {
-
-                    // Increment jump counter in workflow state
-                    // This is the only place where we should increment the counter
-                    // because we know a jump is actually happening
-                    const updatedState = [...(workflowCopy.state || [])];
-                    const jumpCountVarIndex = updatedState.findIndex(v => v.name === jumpCounterName);
-
-                    if (jumpCountVarIndex !== -1) {
-                        // Update existing counter
-                        updatedState[jumpCountVarIndex] = {
-                            ...updatedState[jumpCountVarIndex],
-                            value: jumpCount + 1
-                        };
-                    } else {
-                        // Create new counter
-                        updatedState.push({
-                            name: jumpCounterName,
-                            variable_id: jumpCounterName,
-                            description: 'Jump counter for evaluation step',
-                            schema: {
-                                type: 'number',
-                                is_array: false
-                            },
-                            value: 1,
-                            io_type: 'evaluation'
-                        });
-                    }
-
-                    // Update the workflow state in our copy
-                    workflowCopy.state = updatedState;
-
-                    return { nextStepIndex: targetStep + 1, updatedWorkflow: workflowCopy }; // Add 1 to account for input step
-                }
+                return { nextStepIndex: targetStep, updatedWorkflow: workflowCopy };
             }
         }
 
-        // Default behavior - go to next step
+        // Default behavior for evaluation steps with no jump or invalid jump target
         return { nextStepIndex: currentStepIndex + 1, updatedWorkflow: workflowCopy };
     }
 

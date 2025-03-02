@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Job, JobStatus, JobExecutionState, CreateJobRequest, JobVariable, StepExecutionResult, JobId, JobStepId, JobStep } from '../types/jobs';
+import { Job, JobStatus, JobExecutionState, CreateJobRequest, StepExecutionResult, JobId, JobStepId, JobStep } from '../types/jobs';
 import { WorkflowVariable, WorkflowVariableName, WorkflowStepType, Workflow, WorkflowStatus, WorkflowStep, WorkflowStepId, getWorkflowInputs } from '../types/workflows';
 import { SchemaValueType, ValueType } from '../types/schema';
 import { useWorkflows } from './WorkflowContext';
-import { toolApi } from '../lib/api/toolApi';
 import { WorkflowEngine } from '../lib/workflow/workflowEngine';
 
 interface JobError {
