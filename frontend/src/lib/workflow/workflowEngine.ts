@@ -703,7 +703,7 @@ export class WorkflowEngine {
                 return { nextStepIndex: currentStepIndex + 1, updatedWorkflow: workflowCopy };
             }
 
-            const targetStep = evalResult.target_step_index;
+            const targetStep = Number(evalResult.target_step_index);
 
             // Validate target step index
             if (targetStep >= 0 && targetStep < workflowCopy.steps.length) {

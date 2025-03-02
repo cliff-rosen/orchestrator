@@ -55,7 +55,7 @@ const jobToWorkflow = (job: Job, inputs: WorkflowVariable[], outputs: WorkflowVa
     const convertedSteps = job.steps.map(step => {
         // Only include properties that exist in WorkflowStep
         const workflowStep: WorkflowStep = {
-            step_id: `workflow-${step.step_id}` as WorkflowStepId,
+            step_id: `${step.step_id}` as WorkflowStepId,
             workflow_id: job.workflow_id,
             label: step.label,
             description: step.description,
@@ -116,16 +116,69 @@ const getStepWorkflowFromJob = (
     }));
 
     // Convert output records to workflow variables
-    const workflowOutputs = Object.entries(jobOutputs).map(([name, value]) => ({
-        name: name as WorkflowVariableName,
-        variable_id: name,
-        value,
-        io_type: 'output' as const,
-        schema: { type: typeof value as ValueType, is_array: Array.isArray(value) }
-    }));
+    const workflowOutputs = Object.entries(jobOutputs).map(([name, value]) => {
+        // Determine the appropriate io_type based on the variable name
+        let ioType: 'input' | 'output' | 'evaluation' = 'output';
 
-    // Create and return workflow representation
-    return jobToWorkflow(job, workflowInputs, workflowOutputs);
+        // If it's an evaluation result or jump counter, mark it as evaluation
+        if (name.startsWith('eval_') || name.startsWith('jump_count_')) {
+            ioType = 'evaluation';
+        }
+
+        return {
+            name: name as WorkflowVariableName,
+            variable_id: name,
+            value,
+            io_type: ioType,
+            schema: {
+                type: typeof value as ValueType,
+                is_array: Array.isArray(value)
+            }
+        };
+    });
+
+    // Extract evaluation-specific outputs from job steps
+    const evaluationOutputs: WorkflowVariable[] = [];
+
+    // Process each step to find evaluation outputs and jump counters
+    job.steps.forEach(step => {
+        if (step.step_type === WorkflowStepType.EVALUATION && step.output_data) {
+            // Create evaluation result variable
+            const shortStepId = step.step_id.slice(0, 8);
+            const evalVarName = `eval_${shortStepId}` as WorkflowVariableName;
+
+            // Only add if not already in jobOutputs
+            if (!(evalVarName in jobOutputs)) {
+                evaluationOutputs.push({
+                    name: evalVarName,
+                    variable_id: evalVarName,
+                    value: step.output_data,
+                    io_type: 'evaluation' as const,
+                    schema: { type: 'object' as ValueType, is_array: false }
+                });
+            }
+
+            // Check if there's jump counter info in the output data
+            const jumpInfo = (step.output_data as any)?._jump_info;
+            if (jumpInfo) {
+                const jumpCounterName = `jump_count_${shortStepId}` as WorkflowVariableName;
+
+                // Only add if not already in jobOutputs
+                if (!(jumpCounterName in jobOutputs)) {
+                    evaluationOutputs.push({
+                        name: jumpCounterName,
+                        variable_id: jumpCounterName,
+                        value: jumpInfo.jump_count || 0,
+                        io_type: 'evaluation' as const,
+                        schema: { type: 'number' as ValueType, is_array: false }
+                    });
+                }
+            }
+        }
+    });
+
+    // Create and return workflow representation with all variables
+    return jobToWorkflow(job, workflowInputs, [...workflowOutputs, ...evaluationOutputs]);
 };
 
 // Helper function to convert workflow step to job step
@@ -504,49 +557,49 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                     const updatedStepResults = [...stepResults, stepExecutionResult];
 
-                    // Extract outputs from the updated workflow state
-                    const updatedOutputs = { ...jobOutputs };
+                    // Extract ALL outputs from the updated workflow state
+                    // This is critical to ensure we carry forward all state updates
+                    const updatedOutputs: Record<WorkflowVariableName, SchemaValueType> = { ...jobOutputs };
 
-                    // Process mapped outputs
-                    if (stepResult.outputs && updatedJob.steps[currentStepIndex].output_mappings) {
-                        Object.entries(updatedJob.steps[currentStepIndex].output_mappings).forEach(([outputName, variableName]) => {
-                            const outputs = stepResult.outputs as Record<string, SchemaValueType>;
-                            if (outputs && outputName in outputs) {
-                                updatedOutputs[variableName as WorkflowVariableName] = outputs[outputName];
+                    // Extract ALL state variables from the updated workflow
+                    if (stepWorkflowResult.state) {
+                        stepWorkflowResult.state.forEach(variable => {
+                            if (variable.value !== undefined && variable.name) {
+                                updatedOutputs[variable.name as WorkflowVariableName] = variable.value as SchemaValueType;
                             }
                         });
                     }
 
-                    // Also extract any evaluation results from the updated workflow state
-                    if (updatedJob.steps[currentStepIndex].step_type === WorkflowStepType.EVALUATION) {
-                        const shortStepId = updatedJob.steps[currentStepIndex].step_id.slice(0, 8);
-                        const evalVarName = `eval_${shortStepId}` as WorkflowVariableName;
-
-                        // Find the evaluation result in the updated workflow state
-                        const evalVar = stepWorkflowResult.state?.find(v => v.name === evalVarName);
-                        if (evalVar && evalVar.value) {
-                            // Add to updatedOutputs
-                            updatedOutputs[evalVarName] = evalVar.value as SchemaValueType;
-                            console.log('Added evaluation result to updatedOutputs:', evalVarName, evalVar.value);
-
-                            // Also update the step's output_data
-                            updatedJob.steps[currentStepIndex] = {
-                                ...updatedJob.steps[currentStepIndex],
-                                output_data: evalVar.value as Record<string, SchemaValueType>
-                            };
-                        }
-                    }
-
-                    // Update job with completed step
+                    // Update the job with the completed step and any output data
                     const jobWithCompletedStep = {
                         ...updatedJob,
                         steps: updatedJob.steps.map((s, idx) => {
                             if (idx === currentStepIndex) {
+                                // For evaluation steps, get the output data directly from the workflow state
+                                let outputData = stepResult.outputs;
+
+                                if (s.step_type === WorkflowStepType.EVALUATION) {
+                                    // Get the actual step ID from the job step, not the workflow step
+                                    // The job step ID doesn't have the "workflow-" prefix
+                                    const jobStepId = s.step_id;
+                                    const shortStepId = jobStepId.slice(0, 8);
+                                    const evalVarName = `eval_${shortStepId}`;
+
+                                    console.log(`Looking for evaluation result with name: "${evalVarName}" for step ID: ${jobStepId}`);
+
+                                    const evalVar = stepWorkflowResult.state?.find(v => v.name === evalVarName);
+                                    console.log(`Evaluation result "${evalVarName}" in stepWorkflowResult:`, evalVar);
+
+                                    if (evalVar && evalVar.value) {
+                                        outputData = evalVar.value as Record<string, SchemaValueType>;
+                                    }
+                                }
+
                                 return {
                                     ...s,
                                     status: JobStatus.COMPLETED,
                                     completed_at: new Date().toISOString(),
-                                    output_data: stepResult.outputs
+                                    output_data: outputData
                                 };
                             }
                             return s;
@@ -593,11 +646,19 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
 
                     // Log the job state before calling getNextStepIndex
-                    console.log('Job state before getNextStepIndex:', JSON.stringify(jobWithCompletedStep, null, 2));
+                    //console.log('Job state before getNextStepIndex:', JSON.stringify(jobWithCompletedStep, null, 2));
+                    console.log('Job state before getNextStepIndex:', jobWithCompletedStep);
                     console.log('Updated outputs before getNextStepIndex:', updatedOutputs);
 
                     // Create a workflow with all the necessary state for getNextStepIndex
-                    const workflowForNextStep = getStepWorkflowFromJob(jobWithCompletedStep, preparedInputVariables, updatedOutputs);
+                    // IMPORTANT: Use the stepWorkflowResult as the base to ensure we have all state updates
+                    const workflowForNextStep = {
+                        ...stepWorkflowResult,
+                        // Update any additional properties from the job if needed
+                        workflow_id: jobWithCompletedStep.workflow_id,
+                        name: jobWithCompletedStep.name,
+                        description: jobWithCompletedStep.description
+                    };
 
                     // Get next step from WorkflowEngine
                     const { nextStepIndex, updatedWorkflow: nextStepWorkflow } = WorkflowEngine.getNextStepIndex(
