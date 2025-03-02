@@ -662,8 +662,8 @@ export class WorkflowEngine {
     ): { nextStepIndex: number, updatedWorkflow: Workflow } {
         const workflowCopy = { ...workflow, state: [...(workflow.state || [])] };
 
-        // Basic validation checks
-        if (currentStepIndex < 1) return { nextStepIndex: 1, updatedWorkflow: workflowCopy };
+        // // Basic validation checks
+        // if (currentStepIndex < 1) return { nextStepIndex: 1, updatedWorkflow: workflowCopy };
 
         const currentStep = workflowCopy.steps[currentStepIndex];
         if (!currentStep) return { nextStepIndex: currentStepIndex, updatedWorkflow: workflowCopy };

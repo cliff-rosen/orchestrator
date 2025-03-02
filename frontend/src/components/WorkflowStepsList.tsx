@@ -73,12 +73,12 @@ const WorkflowStepsList: React.FC<WorkflowStepsListProps> = ({
                             title={step.label}
                         >
                             <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium
-                                ${index === activeStep
+                                ${index == activeStep
                                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
                                     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                                 }`}
                             >
-                                {!isEditMode ? index + 1 : index + 1}
+                                {index + 1}
                             </div>
                         </button>
                     ))}
