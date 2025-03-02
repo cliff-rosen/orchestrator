@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { useNavigate } from 'react-router-dom';
 import { Job, JobStatus, JobExecutionState, CreateJobRequest, StepExecutionResult, JobId, JobStepId, JobStep } from '../types/jobs';
 import { WorkflowVariable, WorkflowVariableName, WorkflowStepType, Workflow, WorkflowStatus, WorkflowStep, WorkflowStepId, getWorkflowInputs } from '../types/workflows';
-import { SchemaValueType, ValueType } from '../types/schema';
+import { SchemaValueType, ValueType, Schema } from '../types/schema';
 import { useWorkflows } from './WorkflowContext';
 import { WorkflowEngine } from '../lib/workflow/workflowEngine';
 
@@ -94,6 +94,38 @@ const jobToWorkflow = (job: Job, inputs: WorkflowVariable[], outputs: WorkflowVa
         steps: convertedSteps,
         state: state
     };
+};
+
+// Helper function to build a workflow from a job and its inputs/outputs
+const getStepWorkflowFromJob = (
+    job: Job,
+    preparedInputVariables: {
+        name: WorkflowVariableName;
+        variable_id: string;
+        value?: any;
+        schema: Schema;
+        description?: string;
+        required?: boolean;
+    }[],
+    jobOutputs: Record<WorkflowVariableName, SchemaValueType>
+): Workflow => {
+    // Convert input variables to workflow variables with proper io_type
+    const workflowInputs = preparedInputVariables.map(v => ({
+        ...v,
+        io_type: 'input' as const
+    }));
+
+    // Convert output records to workflow variables
+    const workflowOutputs = Object.entries(jobOutputs).map(([name, value]) => ({
+        name: name as WorkflowVariableName,
+        variable_id: name,
+        value,
+        io_type: 'output' as const,
+        schema: { type: typeof value as ValueType, is_array: Array.isArray(value) }
+    }));
+
+    // Create and return workflow representation
+    return jobToWorkflow(job, workflowInputs, workflowOutputs);
 };
 
 // Helper function to convert workflow step to job step
@@ -424,22 +456,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const currentStepLabel = currentJob.steps[currentStep]?.label || 'Unknown step';
                     updateStepProgress(`Starting step ${currentStep + 1} of ${currentJob.steps.length}: ${currentStepLabel}...`);
 
-                    // Prepare inputs for workflow engine
-                    const workflowInputs = preparedInputVariables.map(v => ({
-                        ...v,
-                        io_type: 'input' as const
-                    }));
-
-                    const workflowOutputs = Object.entries(jobOutputs).map(([name, value]) => ({
-                        name: name as WorkflowVariableName,
-                        variable_id: name,
-                        value,
-                        io_type: 'output' as const,
-                        schema: { type: typeof value as ValueType, is_array: Array.isArray(value) }
-                    }));
-
                     // Create workflow representation for this step
-                    const stepWorkflow = jobToWorkflow(currentJob, workflowInputs, workflowOutputs);
+                    const stepWorkflow = getStepWorkflowFromJob(currentJob, preparedInputVariables, jobOutputs);
 
                     // Execute the step
                     const stepResult = await WorkflowEngine.executeStep(
@@ -534,7 +552,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                     // Get next step from WorkflowEngine
                     const { nextStepIndex } = WorkflowEngine.getNextStepIndex(
-                        jobToWorkflow(currentJob, workflowInputs, workflowOutputs),
+                        getStepWorkflowFromJob(currentJob, preparedInputVariables, jobOutputs),
                         currentStep
                     );
 
