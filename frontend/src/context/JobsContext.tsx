@@ -49,52 +49,6 @@ interface JobsContextValue extends JobsContextState {
 
 const JobsContext = createContext<JobsContextValue | undefined>(undefined);
 
-// Helper function to convert Job to Workflow format
-const jobToWorkflow = (job: Job, inputs: WorkflowVariable[], outputs: WorkflowVariable[]): Workflow => {
-    // Convert JobStepId to WorkflowStepId (they're branded types)
-    const convertedSteps = job.steps.map(step => {
-        // Only include properties that exist in WorkflowStep
-        const workflowStep: WorkflowStep = {
-            step_id: `${step.step_id}` as WorkflowStepId,
-            workflow_id: job.workflow_id,
-            label: step.label,
-            description: step.description,
-            step_type: step.step_type,
-            sequence_number: step.sequence_number,
-            parameter_mappings: step.parameter_mappings || {},
-            output_mappings: step.output_mappings || {},
-            tool: step.tool,
-            tool_id: step.tool_id,
-            prompt_template_id: step.prompt_template_id,
-            evaluation_config: step.evaluation_config,
-            created_at: step.started_at || new Date().toISOString(),
-            updated_at: step.completed_at || new Date().toISOString()
-        };
-        return workflowStep;
-    });
-
-    // Combine inputs and outputs into a single state array
-    // Convert any 'evaluation' io_type to 'output' to avoid API validation errors
-    const state = [...inputs, ...outputs].map(variable => {
-        if (variable.io_type === 'evaluation') {
-            return {
-                ...variable,
-                io_type: 'output' as const
-            };
-        }
-        return variable;
-    });
-
-    // Only include properties that exist in Workflow
-    return {
-        workflow_id: job.workflow_id,
-        name: job.name,
-        description: job.description,
-        status: WorkflowStatus.DRAFT,
-        steps: convertedSteps,
-        state: state
-    };
-};
 
 // Helper function to convert workflow step to job step
 const workflowStepToJobStep = (step: WorkflowStep, jobId: JobId): JobStep => {
@@ -116,9 +70,9 @@ const workflowStepToJobStep = (step: WorkflowStep, jobId: JobId): JobStep => {
         evaluation_config: step.evaluation_config,
         status: JobStatus.RUNNING,
         error_message: undefined,
-        output_data: undefined,
         started_at: undefined,
-        completed_at: undefined
+        completed_at: undefined,
+        executions: []
     };
 };
 
@@ -462,22 +416,29 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         while (currentState.currentStepIndex < job.steps.length) {
             const { updatedState, result, nextStepIndex } = await JobEngine.executeStep(
                 currentJob,
-                currentState.currentStepIndex,
-                currentState
+                currentState.currentStepIndex
             );
-            console.log('executeJobWithEngine', {
-                updatedState,
-                result,
-                nextStepIndex
-            });
+
+            // Convert workflow step result to job step result
+            const jobStepResult: StepExecutionResult = {
+                ...result,
+                step_id: currentJob.steps[currentState.currentStepIndex].step_id,
+                started_at: new Date().toISOString(),
+                completed_at: new Date().toISOString()
+            };
+
             // Update execution state in UI
             setState(prev => ({
                 ...prev,
                 executionState: {
                     ...prev.executionState!,
                     current_step_index: nextStepIndex,
-                    step_results: updatedState.stepResults,
+                    step_results: [...prev.executionState!.step_results, jobStepResult],
                     live_output: `Step ${currentState.currentStepIndex + 1} completed. Moving to step ${nextStepIndex + 1}...`
+                },
+                currentJob: {
+                    ...prev.currentJob!,
+                    state: updatedState
                 }
             }));
 
@@ -489,14 +450,18 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 nextStepIndex
             );
 
-            // Update state for next iteration
-            currentState = updatedState;
-
             // Update UI with current job
             setState(prev => ({
                 ...prev,
                 currentJob
             }));
+
+            // Update current state
+            currentState = {
+                ...currentState,
+                currentStepIndex: nextStepIndex,
+                stepResults: [...currentState.stepResults, jobStepResult]
+            };
         }
 
         return currentJob;

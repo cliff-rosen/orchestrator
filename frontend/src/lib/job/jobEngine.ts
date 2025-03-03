@@ -41,10 +41,9 @@ export class JobEngine {
      */
     static async executeStep(
         job: Job,
-        stepIndex: number,
-        state: JobState
+        stepIndex: number
     ): Promise<{
-        updatedState: JobState;
+        updatedState: WorkflowVariable[];
         result: WorkflowStepResult;
         nextStepIndex: number;
     }> {
@@ -82,10 +81,7 @@ export class JobEngine {
 
             // Return updated state and next step index
             return {
-                updatedState: {
-                    stepResults: [...state.stepResults, stepExecutionResult],
-                    currentStepIndex: nextStepIndex
-                },
+                updatedState,
                 result,
                 nextStepIndex
             };
@@ -101,10 +97,7 @@ export class JobEngine {
             };
 
             return {
-                updatedState: {
-                    ...state,
-                    currentStepIndex: stepIndex + 1 // Move to next step by default
-                },
+                updatedState: job.state,
                 result: failedResult,
                 nextStepIndex: stepIndex + 1
             };
