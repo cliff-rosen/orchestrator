@@ -411,9 +411,28 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
             }));
 
-            // Prepare initial job state
+            // Prepare initial job state with all variables from the job
+            // Create a variables map from the job's state
+            const allVariables: Record<WorkflowVariableName, SchemaValueType> = {};
+
+            // Process all variables from the job's state
+            initialJob.state.forEach(variable => {
+                if (variable.name) {
+                    if (variable.io_type === 'input') {
+                        // For input variables, use the values from inputVariables
+                        allVariables[variable.name] = inputVariables[variable.name] ||
+                            (variable.schema ? WorkflowEngine.getDefaultValueForSchema(variable.schema) : '');
+                    } else if (variable.io_type === 'output') {
+                        // For output variables, reset to default values
+                        allVariables[variable.name] = variable.schema ?
+                            WorkflowEngine.getDefaultValueForSchema(variable.schema) : '';
+                    }
+                }
+            });
+
+            // Create the initial job state
             const initialJobState: JobState = {
-                variables: inputVariables,
+                variables: allVariables,
                 stepResults: [],
                 currentStepIndex: 0
             };
