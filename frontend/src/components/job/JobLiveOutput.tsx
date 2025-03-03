@@ -1,18 +1,23 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Job, JobStatus } from '../../types/jobs';
+import { Job, JobStatus, JobStep } from '../../types/jobs';
 import { Workflow } from '../../types/workflows';
 import { useValueFormatter } from '../../hooks/useValueFormatter.tsx';
 import { WorkflowInputs } from './WorkflowInputs';
 import { WorkflowOutputs } from './WorkflowOutputs';
 import { useJobs } from '../../context/JobsContext';
+import { Box, Typography } from '@mui/material';
+import { WorkflowVariableName } from '../../types/workflows';
+import { SchemaValueType } from '../../types/schema';
+import { ToolOutputName } from '../../types/tools';
 
 interface JobLiveOutputProps {
     job: Job;
     workflow: Workflow;
+    step: JobStep;
 }
 
-export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) => {
+export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow, step }) => {
     const { executionState } = useJobs();
     const isComplete = job.status === JobStatus.COMPLETED;
     const isFailed = job.status === JobStatus.FAILED;
@@ -20,19 +25,30 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) =
 
     // For completed jobs, show final outputs
     if (isComplete) {
-        // Get the final step's output
+        // Get the final step's outputs
         const finalStep = job.steps[job.steps.length - 1];
-        const finalStepOutput = finalStep?.output_data || {};
+        const finalStepOutput = finalStep?.latest_execution?.outputs || {};
 
-        // Get outputs from other steps
-        const otherOutputs = job.steps
-            .slice(0, -1)
-            .map(step => ({
-                step_type: step.step_type,
-                label: step.label || `Step ${job.steps.findIndex(s => s.step_id === step.step_id) + 1}`,
-                output_data: step.output_data || {}
+        // Get all steps that have outputs
+        const stepsWithOutputs = job.steps
+            .map((step, index) => ({
+                index,
+                step,
+                outputs: step.latest_execution?.outputs || {}
             }))
-            .filter(output => Object.keys(output.output_data).length > 0);
+            .filter(output => Object.keys(output.outputs).length > 0);
+
+        // If there are no outputs, don't render anything
+        if (stepsWithOutputs.length === 0) {
+            return null;
+        }
+
+        // Convert stepsWithOutputs to the format expected by WorkflowOutputs
+        const otherOutputs = stepsWithOutputs.map(({ step, outputs, index }) => ({
+            step_type: step.step_type,
+            label: step.label || `Step ${index + 1}`,
+            outputs: outputs as Record<string, SchemaValueType>
+        }));
 
         return (
             <div className="space-y-6">
@@ -81,93 +97,70 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow }) =
 
     if (!currentStep) return null;
 
+    // Get the final step's outputs
+    const finalStep = job.steps[job.steps.length - 1];
+    const finalStepOutput = finalStep?.latest_execution?.outputs || {};
+
+    // Get all steps that have outputs
+    const stepsWithOutputs = job.steps
+        .map((step, index) => ({
+            index,
+            step,
+            outputs: step.latest_execution?.outputs || {}
+        }))
+        .filter(output => Object.keys(output.outputs).length > 0);
+
+    // If there are no outputs, don't render anything
+    if (stepsWithOutputs.length === 0) {
+        return null;
+    }
+
+    // Convert stepsWithOutputs to the format expected by WorkflowOutputs
+    const otherOutputs = stepsWithOutputs.map(({ step, outputs, index }) => ({
+        step_type: step.step_type,
+        label: step.label || `Step ${index + 1}`,
+        outputs: outputs as Record<string, SchemaValueType>
+    }));
+
     return (
-        <div className="space-y-4">
-            {/* Current Step Info */}
-            <div className="bg-gray-50/50 dark:bg-gray-900/30 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                        {currentStep.tool?.name || 'Current Step'}
-                    </h3>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full 
-                        ${currentStep.status === JobStatus.RUNNING
-                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                            : currentStep.status === JobStatus.FAILED
-                                ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
-                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
-                        {currentStep.status}
-                    </span>
-                </div>
+        <Box>
+            <WorkflowOutputs finalStepOutput={finalStepOutput} otherOutputs={otherOutputs} />
 
-                {/* Tool Description */}
-                {currentStep.tool?.description && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                        {currentStep.tool.description}
-                    </p>
-                )}
+            {stepsWithOutputs.map(({ index, step, outputs }) => (
+                <Box key={index} className="mb-4">
+                    <Typography variant="subtitle2">
+                        Step {index + 1} Outputs
+                    </Typography>
+                    {Object.entries(outputs).map(([key, value]) => {
+                        // Check if this output is mapped to a workflow variable
+                        let mappedVariable: string | undefined;
+                        let mappedValue: any;
 
-                {/* Current Step Parameters */}
-                {currentStep.parameter_mappings && Object.keys(currentStep.parameter_mappings).length > 0 && (
-                    <div className="mb-4">
-                        <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
-                            Input Parameters
-                        </h4>
-                        <div className="space-y-1">
-                            {Object.entries(currentStep.parameter_mappings).map(([key, mapping]) => {
-                                // console.log('mapping', key, mapping);
-                                // First check input variables
-                                const inputVar = job.input_variables?.find(v => v.name === mapping);
-                                let value = inputVar?.value;
+                        if (step.output_mappings && key in step.output_mappings) {
+                            const outputKey = key as ToolOutputName;
+                            mappedVariable = step.output_mappings[outputKey];
+                            // Try to find the value in the job state
+                            const stateVar = job.state.find(v => v.name === mappedVariable);
+                            if (stateVar) {
+                                mappedValue = stateVar.value;
+                            }
+                        }
 
-                                // If not found in inputs, check job outputs
-                                if (value === undefined && job.output_data && mapping in job.output_data) {
-                                    value = job.output_data[mapping];
-                                }
-
-                                // If still not found, use mapping as literal value
-                                if (value === undefined) {
-                                    value = mapping;
-                                }
-
-                                return (
-                                    <div key={key} className="text-sm">
-                                        <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
-                                        <span className="text-gray-400 dark:text-gray-500"> = </span>
-                                        <span className="text-gray-700 dark:text-gray-100">
-                                            {formatValue(value)}
-                                        </span>
+                        return (
+                            <Box key={key} className="mb-2">
+                                <div>
+                                    {key}: {formatValue(value)}
+                                </div>
+                                {mappedVariable && (
+                                    <div className="text-gray-500">
+                                        Mapped to: {mappedVariable} = {formatValue(mappedValue)}
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Live Output */}
-                <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
-                    Live Output Area
-                </h4>
-                {executionState?.job_id === job.job_id && executionState.live_output && (
-                    <div className="mt-4 bg-gray-100 dark:bg-gray-800 rounded p-3">
-                        <div className="h-[200px] overflow-y-auto" style={{ scrollBehavior: 'smooth' }}>
-                            <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                {executionState.live_output}
-                            </pre>
-                        </div>
-                    </div>
-                )}
-
-                {/* Error Message */}
-                {currentStep.status === JobStatus.FAILED && currentStep.error_message && (
-                    <div className="mt-4 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 rounded p-3">
-                        <div className="max-h-[200px] overflow-y-auto" style={{ scrollBehavior: 'smooth' }}>
-                            <pre className="text-sm whitespace-pre-wrap">
-                                {currentStep.error_message}
-                            </pre>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+                                )}
+                            </Box>
+                        );
+                    })}
+                </Box>
+            ))}
+        </Box>
     );
 }; 

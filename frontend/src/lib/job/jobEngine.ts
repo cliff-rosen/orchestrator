@@ -23,7 +23,6 @@ import { SchemaValueType, ValueType } from '../../types/schema';
  * JobState represents the combined state of a job's variables and execution progress
  */
 export interface JobState {
-    variables: Record<WorkflowVariableName, SchemaValueType>;
     stepResults: StepExecutionResult[];
     currentStepIndex: number;
 }
@@ -84,7 +83,6 @@ export class JobEngine {
             // Return updated state and next step index
             return {
                 updatedState: {
-                    variables: this.workflowStateToJobVariables(updatedState),
                     stepResults: [...state.stepResults, stepExecutionResult],
                     currentStepIndex: nextStepIndex
                 },
@@ -166,14 +164,26 @@ export class JobEngine {
         // Create a copy of the job to avoid mutating the original
         const updatedJob = { ...job };
 
+        // Create step execution record
+        const stepExecutionResult: StepExecutionResult = {
+            ...result,
+            step_id: job.steps[stepIndex].step_id,
+            started_at: job.steps[stepIndex].started_at || new Date().toISOString(),
+            completed_at: new Date().toISOString()
+        };
+
         // Update the step with the result
         updatedJob.steps = [...job.steps];
         updatedJob.steps[stepIndex] = {
             ...updatedJob.steps[stepIndex],
             status: result.success ? JobStatus.COMPLETED : JobStatus.FAILED,
             completed_at: new Date().toISOString(),
-            output_data: result.outputs || {},
-            error_message: result.error
+            error_message: result.error,
+            latest_execution: stepExecutionResult,
+            executions: [
+                ...(updatedJob.steps[stepIndex].executions || []),
+                stepExecutionResult
+            ]
         };
 
         // Update job execution progress

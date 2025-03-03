@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
-import { Job, JobStatus } from '../../types/jobs';
+import { Job, JobStatus, JobStep } from '../../types/jobs';
 import { ChevronDown } from 'lucide-react';
 import { useValueFormatter } from '../../hooks/useValueFormatter.tsx';
 import { PromptTemplateLink } from './PromptTemplateLink';
+import { Box, Typography, List, ListItem, ListItemText } from '@mui/material';
+import { WorkflowVariableName } from '../../types/workflows';
+import { SchemaValueType } from '../../types/schema';
+import { ToolOutputName } from '../../types/tools';
 
 interface JobStepCardProps {
-    step: Job['steps'][0];
-    index: number;
+    job: Job;
+    step: JobStep;
     isExpanded: boolean;
     onToggle: () => void;
-    job: Job;
 }
 
-const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onToggle, job }) => {
+// Helper function to safely get a value from outputs
+const getOutputValue = (outputs: Record<WorkflowVariableName, SchemaValueType> | undefined, key: string): string => {
+    if (!outputs) return '';
+    const value = outputs[key as WorkflowVariableName];
+    return value !== undefined ? String(value) : '';
+};
+
+const JobStepCard: React.FC<JobStepCardProps> = ({ job, step, isExpanded, onToggle }) => {
     const { formatValue } = useValueFormatter();
 
     // Function to format timestamp
@@ -42,9 +52,13 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
 
     const hasDetails = step.tool ||
         (step.parameter_mappings && Object.keys(step.parameter_mappings).length > 0) ||
-        (step.output_data && Object.keys(step.output_data).length > 0) ||
+        (step.latest_execution?.outputs && Object.keys(step.latest_execution.outputs || {}).length > 0) ||
         step.error_message ||
         step.step_type === 'EVALUATION';
+
+    const hasOutputs = (
+        step.latest_execution?.outputs && Object.keys(step.latest_execution.outputs || {}).length > 0
+    ) || (step.executions && step.executions.length > 0);
 
     return (
         <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden ${isExpanded ? '' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
@@ -59,12 +73,12 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
                             step.status === JobStatus.FAILED ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' :
                                 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
                         }`}>
-                        {index + 1}
+                        {job.steps.findIndex(s => s.step_id === step.step_id) + 1}
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                {step.label || `Step ${index + 1}`}
+                                {step.label || `Step ${job.steps.findIndex(s => s.step_id === step.step_id) + 1}`}
                             </span>
                             <span className="text-xs text-gray-500 dark:text-gray-400">
                                 {formatTimestamp(step.started_at)}
@@ -123,60 +137,49 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
                     )}
 
                     {/* Evaluation Step Details */}
-                    {step.step_type === 'EVALUATION' && step.output_data && (
-                        <div>
-                            <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    {step.step_type === 'EVALUATION' && step.latest_execution?.outputs && (
+                        <Box>
+                            <Typography variant="subtitle2" gutterBottom>
                                 Evaluation Result
-                            </h4>
-                            <div className="space-y-2">
-                                <div className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
-                                    <span className="font-medium text-gray-600 dark:text-gray-300">Result</span>
-                                    <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
-                                    <span className="text-gray-700 dark:text-gray-100">
-                                        {String(step.output_data.condition_met) === 'none' ? 'No conditions met' : 'Condition met'}
-                                    </span>
-                                </div>
-                                {String(step.output_data.condition_met) !== 'none' && (
-                                    <>
-                                        <div className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
-                                            <span className="font-medium text-gray-600 dark:text-gray-300">Variable</span>
-                                            <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
-                                            <span className="text-gray-700 dark:text-gray-100">
-                                                {String(step.output_data.variable_name)} = {String(step.output_data.variable_value)}
-                                            </span>
-                                        </div>
-                                        <div className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
-                                            <span className="font-medium text-gray-600 dark:text-gray-300">Condition</span>
-                                            <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
-                                            <span className="text-gray-700 dark:text-gray-100">
-                                                {String(step.output_data.operator)} {String(step.output_data.comparison_value)}
-                                            </span>
-                                        </div>
-                                    </>
-                                )}
-                                <div className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
-                                    <span className="font-medium text-gray-600 dark:text-gray-300">Action</span>
-                                    <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
-                                    <span className="text-gray-700 dark:text-gray-100">
-                                        {String(step.output_data.action) === 'jump'
-                                            ? `Jump to step ${parseInt(String(step.output_data.target_step_index)) + 1}`
-                                            : String(step.output_data.action) === 'end'
+                            </Typography>
+                            <Typography>
+                                {getOutputValue(step.latest_execution.outputs, 'condition_met') === 'none' ? 'No conditions met' : 'Condition met'}
+                            </Typography>
+                            {getOutputValue(step.latest_execution.outputs, 'condition_met') !== 'none' && (
+                                <>
+                                    <Typography variant="subtitle2" gutterBottom>
+                                        Condition Details
+                                    </Typography>
+                                    <Typography>
+                                        {getOutputValue(step.latest_execution.outputs, 'variable_name')} = {getOutputValue(step.latest_execution.outputs, 'variable_value')}
+                                    </Typography>
+                                    <Typography>
+                                        {getOutputValue(step.latest_execution.outputs, 'operator')} {getOutputValue(step.latest_execution.outputs, 'comparison_value')}
+                                    </Typography>
+                                    <Typography variant="subtitle2" gutterBottom>
+                                        Action
+                                    </Typography>
+                                    <Typography>
+                                        {getOutputValue(step.latest_execution.outputs, 'action') === 'jump'
+                                            ? `Jump to step ${parseInt(getOutputValue(step.latest_execution.outputs, 'target_step_index')) + 1}`
+                                            : getOutputValue(step.latest_execution.outputs, 'action') === 'end'
                                                 ? 'End workflow'
                                                 : 'Continue to next step'
                                         }
-                                    </span>
-                                </div>
-                                {step.output_data.reason && (
-                                    <div className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
-                                        <span className="font-medium text-gray-600 dark:text-gray-300">Reason</span>
-                                        <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
-                                        <span className="text-gray-700 dark:text-gray-100">
-                                            {String(step.output_data.reason)}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                                    </Typography>
+                                    {getOutputValue(step.latest_execution.outputs, 'reason') && (
+                                        <>
+                                            <Typography variant="subtitle2" gutterBottom>
+                                                Reason
+                                            </Typography>
+                                            <Typography>
+                                                {getOutputValue(step.latest_execution.outputs, 'reason')}
+                                            </Typography>
+                                        </>
+                                    )}
+                                </>
+                            )}
+                        </Box>
                     )}
 
                     {/* Tool Parameters */}
@@ -212,34 +215,37 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ step, index, isExpanded, onTo
                     )}
 
                     {/* Tool Outputs */}
-                    {step.step_type === 'ACTION' && step.output_data && Object.keys(step.output_data).length > 0 && (
-                        <div>
-                            <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    {step.step_type === 'ACTION' && step.latest_execution?.outputs && Object.keys(step.latest_execution.outputs || {}).length > 0 && (
+                        <Box>
+                            <Typography variant="subtitle2" gutterBottom>
                                 Outputs
-                            </h4>
-                            <div className="space-y-1">
-                                {Object.entries(step.output_data).map(([key, value]) => {
-                                    const formattedValue = formatValue(value, true);
-                                    const isComplexValue = React.isValidElement(formattedValue);
-
+                            </Typography>
+                            <List>
+                                {Object.entries(step.latest_execution.outputs).map(([key, value]) => {
+                                    const variableByOutputName = job.state.find(v => v.name === step.output_mappings?.[key as ToolOutputName])?.value;
                                     return (
-                                        <div key={key} className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
-                                            <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
-                                            <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
-                                            {isComplexValue ? (
-                                                <div className="min-w-0 text-gray-700 dark:text-gray-100">
-                                                    {formattedValue}
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-700 dark:text-gray-100">
-                                                    {formattedValue}
-                                                </span>
-                                            )}
-                                        </div>
+                                        <ListItem key={key}>
+                                            <ListItemText
+                                                primary={key}
+                                                secondary={
+                                                    <div>
+                                                        {formatValue(value)}
+                                                        {variableByOutputName !== undefined && step.output_mappings && (
+                                                            <>
+                                                                <br />
+                                                                <small>
+                                                                    Mapped to: {step.output_mappings[key as ToolOutputName]} = {formatValue(variableByOutputName)}
+                                                                </small>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                }
+                                            />
+                                        </ListItem>
                                     );
                                 })}
-                            </div>
-                        </div>
+                            </List>
+                        </Box>
                     )}
                 </div>
             )}
@@ -276,11 +282,10 @@ export const JobStepDetails: React.FC<JobStepDetailsProps> = ({ job }) => {
             {executedSteps.map((step, index) => (
                 <JobStepCard
                     key={step.step_id}
+                    job={job}
                     step={step}
-                    index={job.steps.findIndex(s => s.step_id === step.step_id)} // Keep original step index for numbering
                     isExpanded={expandedSteps.has(index)}
                     onToggle={() => toggleStep(index)}
-                    job={job}
                 />
             ))}
 

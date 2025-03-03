@@ -44,7 +44,12 @@ export interface JobStep {
     error_message?: string;
     started_at?: string;
     completed_at?: string;
-    output_data?: Record<string, SchemaValueType>;
+
+    // Execution history for this step (replaces output_data)
+    executions: StepExecutionResult[];
+
+    // Latest execution result (for quick access)
+    latest_execution?: StepExecutionResult;
 }
 
 // Complete job definition
@@ -61,12 +66,11 @@ export interface Job {
     completed_at?: string;
     error_message?: string;
 
-    // State management (single source of truth)
+    // State management (single source of truth for all variables and their values)
     state: WorkflowVariable[];
 
     // Legacy properties (to be phased out)
     input_variables?: JobVariable[];
-    output_data?: Record<WorkflowVariableName, SchemaValueType>;
 
     steps: JobStep[];
     execution_progress?: {
@@ -75,7 +79,7 @@ export interface Job {
     };
 }
 
-// Job execution state
+// Job execution state (runtime-only state, not persisted)
 export interface JobExecutionState {
     job_id: JobId;
     current_step_index: number;
@@ -83,9 +87,9 @@ export interface JobExecutionState {
     is_paused: boolean;
     live_output: string;
     status: JobStatus;
+
+    // Complete history of all step executions during this run
     step_results: StepExecutionResult[];
-    // Runtime variable values
-    variables: Record<WorkflowVariableName, SchemaValueType>;
 }
 
 // Step execution result (aligned with workflow step result)

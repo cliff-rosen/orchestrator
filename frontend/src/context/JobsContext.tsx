@@ -2,9 +2,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { useNavigate } from 'react-router-dom';
 import { Job, JobStatus, JobExecutionState, CreateJobRequest, StepExecutionResult, JobId, JobStepId, JobStep } from '../types/jobs';
 import { WorkflowVariable, WorkflowVariableName, WorkflowStepType, Workflow, WorkflowStatus, WorkflowStep, WorkflowStepId, getWorkflowInputs, EvaluationResult, StepExecutionResult as WorkflowStepResult } from '../types/workflows';
-import { SchemaValueType, ValueType, Schema } from '../types/schema';
+import { SchemaValueType, } from '../types/schema';
 import { useWorkflows } from './WorkflowContext';
-import { WorkflowEngine } from '../lib/workflow/workflowEngine';
 import { JobEngine, JobState } from '../lib/job/jobEngine';
 
 interface JobError {
@@ -396,43 +395,24 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }, inputVariables);
 
             // Update UI
+            const initialExecutionState: JobExecutionState = {
+                job_id: initialJob.job_id,
+                current_step_index: 0,
+                total_steps: initialJob.steps.length,
+                is_paused: false,
+                live_output: 'Starting job execution...',
+                status: JobStatus.RUNNING,
+                step_results: []
+            };
+
             setState(prev => ({
                 ...prev,
                 currentJob: initialJob,
-                executionState: {
-                    job_id: initialJob.job_id,
-                    current_step_index: 0,
-                    total_steps: initialJob.steps.length,
-                    is_paused: false,
-                    live_output: 'Starting job execution...',
-                    status: JobStatus.RUNNING,
-                    step_results: [],
-                    variables: inputVariables
-                }
+                executionState: initialExecutionState
             }));
 
-            // Prepare initial job state with all variables from the job
-            // Create a variables map from the job's state
-            const allVariables: Record<WorkflowVariableName, SchemaValueType> = {};
-
-            // Process all variables from the job's state
-            initialJob.state.forEach(variable => {
-                if (variable.name) {
-                    if (variable.io_type === 'input') {
-                        // For input variables, use the values from inputVariables
-                        allVariables[variable.name] = inputVariables[variable.name] ||
-                            (variable.schema ? WorkflowEngine.getDefaultValueForSchema(variable.schema) : '');
-                    } else if (variable.io_type === 'output') {
-                        // For output variables, reset to default values
-                        allVariables[variable.name] = variable.schema ?
-                            WorkflowEngine.getDefaultValueForSchema(variable.schema) : '';
-                    }
-                }
-            });
-
-            // Create the initial job state
+            // Prepare initial job state
             const initialJobState: JobState = {
-                variables: allVariables,
                 stepResults: [],
                 currentStepIndex: 0
             };
@@ -479,136 +459,47 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let currentJob = job;
         let currentState = initialState;
 
-        // Helper function to update UI with progress
-        const updateProgress = (message: string) => {
+        while (currentState.currentStepIndex < job.steps.length) {
+            const { updatedState, result, nextStepIndex } = await JobEngine.executeStep(
+                currentJob,
+                currentState.currentStepIndex,
+                currentState
+            );
+            console.log('executeJobWithEngine', {
+                updatedState,
+                result,
+                nextStepIndex
+            });
+            // Update execution state in UI
             setState(prev => ({
                 ...prev,
-                executionState: prev.executionState ? {
-                    ...prev.executionState,
-                    live_output: message
-                } : undefined
+                executionState: {
+                    ...prev.executionState!,
+                    current_step_index: nextStepIndex,
+                    step_results: updatedState.stepResults,
+                    live_output: `Step ${currentState.currentStepIndex + 1} completed. Moving to step ${nextStepIndex + 1}...`
+                }
             }));
-        };
 
-        try {
-            // Execute steps until we reach the end
-            while (currentState.currentStepIndex < currentJob.steps.length) {
-                const stepIndex = currentState.currentStepIndex;
+            // Update job with step result
+            currentJob = JobEngine.updateJobWithStepResult(
+                currentJob,
+                currentState.currentStepIndex,
+                result,
+                nextStepIndex
+            );
 
-                // Update UI with current step
-                const currentStepLabel = currentJob.steps[stepIndex]?.label || 'Unknown step';
-                updateProgress(`Starting step ${stepIndex + 1} of ${currentJob.steps.length}: ${currentStepLabel}...`);
+            // Update state for next iteration
+            currentState = updatedState;
 
-                // Mark step as running
-                currentJob = {
-                    ...currentJob,
-                    steps: currentJob.steps.map((step, idx) => {
-                        if (idx === stepIndex) {
-                            return {
-                                ...step,
-                                status: JobStatus.RUNNING,
-                                started_at: new Date().toISOString()
-                            };
-                        }
-                        return step;
-                    })
-                };
-
-                // Execute the step
-                const { updatedState, result, nextStepIndex } = await JobEngine.executeStep(
-                    currentJob,
-                    stepIndex,
-                    currentState
-                );
-
-                // Update job with step result
-                currentJob = JobEngine.updateJobWithStepResult(
-                    currentJob,
-                    stepIndex,
-                    result,
-                    nextStepIndex
-                );
-
-                // Update job state with new variables
-                currentJob = JobEngine.updateJobState(
-                    currentJob,
-                    updatedState.variables
-                );
-
-                // Update current state
-                currentState = updatedState;
-
-                // Update UI with step result
-                if (result.success) {
-                    updateProgress(`Step ${stepIndex + 1} completed successfully.`);
-                } else {
-                    updateProgress(`Step ${stepIndex + 1} failed: ${result.error || 'Unknown error'}`);
-                    throw new Error(result.error || 'Step execution failed');
-                }
-
-                // Check for evaluation step jumps
-                if (currentJob.steps[stepIndex].step_type === WorkflowStepType.EVALUATION) {
-                    const outputData = currentJob.steps[stepIndex].output_data;
-                    if (outputData && '_jump_info' in outputData) {
-                        const jumpInfo = outputData._jump_info as any;
-                        if (jumpInfo.is_jump) {
-                            updateProgress(`Evaluation step ${stepIndex + 1} resulted in a jump to step ${jumpInfo.to_step + 1}. Reason: ${jumpInfo.reason}`);
-                        } else {
-                            updateProgress(`Evaluation step ${stepIndex + 1} completed. Continuing to next step. Reason: ${jumpInfo.reason}`);
-                        }
-                    }
-                }
-
-                // Update UI with next step
-                if (nextStepIndex < currentJob.steps.length) {
-                    const nextStep = currentJob.steps[nextStepIndex];
-                    updateProgress(`Moving to step ${nextStepIndex + 1}: ${nextStep?.label || 'Unknown step'}...`);
-                }
-            }
-
-            // All steps completed successfully
-            const completedJob = {
-                ...currentJob,
-                status: JobStatus.COMPLETED,
-                completed_at: new Date().toISOString()
-            };
-
-            // Format final output summary
-            let outputSummary = 'Job completed successfully.';
-            if (Object.keys(currentState.variables).length > 0) {
-                try {
-                    outputSummary += '\n\nOutputs:\n' + Object.entries(currentState.variables)
-                        .map(([key, value]) => {
-                            const displayValue = typeof value === 'object'
-                                ? JSON.stringify(value, null, 2).substring(0, 100) + (JSON.stringify(value).length > 100 ? '...' : '')
-                                : String(value);
-                            return `${key}: ${displayValue}`;
-                        })
-                        .join('\n');
-                } catch (error) {
-                    console.error('Error formatting outputs:', error);
-                    outputSummary += '\nError formatting outputs';
-                }
-            }
-
-            updateProgress(outputSummary);
-            return completedJob;
-
-        } catch (error) {
-            // Handle execution error
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-
-            // Update job status to failed
-            const failedJob = {
-                ...currentJob,
-                status: JobStatus.FAILED,
-                error_message: errorMessage,
-                completed_at: new Date().toISOString()
-            };
-
-            updateProgress(`Job execution failed: ${errorMessage}`);
-            return failedJob;
+            // Update UI with current job
+            setState(prev => ({
+                ...prev,
+                currentJob
+            }));
         }
+
+        return currentJob;
     };
 
     const cancelJob = useCallback(async (jobId: string): Promise<void> => {
