@@ -1,6 +1,13 @@
-import { SchemaValueType, Variable } from './schema';
+import { Schema, SchemaValueType, Variable } from './schema';
 import { Tool, ToolParameterName, ToolOutputName } from './tools';
-import { WorkflowVariableName, StepExecutionResult as WorkflowStepResult, WorkflowStepType, EvaluationConfig } from './workflows';
+import {
+    Workflow,
+    WorkflowVariableName,
+    WorkflowVariable,
+    StepExecutionResult as WorkflowStepResult,
+    WorkflowStepType,
+    EvaluationConfig
+} from './workflows';
 
 export enum JobStatus {
     PENDING = 'pending',
@@ -48,26 +55,24 @@ export interface Job {
     name: string;
     description?: string;
     status: JobStatus;
-    error_message?: string;
-
-    // Time tracking
     created_at: string;
     updated_at: string;
     started_at?: string;
     completed_at?: string;
+    error_message?: string;
 
-    // Data
-    input_variables: JobVariable[];
+    // State management (single source of truth)
+    state: WorkflowVariable[];
+
+    // Legacy properties (to be phased out)
+    input_variables?: JobVariable[];
     output_data?: Record<WorkflowVariableName, SchemaValueType>;
-    steps: JobStep[];
 
-    // Execution state
+    steps: JobStep[];
     execution_progress?: {
         current_step: number;
         total_steps: number;
-        is_paused?: boolean;
     };
-    live_output?: string;
 }
 
 // Job execution state
