@@ -352,8 +352,21 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 };
             }
 
-            // Execute step using WorkflowEngine - all state management handled internally
-            const result = await WorkflowEngine.executeStep(workflow, stepIndex, updateWorkflowByAction);
+            // Execute step using WorkflowEngine.executeStepSimple instead of executeStep
+            const { updatedState, result } = await WorkflowEngine.executeStepSimple(workflow, stepIndex);
+
+            // Update the workflow state manually
+            if (updatedState !== workflow.state) {
+                updateWorkflowByAction({
+                    type: 'UPDATE_WORKFLOW',
+                    payload: {
+                        workflowUpdates: {
+                            state: updatedState,
+                            steps: workflow.steps
+                        }
+                    }
+                });
+            }
 
             // Track UI execution state
             setStepExecuted(true);
@@ -377,7 +390,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } finally {
             setIsExecuting(false);
         }
-    }, [workflow, activeStep, updateWorkflowByAction]);
+    }, [workflow, activeStep, updateWorkflowByAction, setStepExecuted, setError, setIsExecuting]);
 
     const moveToNextStep = useCallback(() => {
         if (!workflow) return;
