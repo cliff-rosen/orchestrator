@@ -397,6 +397,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         // Get the next step index and updated state
         const { nextStepIndex, updatedState } = WorkflowEngine.getNextStepIndex(workflow, activeStep);
+        console.log('moveToNextStep', nextStepIndex, updatedState);
 
         // Update the workflow state if it has changed
         if (updatedState !== workflow.state) {

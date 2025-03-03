@@ -54,22 +54,24 @@ export class JobEngine {
             const workflow = this.jobToWorkflow(job);
 
             // Execute the step using WorkflowEngine
-            const { updatedState, result } = await WorkflowEngine.executeStepSimple(
+            const { updatedState, result, nextStepIndex } = await WorkflowEngine.executeStepSimple(
                 workflow,
                 stepIndex
             );
 
-            // Process evaluation step if needed
-            const { nextStepIndex } = this.processEvaluationStep(
+            // Process evaluation step if needed to add jump info to the step result
+            // This is now just for UI display purposes, as the actual next step is determined by executeStepSimple
+            const jumpInfo = this.getJumpInfoFromResult(
                 job,
                 stepIndex,
-                updatedState,
+                nextStepIndex,
                 result
             );
 
-            // Get next step index from WorkflowEngine (handles jump counters)
-            const { nextStepIndex: confirmedNextStepIndex, updatedState: nextStepState } =
-                WorkflowEngine.getNextStepIndex(workflow, stepIndex);
+            // Add jump info to the step result if it's an evaluation step
+            if (jumpInfo && job.steps[stepIndex].step_type === WorkflowStepType.EVALUATION && result.outputs) {
+                (result.outputs as any)._jump_info = jumpInfo;
+            }
 
             // Create step execution record
             const stepExecutionResult: StepExecutionResult = {
@@ -82,12 +84,12 @@ export class JobEngine {
             // Return updated state and next step index
             return {
                 updatedState: {
-                    variables: this.workflowStateToJobVariables(nextStepState),
+                    variables: this.workflowStateToJobVariables(updatedState),
                     stepResults: [...state.stepResults, stepExecutionResult],
-                    currentStepIndex: confirmedNextStepIndex
+                    currentStepIndex: nextStepIndex
                 },
                 result,
-                nextStepIndex: confirmedNextStepIndex
+                nextStepIndex
             };
         } catch (error) {
             // Handle step execution error
@@ -112,6 +114,42 @@ export class JobEngine {
     }
 
     /**
+     * Get jump information from a step result
+     * This is used for UI display purposes
+     */
+    private static getJumpInfoFromResult(
+        job: Job,
+        stepIndex: number,
+        nextStepIndex: number,
+        stepResult: WorkflowStepResult
+    ): {
+        is_jump: boolean;
+        from_step: number;
+        to_step: number;
+        reason: string;
+    } | undefined {
+        // Only process evaluation steps
+        if (job.steps[stepIndex]?.step_type !== WorkflowStepType.EVALUATION) {
+            return undefined;
+        }
+
+        // Check if this is a jump (not just going to the next step)
+        const isJump = nextStepIndex !== stepIndex + 1;
+
+        // Get reason from step result
+        const outputs = stepResult.outputs || {};
+        const reasonValue = outputs['reason' as WorkflowVariableName];
+        const reason = typeof reasonValue === 'string' ? reasonValue : 'No reason provided';
+
+        return {
+            is_jump: isJump,
+            from_step: stepIndex,
+            to_step: nextStepIndex,
+            reason
+        };
+    }
+
+    /**
      * Update a job with the results of a step execution
      * @param job The job to update
      * @param stepIndex The index of the step that was executed
@@ -125,54 +163,70 @@ export class JobEngine {
         result: WorkflowStepResult,
         nextStepIndex: number
     ): Job {
+        // Create a copy of the job to avoid mutating the original
+        const updatedJob = { ...job };
+
         // Update the step with the result
-        const updatedSteps = job.steps.map((step, idx) => {
-            if (idx === stepIndex) {
-                return {
-                    ...step,
-                    status: result.success ? JobStatus.COMPLETED : JobStatus.FAILED,
-                    completed_at: new Date().toISOString(),
-                    output_data: result.outputs || {},
-                    error_message: result.success ? undefined : result.error
-                };
-            }
-            return step;
-        });
+        updatedJob.steps = [...job.steps];
+        updatedJob.steps[stepIndex] = {
+            ...updatedJob.steps[stepIndex],
+            status: result.success ? JobStatus.COMPLETED : JobStatus.FAILED,
+            completed_at: new Date().toISOString(),
+            output_data: result.outputs || {},
+            error_message: result.error
+        };
 
         // Update job execution progress
-        return {
-            ...job,
-            execution_progress: {
-                current_step: nextStepIndex,
-                total_steps: job.steps.length
-            },
-            steps: updatedSteps
+        updatedJob.execution_progress = {
+            current_step: nextStepIndex,
+            total_steps: job.steps.length
         };
+
+        // Update job status if all steps are completed or if there was an error
+        if (nextStepIndex >= job.steps.length) {
+            updatedJob.status = JobStatus.COMPLETED;
+            updatedJob.completed_at = new Date().toISOString();
+        } else if (!result.success) {
+            updatedJob.status = JobStatus.FAILED;
+            updatedJob.error_message = result.error;
+        }
+
+        return updatedJob;
     }
 
     /**
-     * Update a job with new state variables
+     * Update a job with new variables
      * @param job The job to update
-     * @param variables The new state variables as a record
+     * @param variables The new variables
      * @returns The updated job
      */
     static updateJobState(
         job: Job,
         variables: Record<WorkflowVariableName, SchemaValueType>
     ): Job {
-        // Convert variables record to WorkflowVariable array
+        // Convert variables to workflow variables
         const state = Object.entries(variables).map(([name, value]) => {
-            // Determine the type safely
+            // Find existing variable to preserve metadata
+            const existingVar = job.state.find(v => v.name === name);
+            if (existingVar) {
+                return {
+                    ...existingVar,
+                    value
+                };
+            }
+
+            // Determine the type safely for new variables
             let type: ValueType = 'string';
             if (typeof value === 'number') type = 'number';
             else if (typeof value === 'boolean') type = 'boolean';
             else if (typeof value === 'object') type = 'object';
 
+            // Create new variable
             return {
                 name: name as WorkflowVariableName,
                 variable_id: name,
                 value: value,
-                io_type: 'output' as const,
+                io_type: 'output' as const, // Assume new variables are outputs
                 schema: {
                     type,
                     is_array: Array.isArray(value)
@@ -182,76 +236,8 @@ export class JobEngine {
 
         return {
             ...job,
-            state: state,
-            // Also update legacy output_data for backward compatibility
-            output_data: variables
+            state
         };
-    }
-
-    /**
-     * Process an evaluation step to determine the next step index
-     * @param job The job being executed
-     * @param stepIndex The index of the current step
-     * @param state The workflow state
-     * @param stepResult The result of the step execution
-     * @returns The next step index and jump information
-     */
-    private static processEvaluationStep(
-        job: Job,
-        stepIndex: number,
-        state: WorkflowVariable[],
-        stepResult: WorkflowStepResult
-    ): {
-        nextStepIndex: number;
-        jumpInfo?: {
-            is_jump: boolean;
-            from_step: number;
-            to_step: number;
-            reason: string;
-        };
-    } {
-        // Default to next step
-        let nextStepIndex = stepIndex + 1;
-        let jumpInfo;
-
-        const isEvalStep = job.steps[stepIndex]?.step_type === WorkflowStepType.EVALUATION;
-
-        if (isEvalStep) {
-            // Find evaluation result in state
-            const jobStepId = job.steps[stepIndex].step_id;
-            if (jobStepId) {
-                const shortStepId = jobStepId.slice(0, 8);
-                const evalVarName = `eval_${shortStepId}`;
-                const evalVar = state.find(v => v.name === evalVarName);
-
-                if (evalVar && evalVar.value) {
-                    const evalResult = evalVar.value as unknown as EvaluationResult;
-                    if (evalResult.next_action === 'jump' && evalResult.target_step_index !== undefined) {
-                        nextStepIndex = evalResult.target_step_index;
-                    }
-                }
-            }
-
-            // Create jump info
-            const isJump = nextStepIndex !== stepIndex + 1;
-            const evalOutput = stepResult.outputs || {};
-            const reasonValue = evalOutput['reason' as WorkflowVariableName];
-            const reason = typeof reasonValue === 'string' ? reasonValue : 'No reason provided';
-
-            jumpInfo = {
-                is_jump: isJump,
-                from_step: stepIndex,
-                to_step: nextStepIndex,
-                reason: reason
-            };
-
-            // Add jump info to step result outputs
-            if (stepResult.outputs) {
-                (stepResult.outputs as any)._jump_info = jumpInfo;
-            }
-        }
-
-        return { nextStepIndex, jumpInfo };
     }
 
     /**
