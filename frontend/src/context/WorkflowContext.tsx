@@ -382,17 +382,22 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const moveToNextStep = useCallback(() => {
         if (!workflow) return;
 
-        // Get the next step index and updated workflow state
-        const { nextStepIndex, updatedWorkflow } = WorkflowEngine.getNextStepIndex(workflow, activeStep);
+        // Get the next step index and updated state
+        const { nextStepIndex, updatedState } = WorkflowEngine.getNextStepIndex(workflow, activeStep);
 
         // Update the workflow state if it has changed
-        if (updatedWorkflow !== workflow) {
-            setWorkflow(updatedWorkflow);
+        if (updatedState !== workflow.state) {
+            updateWorkflowByAction({
+                type: 'UPDATE_STATE',
+                payload: {
+                    state: updatedState
+                }
+            });
         }
 
         setActiveStep(nextStepIndex);
         setStepExecuted(false);
-    }, [workflow, activeStep]);
+    }, [workflow, activeStep, updateWorkflowByAction]);
 
     const moveToPreviousStep = useCallback(() => {
         setActiveStep(Math.max(0, activeStep - 1));

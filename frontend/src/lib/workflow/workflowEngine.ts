@@ -514,7 +514,7 @@ export class WorkflowEngine {
         workflow: Workflow,
         stepIndex: number
     ): Promise<{
-        updatedWorkflow: Workflow,
+        updatedState: WorkflowVariable[],
         result: StepExecutionResult
     }> {
         try {
@@ -524,7 +524,7 @@ export class WorkflowEngine {
 
             if (!step) {
                 return {
-                    updatedWorkflow: workflow,
+                    updatedState: workflow.state || [],
                     result: {
                         success: false,
                         error: 'Invalid step index'
@@ -532,25 +532,24 @@ export class WorkflowEngine {
                 };
             }
 
-            // Create a copy of the workflow to avoid mutating the original
-            const workflowCopy = {
-                ...workflow,
-                state: [...(workflow.state || [])]
-            };
+            // Create a copy of the workflow state to avoid mutating the original
+            const workflowStateCopy = [...(workflow.state || [])];
 
             // Clear any existing outputs for this step
-            const clearedState = this.clearStepOutputs(step, workflowCopy);
-            workflowCopy.state = clearedState;
+            const clearedState = this.clearStepOutputs(step, { ...workflow, state: workflowStateCopy });
 
             // Execute based on step type
             let result: StepExecutionResult;
+            let updatedState = clearedState;
 
             if (step.step_type === WorkflowStepType.EVALUATION) {
+                // For evaluation, we need the workflow context to evaluate conditions
+                const workflowCopy = { ...workflow, state: clearedState };
                 result = this.evaluateConditions(step, workflowCopy);
 
                 // Update workflow state with evaluation results
                 if (result.success && result.outputs) {
-                    workflowCopy.state = this.getUpdatedWorkflowStateFromResults(
+                    updatedState = this.getUpdatedWorkflowStateFromResults(
                         step,
                         result.outputs,
                         workflowCopy
@@ -560,7 +559,7 @@ export class WorkflowEngine {
                 // Execute tool step
                 if (!step.tool) {
                     return {
-                        updatedWorkflow: workflowCopy,
+                        updatedState: clearedState,
                         result: {
                             success: false,
                             error: 'No tool configured for this step'
@@ -568,6 +567,8 @@ export class WorkflowEngine {
                     };
                 }
 
+                // For tool execution, we need the workflow context to resolve parameters
+                const workflowCopy = { ...workflow, state: clearedState };
                 const parameters = this.getResolvedParameters(step, workflowCopy);
 
                 // Add prompt template ID for LLM tools
@@ -580,7 +581,7 @@ export class WorkflowEngine {
 
                 // Update workflow state with tool results
                 if (toolResult) {
-                    workflowCopy.state = this.getUpdatedWorkflowStateFromResults(
+                    updatedState = this.getUpdatedWorkflowStateFromResults(
                         step,
                         toolResult,
                         workflowCopy
@@ -594,12 +595,12 @@ export class WorkflowEngine {
             }
 
             return {
-                updatedWorkflow: workflowCopy,
+                updatedState,
                 result
             };
         } catch (error) {
             return {
-                updatedWorkflow: workflow,
+                updatedState: workflow.state || [],
                 result: {
                     success: false,
                     error: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -644,18 +645,18 @@ export class WorkflowEngine {
     static getNextStepIndex(
         workflow: Workflow,
         currentStepIndex: number
-    ): { nextStepIndex: number, updatedWorkflow: Workflow } {
+    ): { nextStepIndex: number, updatedState: WorkflowVariable[] } {
         console.log('getNextStepIndex called with workflow:', workflow);
         console.log('Current step index:', currentStepIndex);
 
-        // Create a copy of the workflow to avoid mutating the original
-        const workflowCopy = { ...workflow, state: [...(workflow.state || [])] };
+        // Create a copy of the workflow state to avoid mutating the original
+        const workflowStateCopy = [...(workflow.state || [])];
 
         // Basic validation checks
-        const currentStep = workflowCopy.steps[currentStepIndex];
+        const currentStep = workflow.steps[currentStepIndex];
         if (!currentStep) {
             console.warn('Invalid step index or no current step found');
-            return { nextStepIndex: currentStepIndex, updatedWorkflow: workflowCopy };
+            return { nextStepIndex: currentStepIndex, updatedState: workflowStateCopy };
         }
 
         console.log('Current step:', currentStep);
@@ -663,19 +664,19 @@ export class WorkflowEngine {
         // First check if this is NOT an evaluation step - handle the simple case first
         if (currentStep.step_type !== WorkflowStepType.EVALUATION) {
             // For non-evaluation steps, simply go to the next step
-            return { nextStepIndex: currentStepIndex + 1, updatedWorkflow: workflowCopy };
+            return { nextStepIndex: currentStepIndex + 1, updatedState: workflowStateCopy };
         }
 
         // For evaluation steps, check if we need to jump to a specific step
         console.log('Evaluating evaluation step:', currentStep.step_id);
-        console.log('Workflow state:', workflowCopy.state);
+        console.log('Workflow state:', workflowStateCopy);
 
         // Find evaluation result in workflow outputs
         const shortStepId = currentStep.step_id.slice(0, 8);
         const evalVarName = `eval_${shortStepId}`;
         console.log('Looking for evaluation result with name:', evalVarName);
 
-        const evalResult = workflowCopy.state?.find(
+        const evalResult = workflowStateCopy.find(
             o => o.name === evalVarName
         )?.value as EvaluationResult | undefined;
 
@@ -686,7 +687,7 @@ export class WorkflowEngine {
         let jumpCount = 0;
 
         // Look for existing jump counter in workflow state
-        const jumpCountVar = workflowCopy.state?.find(v => v.name === jumpCounterName);
+        const jumpCountVar = workflowStateCopy.find(v => v.name === jumpCounterName);
         if (jumpCountVar?.value !== undefined) {
             jumpCount = Number(jumpCountVar.value);
         }
@@ -700,15 +701,15 @@ export class WorkflowEngine {
 
             if (jumpCount >= maxJumps) {
                 console.log(`Maximum jumps (${maxJumps}) reached. Continuing to next step instead of jumping.`);
-                return { nextStepIndex: currentStepIndex + 1, updatedWorkflow: workflowCopy };
+                return { nextStepIndex: currentStepIndex + 1, updatedState: workflowStateCopy };
             }
 
             const targetStep = Number(evalResult.target_step_index);
 
             // Validate target step index
-            if (targetStep >= 0 && targetStep < workflowCopy.steps.length) {
+            if (targetStep >= 0 && targetStep < workflow.steps.length) {
                 // Increment jump counter in workflow state
-                const updatedState = [...(workflowCopy.state || [])];
+                const updatedState = [...workflowStateCopy];
                 const jumpCountVarIndex = updatedState.findIndex(v => v.name === jumpCounterName);
 
                 if (jumpCountVarIndex !== -1) {
@@ -732,15 +733,12 @@ export class WorkflowEngine {
                     });
                 }
 
-                // Update the workflow state in our copy
-                workflowCopy.state = updatedState;
-
-                return { nextStepIndex: targetStep, updatedWorkflow: workflowCopy };
+                return { nextStepIndex: targetStep, updatedState };
             }
         }
 
         // Default behavior for evaluation steps with no jump or invalid jump target
-        return { nextStepIndex: currentStepIndex + 1, updatedWorkflow: workflowCopy };
+        return { nextStepIndex: currentStepIndex + 1, updatedState: workflowStateCopy };
     }
 
     /**
@@ -965,16 +963,16 @@ export class WorkflowEngine {
             console.log('executeStep called (deprecated) - consider using executeStepSimple instead');
 
             // Use the new simplified implementation
-            const { updatedWorkflow, result } = await this.executeStepSimple(workflow, stepIndex);
+            const { updatedState, result } = await this.executeStepSimple(workflow, stepIndex);
 
             // Update the workflow using the provided action handler
-            if (updatedWorkflow !== workflow) {
+            if (updatedState !== workflow.state) {
                 updateWorkflowByAction({
                     type: 'UPDATE_WORKFLOW',
                     payload: {
                         workflowUpdates: {
-                            state: updatedWorkflow.state,
-                            steps: updatedWorkflow.steps
+                            state: updatedState,
+                            steps: workflow.steps
                         }
                     }
                 });

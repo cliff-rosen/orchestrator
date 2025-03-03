@@ -38,12 +38,12 @@ const Job: React.FC = () => {
     // Determine if we need inputs based on job status and workflow inputs
     const needsInput = currentJob?.status === JobStatus.PENDING && workflowInputs.length > 0;
 
-    console.log('Job.tsx', currentJob);
+    //console.log('Job.tsx', currentJob);
 
     // Load job data
     useEffect(() => {
         if (jobId) {
-            console.log('Job.tsx loading job', jobId);
+            //console.log('Job.tsx loading job', jobId);
             loadJob(jobId);
         }
     }, [jobId, loadJob]);

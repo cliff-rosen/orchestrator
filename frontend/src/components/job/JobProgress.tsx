@@ -8,7 +8,7 @@ interface JobProgressProps {
 
 export const JobProgress: React.FC<JobProgressProps> = ({ job }) => {
     const { executionState } = useJobs();
-    console.log('JobProgress.tsx', { job, executionState });
+    //console.log('JobProgress.tsx', { job, executionState });
 
     // If we have executionState and it matches our job, use it
     // Otherwise fall back to job.execution_progress
