@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { Job, JobStatus, StepExecutionResult, JobExecutionState } from '../../types/jobs';
-import { useJobs } from '../../context/JobsContext';
+import { Job, StepExecutionResult, JobExecutionState } from '../../types/jobs';
 import { useValueFormatter } from '../../hooks/useValueFormatter';
-import { Box, Typography, List, ListItem, ListItemText, Divider } from '@mui/material';
 import { WorkflowVariableName } from '../../types/workflows';
 import { SchemaValueType } from '../../types/schema';
 import VariableRenderer from '../common/VariableRenderer';

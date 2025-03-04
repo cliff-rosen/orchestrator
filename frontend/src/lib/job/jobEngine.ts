@@ -457,4 +457,55 @@ export class JobEngine {
             is_array: isArray
         };
     }
+
+    /**
+     * Get all input variables from a job
+     * @param job The job to get input variables from
+     * @returns Array of input variables
+     */
+    static getInputVariables(job: Job): WorkflowVariable[] {
+        return job.state.filter(variable => variable.io_type === 'input');
+    }
+
+    /**
+     * Get final output variables from a job (only from the final step)
+     * @param job The job to get output variables from
+     * @returns Array of final output variables
+     */
+    static getFinalOutputVariables(job: Job): WorkflowVariable[] {
+        // No steps means no outputs to filter
+        if (!job.steps || job.steps.length === 0) {
+            return [];
+        }
+
+        // Get the last step's output mappings
+        const lastStep = job.steps[job.steps.length - 1];
+
+        // If no output mappings, return empty array
+        if (!lastStep.output_mappings) {
+            return [];
+        }
+
+        // Get the variable names from the output mappings
+        const finalOutputNames = Object.values(lastStep.output_mappings)
+            .map(mapping => mapping.toString());
+
+        // Filter state variables to only include those in the final output mappings
+        return job.state.filter(variable =>
+            variable.io_type === 'output' &&
+            !variable.name.toString().startsWith('__eval_') &&
+            finalOutputNames.includes(variable.name.toString())
+        );
+    }
+
+    /**
+     * Get all state variables from a job, excluding evaluation variables
+     * @param job The job to get state variables from
+     * @returns Array of all state variables
+     */
+    static getAllStateVariables(job: Job): WorkflowVariable[] {
+        return job.state.filter(variable =>
+            !variable.name.toString().startsWith('__eval_')
+        );
+    }
 } 

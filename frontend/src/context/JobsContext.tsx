@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Job, JobStatus, JobExecutionState, CreateJobRequest, StepExecutionResult, JobId, JobStepId, JobStep } from '../types/jobs';
-import { WorkflowVariable, WorkflowVariableName, WorkflowStepType, Workflow, WorkflowStatus, WorkflowStep, WorkflowStepId, getWorkflowInputs, EvaluationResult, StepExecutionResult as WorkflowStepResult } from '../types/workflows';
+import { WorkflowVariable, WorkflowVariableName, WorkflowStep, getWorkflowInputs } from '../types/workflows';
 import { SchemaValueType, } from '../types/schema';
 import { useWorkflows } from './WorkflowContext';
 import { JobEngine, JobState } from '../lib/job/jobEngine';

@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrayRenderer } from './ArrayRenderer';
 import { TextRenderer } from './TextRenderer';
 import { ObjectRenderer } from './ObjectRenderer';
-import MarkdownRenderer from './MarkdownRenderer';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 export interface VariableRendererProps {
     value: any;
@@ -63,7 +63,7 @@ export const VariableRenderer: React.FC<VariableRendererProps> = ({
         return (
             <div className={className}>
                 <TextRenderer text={stringValue} maxLength={maxTextLength}>
-                    {(text) => <MarkdownRenderer content={text} />}
+                    {(text: string) => <MarkdownRenderer content={text} />}
                 </TextRenderer>
             </div>
         );

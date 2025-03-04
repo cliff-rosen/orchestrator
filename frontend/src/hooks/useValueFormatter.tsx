@@ -34,7 +34,7 @@ export const useValueFormatter = (): UseValueFormatterReturn => {
         // Handle arrays
         if (Array.isArray(value)) {
             const id = `array-${JSON.stringify(value).slice(0, 50)}`;
-            const isExpanded = expandedValues[id];
+            const isExpanded = expandedValues[id];  
             const items = value;
             const displayItems = isExpanded ? items : items.slice(0, MAX_ARRAY_LENGTH);
             const hasMore = items.length > MAX_ARRAY_LENGTH;

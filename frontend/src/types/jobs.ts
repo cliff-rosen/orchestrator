@@ -1,7 +1,6 @@
-import { Schema, SchemaValueType, Variable } from './schema';
+import { Variable } from './schema';
 import { Tool, ToolParameterName, ToolOutputName } from './tools';
 import {
-    Workflow,
     WorkflowVariableName,
     WorkflowVariable,
     StepExecutionResult as WorkflowStepResult,

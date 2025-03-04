@@ -2,14 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Job, JobStatus, JobStep } from '../../types/jobs';
 import { Workflow } from '../../types/workflows';
-import { useValueFormatter } from '../../hooks/useValueFormatter.tsx';
 import { WorkflowInputs } from './WorkflowInputs';
 import { WorkflowOutputs } from './WorkflowOutputs';
-import { useJobs } from '../../context/JobsContext';
-import { Box, Typography } from '@mui/material';
-import { WorkflowVariableName } from '../../types/workflows';
 import { SchemaValueType } from '../../types/schema';
-import { ToolOutputName } from '../../types/tools';
+import { JobEngine } from '../../lib/job/jobEngine';
 
 interface JobLiveOutputProps {
     job: Job;
@@ -18,13 +14,9 @@ interface JobLiveOutputProps {
 }
 
 export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow, step }) => {
-    const { executionState } = useJobs();
-    const isComplete = job.status === JobStatus.COMPLETED;
-    const isFailed = job.status === JobStatus.FAILED;
-    const { formatValue } = useValueFormatter();
 
-    // Get input variables from job state
-    const inputVariables = job.state.filter(v => v.io_type === 'input');
+    // Get input variables using JobEngine
+    const inputVariables = JobEngine.getInputVariables(job);
 
     // Get steps with outputs
     const stepsWithOutputs = job.steps
