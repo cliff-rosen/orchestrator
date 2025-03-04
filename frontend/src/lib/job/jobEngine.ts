@@ -416,37 +416,6 @@ export class JobEngine {
         return true;
     }
 
-    /**
-     * Resolves input variables for a step from the job state
-     */
-    private static resolveStepInputs(
-        step: JobStep,
-        jobState: WorkflowVariable[]
-    ): Record<ToolParameterName, SchemaValueType> {
-        const inputs: Record<ToolParameterName, SchemaValueType> = {};
-
-        if (!step.tool || !step.parameter_mappings) return inputs;
-
-        // For each parameter mapping, resolve the variable reference
-        Object.entries(step.parameter_mappings).forEach(([paramName, varName]) => {
-            const stateVar = jobState.find(v => v.name === varName);
-            if (stateVar?.value !== undefined) {
-                const paramDef = step.tool!.signature.parameters.find(p => p.name === paramName);
-
-                // Handle array to string conversion if needed
-                if (paramDef &&
-                    paramDef.schema.type === 'string' && !paramDef.schema.is_array &&
-                    stateVar.schema.type === 'string' && stateVar.schema.is_array &&
-                    Array.isArray(stateVar.value)) {
-                    inputs[paramName as ToolParameterName] = stateVar.value.join('\n');
-                } else {
-                    inputs[paramName as ToolParameterName] = stateVar.value as SchemaValueType;
-                }
-            }
-        });
-
-        return inputs;
-    }
 
     /**
      * Updates job state with step outputs

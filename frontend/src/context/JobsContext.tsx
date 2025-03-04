@@ -414,12 +414,27 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let currentJob = job;
         let currentState = initialState;
 
-        while (currentState.currentStepIndex < job.steps.length) {
 
+        var maxSteps = 5;
+        var stepCount = 0;
+
+        while (currentState.currentStepIndex < job.steps.length && stepCount < maxSteps) {
+            stepCount++;
+
+            console.log('########################################################');
+            console.log('executeJobWithEngine stepCount', stepCount, currentState.currentStepIndex);
+            console.log('########################################################');
             const { updatedState, result, nextStepIndex } = await JobEngine.executeStep(
                 currentJob,
                 currentState.currentStepIndex
             );
+
+            console.log('executeJobWithEngine', {
+                result,
+                updatedState,
+                nextStepIndex
+            });
+
 
             // Convert workflow step result to job step result
             const jobStepResult: StepExecutionResult = {
