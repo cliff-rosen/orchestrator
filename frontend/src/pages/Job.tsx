@@ -10,6 +10,7 @@ import { JobLiveOutput } from '../components/job/JobLiveOutput';
 import { JobStepsList } from '../components/job/JobStepsList';
 import { JobInputForm } from '../components/job/JobInputForm';
 import JobMenuBar from '../components/job/JobMenuBar';
+import { JobSummary } from '../components/job/JobSummary';
 import { getWorkflowInputs } from '../types/workflows';
 
 const Job: React.FC = () => {
@@ -189,6 +190,20 @@ const Job: React.FC = () => {
                                     <JobLiveOutput job={currentJob} workflow={workflow} />
                                 </div>
                             </div>
+
+                            {/* Job Summary - Only show for completed or failed jobs */}
+                            {(currentJob.status === JobStatus.COMPLETED || currentJob.status === JobStatus.FAILED) && (
+                                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <div className="border-b border-gray-200 dark:border-gray-700 p-4">
+                                        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-50">
+                                            Job Summary
+                                        </h2>
+                                    </div>
+                                    <div className="p-4">
+                                        <JobSummary job={currentJob} />
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Job History Log */}
                             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
