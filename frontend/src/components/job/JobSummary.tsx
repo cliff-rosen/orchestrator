@@ -87,7 +87,7 @@ export const JobSummary: React.FC<JobSummaryProps> = ({ job }) => {
                                     </div>
                                     <div className="p-0">
                                         {/* Use enhanced renderer for markdown content */}
-                                        {typeof variable.value === 'string' && (variable.schema?.type === 'string' || !variable.schema) ? (
+                                        {typeof variable.value === 'string' && !variable.schema?.is_array && (variable.schema?.type === 'string' || !variable.schema) ? (
                                             <div className="relative">
                                                 <EnhancedMarkdownRenderer
                                                     content={variable.value}

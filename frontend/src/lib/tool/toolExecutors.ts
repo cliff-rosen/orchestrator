@@ -59,7 +59,7 @@ export const executeSearch = async (_toolId: string, parameters: ResolvedParamet
     try {
         const searchResults = await searchApi.search(query);
         return {
-            ['results' as ToolOutputName]: searchResults.map(result => `${result.title}\n${result.snippet}`).join('\n') as SchemaValueType
+            ['results' as ToolOutputName]: searchResults.map(result => `${result.title}\n${result.snippet}`) as SchemaValueType
         };
     } catch (error) {
         console.error('Error executing search:', error);
