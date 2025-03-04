@@ -58,8 +58,9 @@ export const executeSearch = async (_toolId: string, parameters: ResolvedParamet
     const query = (parameters as Record<string, string>)['query'];
     try {
         const searchResults = await searchApi.search(query);
+        // Convert search results to an object with array of objects
         return {
-            ['results' as ToolOutputName]: searchResults.map(result => `${result.title}\n${result.snippet}`) as SchemaValueType
+            ['results' as ToolOutputName]: searchResults as unknown as SchemaValueType
         };
     } catch (error) {
         console.error('Error executing search:', error);

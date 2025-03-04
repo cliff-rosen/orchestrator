@@ -1,6 +1,7 @@
 import { ResolvedParameters, ToolOutputName, ToolOutputs } from '../../types';
 import { api } from './index';
 import { searchApi } from './searchApi';
+import { SchemaValueType } from '../../types/schema';
 
 // Execute search tool function
 export const executeSearch = async (parameters: ResolvedParameters): Promise<ToolOutputs> => {
@@ -8,7 +9,7 @@ export const executeSearch = async (parameters: ResolvedParameters): Promise<Too
     try {
         const searchResults = await searchApi.search(query);
         return {
-            ['results' as ToolOutputName]: searchResults.map(result => `${result.title}\n${result.snippet}`)
+            ['results' as ToolOutputName]: searchResults as unknown as SchemaValueType
         };
     } catch (error) {
         console.error('Error executing search:', error);
