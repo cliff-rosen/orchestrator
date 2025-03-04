@@ -188,8 +188,12 @@ const Job: React.FC = () => {
 
                                 {/* Current Step Section - Only show for running or pending jobs */}
                                 {(currentJob.status === JobStatus.RUNNING || currentJob.status === JobStatus.PENDING) && (
-                                    <div className="p-4">
-                                        <JobLiveOutput job={currentJob} workflow={workflow} />
+                                    <div className="p-4 job-live-output-container" style={{ minHeight: '450px' }}>
+                                        <JobLiveOutput
+                                            job={currentJob}
+                                            workflow={workflow}
+                                            executionState={executionState}
+                                        />
                                     </div>
                                 )}
                             </div>
