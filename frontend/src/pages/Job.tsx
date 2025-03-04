@@ -204,16 +204,19 @@ const Job: React.FC = () => {
                             )}
 
                             {/* Job History Log */}
-                            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                <div className="border-b border-gray-200 dark:border-gray-700 p-4">
+                            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                                <div className="border-b border-gray-100 dark:border-gray-700 p-4">
                                     <div className="flex items-center justify-between">
                                         <h2 className="text-lg font-medium text-gray-900 dark:text-gray-50">
-                                            Job History
+                                            Execution History
                                         </h2>
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentJob.status === JobStatus.COMPLETED ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                            currentJob.status === JobStatus.FAILED ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                                                currentJob.status === JobStatus.RUNNING ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                                                    'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentJob.status === JobStatus.COMPLETED
+                                            ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                            : currentJob.status === JobStatus.FAILED
+                                                ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                                : currentJob.status === JobStatus.RUNNING
+                                                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                                    : 'bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300'
                                             }`}>
                                             {currentJob.status}
                                         </span>
