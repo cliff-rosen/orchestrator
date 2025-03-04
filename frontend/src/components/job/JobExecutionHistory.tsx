@@ -5,6 +5,7 @@ import { WorkflowVariableName } from '../../types/workflows';
 import { SchemaValueType } from '../../types/schema';
 import VariableRenderer from '../common/VariableRenderer';
 import { usePromptTemplates } from '../../context/PromptTemplateContext';
+import { JobEngine } from '../../lib/job/jobEngine';
 
 // Simple variable renderer that doesn't show type information
 const SimpleVariableRenderer: React.FC<{ value: any }> = ({ value }) => {
@@ -106,43 +107,12 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
 
     // Get input mappings and values
     const getInputMappings = () => {
-        if (!stepDefinition.parameter_mappings || !stepDefinition.tool) {
-            return [];
-        }
-
-        return Object.entries(stepDefinition.parameter_mappings).map(([paramName, varName]) => {
-            // Get the input variable value from the job state
-            const varValue = job.state?.find(v => v.name === varName)?.value;
-
-            return {
-                paramName,
-                varName,
-                paramLabel: varName as string,
-                value: varValue
-            };
-        });
+        return JobEngine.getStepInputMappings(job, result.step_id);
     };
 
     // Get output mappings and values
     const getOutputMappings = () => {
-        if (!stepDefinition.output_mappings || !result.outputs) {
-            return [];
-        }
-
-        return Object.entries(stepDefinition.output_mappings).map(([outputName, varName]) => {
-            // Get output value
-            let outputValue;
-
-            outputValue = result.outputs?.[outputName as WorkflowVariableName];
-
-            return {
-                outputName,
-                varName,
-                outputLabel: varName as string,
-                value: outputValue,
-                schema: stepDefinition.tool?.signature.outputs.find(o => o.name === outputName)?.schema
-            };
-        });
+        return JobEngine.getStepOutputMappings(job, result.step_id, result.outputs);
     };
 
     const inputMappings = getInputMappings();

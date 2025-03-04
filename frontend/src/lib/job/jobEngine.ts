@@ -508,4 +508,58 @@ export class JobEngine {
             !variable.name.toString().startsWith('__eval_')
         );
     }
+
+    /**
+     * Get input mappings for a specific step in a job
+     * @param job The job containing the step
+     * @param stepId The ID of the step to get input mappings for
+     * @returns Array of input mappings with variable names and values
+     */
+    static getStepInputMappings(job: Job, stepId: string) {
+        const step = job.steps.find(s => s.step_id === stepId);
+
+        if (!step?.parameter_mappings || !step.tool) {
+            return [];
+        }
+
+        return Object.entries(step.parameter_mappings).map(([paramName, varName]) => {
+            // Get the input variable value from the job state
+            const varValue = job.state?.find(v => v.name === varName)?.value;
+
+            return {
+                paramName,
+                varName,
+                paramLabel: varName as string,
+                value: varValue
+            };
+        });
+    }
+
+    /**
+     * Get output mappings for a specific step execution result
+     * @param job The job containing the step
+     * @param stepId The ID of the step to get output mappings for
+     * @param outputs The outputs from the step execution
+     * @returns Array of output mappings with variable names and values
+     */
+    static getStepOutputMappings(job: Job, stepId: string, outputs?: Record<WorkflowVariableName, SchemaValueType>) {
+        const step = job.steps.find(s => s.step_id === stepId);
+
+        if (!step?.output_mappings || !outputs) {
+            return [];
+        }
+
+        return Object.entries(step.output_mappings).map(([outputName, varName]) => {
+            // Get output value
+            const outputValue = outputs[outputName as WorkflowVariableName];
+
+            return {
+                outputName,
+                varName,
+                outputLabel: varName as string,
+                value: outputValue,
+                schema: step.tool?.signature.outputs.find(o => o.name === outputName)?.schema
+            };
+        });
+    }
 } 
