@@ -33,20 +33,13 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ job, step, isExpanded, onTogg
 
     // Get the actual input values from the job's variables
     const getInputValue = (mapping: string) => {
-        if (!job.input_variables) return mapping;
-
-        const variableByName = job.input_variables.find(v => v.name === mapping);
-        if (variableByName) {
-            return variableByName.value;
+        // First check state variables
+        const stateVariable = job.state.find(v => v.name === mapping);
+        if (stateVariable) {
+            return stateVariable.value;
         }
 
-        // If not found in input variables then check output variables
-        const variableByOutputName = job.output_data?.[mapping as keyof typeof job.output_data];
-        if (variableByOutputName) {
-            return variableByOutputName;
-        }
-
-        // If not found in input or output variables then return the mapping itself
+        // If not found in state variables then return the mapping itself
         return mapping;
     };
 
@@ -139,27 +132,27 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ job, step, isExpanded, onTogg
                     {/* Evaluation Step Details */}
                     {step.step_type === 'EVALUATION' && step.latest_execution?.outputs && (
                         <Box>
-                            <Typography variant="subtitle2" gutterBottom>
+                            <Typography variant="subtitle2" gutterBottom className="text-gray-900 dark:text-gray-100">
                                 Evaluation Result
                             </Typography>
-                            <Typography>
+                            <Typography className="text-gray-700 dark:text-gray-300">
                                 {getOutputValue(step.latest_execution.outputs, 'condition_met') === 'none' ? 'No conditions met' : 'Condition met'}
                             </Typography>
                             {getOutputValue(step.latest_execution.outputs, 'condition_met') !== 'none' && (
                                 <>
-                                    <Typography variant="subtitle2" gutterBottom>
+                                    <Typography variant="subtitle2" gutterBottom className="text-gray-900 dark:text-gray-100">
                                         Condition Details
                                     </Typography>
-                                    <Typography>
+                                    <Typography className="text-gray-700 dark:text-gray-300">
                                         {getOutputValue(step.latest_execution.outputs, 'variable_name')} = {getOutputValue(step.latest_execution.outputs, 'variable_value')}
                                     </Typography>
-                                    <Typography>
+                                    <Typography className="text-gray-700 dark:text-gray-300">
                                         {getOutputValue(step.latest_execution.outputs, 'operator')} {getOutputValue(step.latest_execution.outputs, 'comparison_value')}
                                     </Typography>
-                                    <Typography variant="subtitle2" gutterBottom>
+                                    <Typography variant="subtitle2" gutterBottom className="text-gray-900 dark:text-gray-100">
                                         Action
                                     </Typography>
-                                    <Typography>
+                                    <Typography className="text-gray-700 dark:text-gray-300">
                                         {getOutputValue(step.latest_execution.outputs, 'action') === 'jump'
                                             ? `Jump to step ${parseInt(getOutputValue(step.latest_execution.outputs, 'target_step_index')) + 1}`
                                             : getOutputValue(step.latest_execution.outputs, 'action') === 'end'
@@ -169,10 +162,10 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ job, step, isExpanded, onTogg
                                     </Typography>
                                     {getOutputValue(step.latest_execution.outputs, 'reason') && (
                                         <>
-                                            <Typography variant="subtitle2" gutterBottom>
+                                            <Typography variant="subtitle2" gutterBottom className="text-gray-900 dark:text-gray-100">
                                                 Reason
                                             </Typography>
-                                            <Typography>
+                                            <Typography className="text-gray-700 dark:text-gray-300">
                                                 {getOutputValue(step.latest_execution.outputs, 'reason')}
                                             </Typography>
                                         </>
@@ -217,7 +210,7 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ job, step, isExpanded, onTogg
                     {/* Tool Outputs */}
                     {step.step_type === 'ACTION' && step.latest_execution?.outputs && Object.keys(step.latest_execution.outputs || {}).length > 0 && (
                         <Box>
-                            <Typography variant="subtitle2" gutterBottom>
+                            <Typography variant="subtitle2" gutterBottom className="text-gray-900 dark:text-gray-100">
                                 Outputs
                             </Typography>
                             <List>
@@ -226,15 +219,16 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ job, step, isExpanded, onTogg
                                     return (
                                         <ListItem key={key}>
                                             <ListItemText
-                                                primary={key}
+                                                className="text-gray-900 dark:text-gray-100"
+                                                primary={<span className="text-gray-900 dark:text-gray-100">{key}</span>}
                                                 secondary={
-                                                    <div>
+                                                    <div className="text-gray-700 dark:text-gray-300">
                                                         {formatValue(value)}
                                                         {variableByOutputName !== undefined && step.output_mappings && (
                                                             <>
                                                                 <br />
-                                                                <small>
-                                                                    Mapped to: {step.output_mappings[key as ToolOutputName]} = {formatValue(variableByOutputName)}
+                                                                <small className="text-gray-600 dark:text-gray-400">
+                                                                    Mapped to: <span className="text-gray-700 dark:text-gray-300">{step.output_mappings[key as ToolOutputName]} = {formatValue(variableByOutputName)}</span>
                                                                 </small>
                                                             </>
                                                         )}

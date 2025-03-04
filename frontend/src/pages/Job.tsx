@@ -92,15 +92,11 @@ const Job: React.FC = () => {
         console.log('Job.tsx handleStart called', {
             jobId: currentJob.job_id,
             status: currentJob.status,
-            needsInput,
-            workflowInputs,
-            inputValues
+            state: currentJob.state
         });
 
         if (needsInput) {
             if (!validateInputs()) return;
-
-            console.log('Running job with variables:', currentJob.job_id);
 
             try {
                 await runJob();
@@ -201,10 +197,10 @@ const Job: React.FC = () => {
                                         <h2 className="text-lg font-medium text-gray-900 dark:text-gray-50">
                                             Job History
                                         </h2>
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentJob.status === JobStatus.COMPLETED ? 'bg-green-100 text-green-800' :
-                                            currentJob.status === JobStatus.FAILED ? 'bg-red-100 text-red-800' :
-                                                currentJob.status === JobStatus.RUNNING ? 'bg-blue-100 text-blue-800' :
-                                                    'bg-gray-100 text-gray-800'
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentJob.status === JobStatus.COMPLETED ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                            currentJob.status === JobStatus.FAILED ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                                                currentJob.status === JobStatus.RUNNING ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                                                    'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
                                             }`}>
                                             {currentJob.status}
                                         </span>

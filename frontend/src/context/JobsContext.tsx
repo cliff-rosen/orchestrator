@@ -348,6 +348,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 state: job.state || [] // Ensure state property exists
             }, inputVariables);
 
+
             // Update UI
             const initialExecutionState: JobExecutionState = {
                 job_id: initialJob.job_id,
@@ -414,6 +415,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let currentState = initialState;
 
         while (currentState.currentStepIndex < job.steps.length) {
+
             const { updatedState, result, nextStepIndex } = await JobEngine.executeStep(
                 currentJob,
                 currentState.currentStepIndex
@@ -426,6 +428,13 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 started_at: new Date().toISOString(),
                 completed_at: new Date().toISOString()
             };
+
+
+            console.log('executeJobWithEngine state', {
+                updatedState,
+                result,
+                nextStepIndex
+            });
 
             // Update execution state in UI
             setState(prev => ({

@@ -17,7 +17,8 @@ import {
     EvaluationResult,
     StepExecutionResult as WorkflowStepResult
 } from '../../types/workflows';
-import { SchemaValueType, ValueType } from '../../types/schema';
+import { Schema, SchemaValueType, ValueType } from '../../types/schema';
+import { ToolParameterName, ToolOutputName } from '../../types/tools';
 
 /**
  * JobState represents the combined state of a job's variables and execution progress
@@ -36,7 +37,6 @@ export class JobEngine {
      * Execute a single step of a job
      * @param job The job to execute
      * @param stepIndex The index of the step to execute
-     * @param state The current job state
      * @returns The updated job state, step result, and next step index
      */
     static async executeStep(
@@ -44,10 +44,16 @@ export class JobEngine {
         stepIndex: number
     ): Promise<{
         updatedState: WorkflowVariable[];
-        result: WorkflowStepResult;
+        result: StepExecutionResult;
         nextStepIndex: number;
     }> {
         try {
+            // Validate variable mappings before execution
+            const validationErrors = this.validateVariableMappings(job);
+            if (validationErrors.length > 0) {
+                throw new Error(`Variable mapping validation failed:\n${validationErrors.join('\n')}`);
+            }
+
             // Convert job to workflow for WorkflowEngine
             const workflow = this.jobToWorkflow(job);
 
@@ -58,7 +64,6 @@ export class JobEngine {
             );
 
             // Process evaluation step if needed to add jump info to the step result
-            // This is now just for UI display purposes, as the actual next step is determined by executeStepSimple
             const jumpInfo = this.getJumpInfoFromResult(
                 job,
                 stepIndex,
@@ -71,7 +76,14 @@ export class JobEngine {
                 (result.outputs as any)._jump_info = jumpInfo;
             }
 
-            // Create step execution record
+            // Update job state with step outputs
+            const finalState = this.updateStateWithOutputs(
+                job,
+                job.steps[stepIndex],
+                result.outputs || {}
+            );
+
+            // Create step execution record with proper job step result type
             const stepExecutionResult: StepExecutionResult = {
                 ...result,
                 step_id: job.steps[stepIndex].step_id,
@@ -79,21 +91,24 @@ export class JobEngine {
                 completed_at: new Date().toISOString()
             };
 
-            // Return updated state and next step index
+            // Return updated state and next step index with proper step result type
             return {
-                updatedState,
-                result,
+                updatedState: finalState,
+                result: stepExecutionResult,
                 nextStepIndex
             };
         } catch (error) {
             // Handle step execution error
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-            // Create failed step result
-            const failedResult: WorkflowStepResult = {
+            // Create failed step result with proper job step result type
+            const failedResult: StepExecutionResult = {
                 success: false,
                 error: errorMessage,
-                outputs: {}
+                outputs: {},
+                step_id: job.steps[stepIndex].step_id,
+                started_at: new Date().toISOString(),
+                completed_at: new Date().toISOString()
             };
 
             return {
@@ -267,6 +282,26 @@ export class JobEngine {
             prompt_template_id: step.prompt_template_id
         })) as unknown as WorkflowStep[];
 
+        // Process state variables, ensuring no duplicates
+        const processedVarNames = new Set<string>();
+        const workflowState: WorkflowVariable[] = [];
+
+        // First add input variables
+        job.state.filter(v => v.io_type === 'input').forEach(variable => {
+            if (!processedVarNames.has(variable.name)) {
+                processedVarNames.add(variable.name);
+                workflowState.push(this.ensureWorkflowVariable(variable));
+            }
+        });
+
+        // Then add output variables
+        job.state.filter(v => v.io_type === 'output').forEach(variable => {
+            if (!processedVarNames.has(variable.name)) {
+                processedVarNames.add(variable.name);
+                workflowState.push(this.ensureWorkflowVariable(variable));
+            }
+        });
+
         // Create workflow
         return {
             workflow_id: job.workflow_id,
@@ -274,8 +309,20 @@ export class JobEngine {
             description: job.description,
             status: WorkflowStatus.PUBLISHED,
             steps: workflowSteps,
-            state: job.state || []
+            state: workflowState
         };
+    }
+
+    /**
+     * Ensure a variable has all required workflow variable properties
+     */
+    private static ensureWorkflowVariable(variable: Partial<WorkflowVariable>): WorkflowVariable {
+        return {
+            ...variable,
+            variable_id: variable.variable_id || variable.name,
+            schema: variable.schema || this.inferSchema(variable.value),
+            io_type: variable.io_type || 'output'
+        } as WorkflowVariable;
     }
 
     /**
@@ -308,29 +355,198 @@ export class JobEngine {
         job: Job,
         inputVariables: Record<WorkflowVariableName, SchemaValueType>
     ): Job {
-        // Convert input variables to workflow variables
-        const state = Object.entries(inputVariables).map(([name, value]) => {
-            // Determine the type safely
-            let type: ValueType = 'string';
-            if (typeof value === 'number') type = 'number';
-            else if (typeof value === 'boolean') type = 'boolean';
-            else if (typeof value === 'object') type = 'object';
+        // Validate input variables against job's input_variables definitions
+        const errors: string[] = [];
 
-            return {
+        if (job.input_variables) {
+            job.input_variables.forEach(inputVar => {
+                const value = inputVariables[inputVar.name];
+
+                // Check required inputs
+                if (inputVar.required && (value === undefined || value === null)) {
+                    errors.push(`Required input variable "${inputVar.name}" is missing`);
+                    return;
+                }
+
+                // Check type compatibility if value is provided
+                if (value !== undefined && value !== null) {
+                    const valueSchema = this.inferSchema(value);
+                    if (!this.isSchemaCompatible(inputVar.schema, valueSchema)) {
+                        errors.push(`Input variable "${inputVar.name}" type mismatch - expected ${JSON.stringify(inputVar.schema)}, got ${JSON.stringify(valueSchema)}`);
+                    }
+                }
+            });
+        }
+
+        if (errors.length > 0) {
+            throw new Error(`Input validation failed:\n${errors.join('\n')}`);
+        }
+
+        // Start with existing non-input state variables
+        const updatedState = job.state.filter(v => v.io_type !== 'input');
+
+        // Convert and add input variables
+        Object.entries(inputVariables).forEach(([name, value]) => {
+            // Find existing variable definition
+            const varDef = job.input_variables?.find(v => v.name === name);
+
+            const inputVar = {
                 name: name as WorkflowVariableName,
                 variable_id: name,
                 value: value,
                 io_type: 'input' as const,
-                schema: {
-                    type,
-                    is_array: Array.isArray(value)
-                }
+                schema: varDef?.schema || this.inferSchema(value)
             };
+
+            updatedState.push(inputVar);
         });
 
         return {
             ...job,
-            state: state
+            state: updatedState
+        };
+    }
+
+    /**
+     * Validates that all required variable mappings are present and of correct type
+     * @param job The job to validate
+     * @returns Array of validation errors, empty if valid
+     */
+    static validateVariableMappings(job: Job): string[] {
+        const errors: string[] = [];
+
+        // Check each step's parameter mappings
+        job.steps.forEach((step, stepIndex) => {
+            if (!step.tool) return;
+
+            // Validate parameter mappings
+            step.tool.signature.parameters.forEach(param => {
+                const mappedVar = step.parameter_mappings[param.name];
+                if (param.required && !mappedVar) {
+                    errors.push(`Step ${stepIndex + 1}: Required parameter "${param.name}" is not mapped`);
+                    return;
+                }
+
+                if (mappedVar) {
+                    const stateVar = job.state.find(v => v.name === mappedVar);
+                    if (!stateVar) {
+                        errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" is mapped to non-existent variable "${mappedVar}"`);
+                    } else if (!this.isSchemaCompatible(param.schema, stateVar.schema)) {
+                        errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" type mismatch - expected ${JSON.stringify(param.schema)}, got ${JSON.stringify(stateVar.schema)}`);
+                    }
+                }
+            });
+
+            // Validate output mappings
+            if (step.tool.signature.outputs) {
+                step.tool.signature.outputs.forEach(output => {
+                    const mappedVar = step.output_mappings[output.name];
+                    if (mappedVar) {
+                        const stateVar = job.state.find(v => v.name === mappedVar);
+                        if (stateVar && !this.isSchemaCompatible(output.schema, stateVar.schema)) {
+                            errors.push(`Step ${stepIndex + 1}: Output "${output.name}" type mismatch - expected ${JSON.stringify(output.schema)}, got ${JSON.stringify(stateVar.schema)}`);
+                        }
+                    }
+                });
+            }
+        });
+
+        return errors;
+    }
+
+    /**
+     * Check if two schemas are compatible
+     */
+    private static isSchemaCompatible(schema1: Schema, schema2: Schema): boolean {
+        // Basic type compatibility
+        if (schema1.type !== schema2.type) return false;
+
+        // Array compatibility
+        if (schema1.is_array !== schema2.is_array) return false;
+
+        return true;
+    }
+
+    /**
+     * Resolves input variables for a step from the job state
+     */
+    private static resolveStepInputs(
+        step: JobStep,
+        jobState: WorkflowVariable[]
+    ): Record<ToolParameterName, SchemaValueType> {
+        const inputs: Record<ToolParameterName, SchemaValueType> = {};
+
+        if (!step.tool || !step.parameter_mappings) return inputs;
+
+        // For each parameter mapping, resolve the variable reference
+        Object.entries(step.parameter_mappings).forEach(([paramName, varName]) => {
+            const stateVar = jobState.find(v => v.name === varName);
+            if (stateVar?.value !== undefined) {
+                inputs[paramName as ToolParameterName] = stateVar.value as SchemaValueType;
+            }
+        });
+
+        return inputs;
+    }
+
+    /**
+     * Updates job state with step outputs
+     */
+    private static updateStateWithOutputs(
+        job: Job,
+        step: JobStep,
+        outputs: Record<string, SchemaValueType>
+    ): WorkflowVariable[] {
+        const updatedState = [...job.state];
+
+        // Process each output mapping
+        Object.entries(step.output_mappings || {}).forEach(([outputName, varName]) => {
+            const outputValue = outputs[outputName];
+            if (outputValue === undefined) return;
+
+            // Find or create the state variable
+            let stateVar = updatedState.find(v => v.name === varName);
+            if (!stateVar) {
+                // Create new variable with inferred schema
+                stateVar = {
+                    name: varName,
+                    variable_id: varName,
+                    value: outputValue,
+                    io_type: 'output',
+                    schema: this.inferSchema(outputValue)
+                };
+                updatedState.push(stateVar);
+            } else {
+                // Update existing variable
+                stateVar.value = outputValue;
+            }
+        });
+
+        return updatedState;
+    }
+
+    /**
+     * Infer schema from a value
+     */
+    private static inferSchema(value: any): Schema {
+        let type: ValueType = 'string';
+        let isArray = Array.isArray(value);
+
+        if (value !== null && value !== undefined) {
+            if (typeof value === 'number') type = 'number';
+            else if (typeof value === 'boolean') type = 'boolean';
+            else if (typeof value === 'object') {
+                if (value && 'file_id' in value) {
+                    type = 'file';
+                } else if (!isArray) {
+                    type = 'object';
+                }
+            }
+        }
+
+        return {
+            type,
+            is_array: isArray
         };
     }
 } 
