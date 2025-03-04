@@ -414,27 +414,40 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let currentJob = job;
         let currentState = initialState;
 
-
         var maxSteps = 5;
         var stepCount = 0;
 
         while (currentState.currentStepIndex < job.steps.length && stepCount < maxSteps) {
             stepCount++;
 
-            console.log('########################################################');
+            console.log('#######        #########       #########       ########    ############');
             console.log('executeJobWithEngine stepCount', stepCount, currentState.currentStepIndex);
-            console.log('########################################################');
+
+            // Log state before execution to debug evaluation variables
+            console.log('State BEFORE execution:',
+                currentJob.state
+                    .filter(v => v.io_type === 'evaluation' || v.name.startsWith('jump_count_'))
+                    .map(v => ({ name: v.name, value: v.value, io_type: v.io_type }))
+            );
+
+            // Execute the current step
             const { updatedState, result, nextStepIndex } = await JobEngine.executeStep(
                 currentJob,
                 currentState.currentStepIndex
             );
 
-            console.log('executeJobWithEngine', {
-                result,
-                updatedState,
+            // Log state after execution to debug evaluation variables
+            console.log('State AFTER execution (from updatedState):',
+                updatedState
+                    .filter(v => v.io_type === 'evaluation' || v.name.startsWith('jump_count_'))
+                    .map(v => ({ name: v.name, value: v.value, io_type: v.io_type }))
+            );
+
+            console.log('executeJobWithEngine result:', {
+                success: result.success,
+                error: result.error,
                 nextStepIndex
             });
-
 
             // Convert workflow step result to job step result
             const jobStepResult: StepExecutionResult = {
@@ -444,19 +457,23 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 completed_at: new Date().toISOString()
             };
 
-            // Update job with step result
+            // Update job with step result and the updated state from executeStep
             currentJob = JobEngine.updateJobWithStepResult(
-                currentJob,
+                {
+                    ...currentJob,
+                    state: updatedState  // First update the state with the new variables
+                },
                 currentState.currentStepIndex,
                 result,
                 nextStepIndex
             );
 
-            // Update job state with new variables
-            currentJob = {
-                ...currentJob,
-                state: updatedState
-            };
+            // Log state after job update to ensure evaluation variables are preserved
+            console.log('State AFTER job update:',
+                currentJob.state
+                    .filter(v => v.io_type === 'evaluation' || v.name.startsWith('jump_count_'))
+                    .map(v => ({ name: v.name, value: v.value, io_type: v.io_type }))
+            );
 
             // Single state update with all changes
             setState(prev => ({

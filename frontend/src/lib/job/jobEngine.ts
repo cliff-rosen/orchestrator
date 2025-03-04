@@ -37,7 +37,13 @@ export class JobEngine {
      * Execute a single step of a job
      * @param job The job to execute
      * @param stepIndex The index of the step to execute
-     * @returns The updated job state, step result, and next step index
+     * @returns An object containing:
+     *   - updatedState: The complete updated workflow state with all variable changes
+     *   - result: The execution result for the step
+     *   - nextStepIndex: The index of the next step to execute (may not be sequential for jumps)
+     * 
+     * Note: The updatedState contains all state changes including variable updates from tool outputs
+     * and evaluation results. It should be used to update the job's state directly.
      */
     static async executeStep(
         job: Job,
@@ -57,31 +63,17 @@ export class JobEngine {
             // Convert job to workflow for WorkflowEngine
             const workflow = this.jobToWorkflow(job);
 
-            // Execute the step using WorkflowEngine
+            // Execute the step using WorkflowEngine - this already handles all state updates and jump logic
             const { updatedState, result, nextStepIndex } = await WorkflowEngine.executeStepSimple(
                 workflow,
                 stepIndex
             );
 
-            // Process evaluation step if needed to add jump info to the step result
-            const jumpInfo = this.getJumpInfoFromResult(
-                job,
-                stepIndex,
-                nextStepIndex,
-                result
-            );
-
-            // Add jump info to the step result if it's an evaluation step
-            if (jumpInfo && job.steps[stepIndex].step_type === WorkflowStepType.EVALUATION && result.outputs) {
-                (result.outputs as any)._jump_info = jumpInfo;
-            }
-
-            // Update job state with step outputs
-            const finalState = this.updateStateWithOutputs(
-                job,
-                job.steps[stepIndex],
-                result.outputs || {}
-            );
+            console.log('executeStep', {
+                updatedState,
+                result,
+                nextStepIndex
+            });
 
             // Create step execution record with proper job step result type
             const stepExecutionResult: StepExecutionResult = {
@@ -91,9 +83,10 @@ export class JobEngine {
                 completed_at: new Date().toISOString()
             };
 
-            // Return updated state and next step index with proper step result type
+            // Return the results directly from executeStepSimple
+            // No need for additional processing as it's already been done
             return {
-                updatedState: finalState,
+                updatedState,
                 result: stepExecutionResult,
                 nextStepIndex
             };
@@ -111,6 +104,7 @@ export class JobEngine {
                 completed_at: new Date().toISOString()
             };
 
+            // Return the current job state - this preserves all variables including evaluation variables
             return {
                 updatedState: job.state,
                 result: failedResult,
@@ -240,16 +234,9 @@ export class JobEngine {
         const processedVarNames = new Set<string>();
         const workflowState: WorkflowVariable[] = [];
 
-        // First add input variables
-        job.state.filter(v => v.io_type === 'input').forEach(variable => {
-            if (!processedVarNames.has(variable.name)) {
-                processedVarNames.add(variable.name);
-                workflowState.push(this.ensureWorkflowVariable(variable));
-            }
-        });
-
-        // Then add output variables
-        job.state.filter(v => v.io_type === 'output').forEach(variable => {
+        // Include ALL variables from job state, regardless of type
+        // This ensures evaluation variables and jump counters are preserved
+        job.state.forEach(variable => {
             if (!processedVarNames.has(variable.name)) {
                 processedVarNames.add(variable.name);
                 workflowState.push(this.ensureWorkflowVariable(variable));
@@ -269,6 +256,7 @@ export class JobEngine {
 
     /**
      * Ensure a variable has all required workflow variable properties
+     * Preserves the original io_type if present, especially important for evaluation variables
      */
     private static ensureWorkflowVariable(variable: Partial<WorkflowVariable>): WorkflowVariable {
         return {
