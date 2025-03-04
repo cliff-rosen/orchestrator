@@ -5,6 +5,7 @@ import { useValueFormatter } from '../../hooks/useValueFormatter';
 import { Box, Typography, List, ListItem, ListItemText, Divider } from '@mui/material';
 import { WorkflowVariableName } from '../../types/workflows';
 import { SchemaValueType } from '../../types/schema';
+import VariableRenderer from '../common/VariableRenderer';
 
 interface JobExecutionHistoryProps {
     job: Job;
@@ -31,19 +32,14 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
 
     // Function to format timestamp
     const formatTimestamp = (timestamp: string | undefined) => {
-        if (!timestamp) return '';
-        return new Date(timestamp).toLocaleTimeString();
+        if (!timestamp) return 'Not started';
+        const date = new Date(timestamp);
+        return date.toLocaleString();
     };
 
-    // Find the corresponding step definition from the job
-    const stepDefinition = job.steps.find(step => step.step_id === result.step_id);
-
-    if (!stepDefinition) {
-        return null; // Skip if step definition not found
-    }
-
-    const hasOutputs = result.outputs && Object.keys(result.outputs).length > 0;
+    // Get step definition from job
     const stepIndex = job.steps.findIndex(s => s.step_id === result.step_id);
+    const stepDefinition = job.steps[stepIndex] || { step_type: 'UNKNOWN' };
 
     // Get input mappings and values
     const getInputMappings = () => {
@@ -52,15 +48,16 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
         }
 
         return Object.entries(stepDefinition.parameter_mappings).map(([paramName, varName]) => {
-            // Find the variable in job state
-            const stateVar = job.state.find(v => v.name === varName);
             const paramDef = stepDefinition.tool?.signature.parameters.find(p => p.name === paramName);
+
+            // Get the input variable value from the job state
+            const varValue = job.state?.find(v => v.name === varName)?.value;
 
             return {
                 paramName,
                 varName,
                 paramLabel: paramDef?.description || paramName,
-                value: stateVar?.value
+                value: varValue
             };
         });
     };
@@ -71,21 +68,18 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
             return [];
         }
 
-        // For debugging
         console.log('Step output mappings:', {
-            stepId: stepDefinition.step_id,
-            toolName: stepDefinition.tool?.name,
+            stepDefinition,
+            stepId: result.step_id,
+            outputs: result.outputs,
             outputMappings: stepDefinition.output_mappings,
-            resultOutputs: result.outputs
         });
 
-        const outputs = result.outputs || {};
-
         return Object.entries(stepDefinition.output_mappings).map(([outputName, varName]) => {
-            // Try multiple strategies to find the output value
+            // Get output value
             let outputValue;
 
-            outputValue = outputs[outputName as WorkflowVariableName];
+            outputValue = result.outputs?.[outputName as WorkflowVariableName];
 
             const outputDef = stepDefinition.tool?.signature.outputs.find(o => o.name === outputName);
 
@@ -93,7 +87,8 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                 outputName,
                 varName,
                 outputLabel: outputDef?.description || outputName,
-                value: outputValue
+                value: outputValue,
+                schema: outputDef?.schema
             };
         });
     };
@@ -124,21 +119,16 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                         <span className="text-xs text-gray-500 dark:text-gray-400">
                             ({formatTimestamp(result.started_at)})
                         </span>
-                        <span className="text-xs ml-2">
-                            {stepDefinition.step_type === 'EVALUATION' ? 'Evaluation Step' : stepDefinition.tool?.name}
-                        </span>
                     </div>
-
-                    {/* Status */}
-                    <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-1 rounded ${result.success
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                            }`}>
-                            {result.success ? 'Success' : 'Failed'}
-                        </span>
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                            <span className={`inline-block w-2 h-2 rounded-full ${result.success ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                            <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                                {result.success ? 'Success' : 'Failed'}
+                            </span>
+                        </div>
                         <svg
-                            className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            className={`h-5 w-5 text-gray-400 dark:text-gray-500 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -148,157 +138,135 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                     </div>
                 </button>
 
-                {/* Details Panel */}
+                {/* Expanded Content */}
                 {isExpanded && (
-                    <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-                        {/* Error Message */}
-                        {result.error && (
-                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900 rounded">
-                                <h4 className="text-xs font-medium text-red-800 dark:text-red-300 mb-1">
-                                    Error
-                                </h4>
-                                <p className="text-sm text-red-800 dark:text-red-300">
-                                    {result.error}
-                                </p>
+                    <div className="px-4 pb-4 pt-2 space-y-4">
+                        {/* Execution Time */}
+                        <div className="flex gap-4 text-sm">
+                            <div>
+                                <span className="font-medium text-gray-600 dark:text-gray-400">Started: </span>
+                                <span className="text-gray-800 dark:text-gray-200">{formatTimestamp(result.started_at)}</span>
+                            </div>
+                            <div>
+                                <span className="font-medium text-gray-600 dark:text-gray-400">Completed: </span>
+                                <span className="text-gray-800 dark:text-gray-200">{formatTimestamp(result.completed_at)}</span>
+                            </div>
+                        </div>
+
+                        {/* Error Message (if any) */}
+                        {!result.success && result.error && (
+                            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                                <h4 className="text-sm font-medium mb-1 text-red-800 dark:text-red-300">Error</h4>
+                                <p className="text-sm text-red-700 dark:text-red-400">{result.error}</p>
                             </div>
                         )}
 
-                        {/* Input Parameters */}
+                        {/* Input Mappings */}
                         {stepDefinition.step_type === 'ACTION' && inputMappings.length > 0 && (
-                            <div className="mb-4">
-                                <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Input Parameters</h4>
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-50 dark:bg-gray-600">
-                                        <tr>
-                                            <th className="text-left p-2 text-gray-700 dark:text-gray-100">Parameter</th>
-                                            <th className="text-left p-2 text-gray-700 dark:text-gray-100">Variable</th>
-                                            <th className="text-left p-2 text-gray-700 dark:text-gray-100">Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {inputMappings.map((input, idx) => (
-                                            <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
-                                                <td className="p-2 text-gray-700 dark:text-gray-200">{input.paramLabel}</td>
-                                                <td className="p-2 text-gray-700 dark:text-gray-200">{String(input.varName)}</td>
-                                                <td className="p-2 text-gray-700 dark:text-gray-200">{String(input.value)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div>
+                                <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Input Mappings</h4>
+                                <div className="space-y-3 pl-2 border-l-2 border-gray-200 dark:border-gray-700">
+                                    {inputMappings.map((input, idx) => (
+                                        <div key={idx} className="space-y-1">
+                                            <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                                                <span className="font-medium">{input.paramLabel}</span>
+                                                <span className="mx-2 text-gray-400 dark:text-gray-500">←</span>
+                                                <span className="text-blue-600 dark:text-blue-400">{input.varName}</span>
+                                            </div>
+                                            <div className="pl-4">
+                                                <VariableRenderer value={input.value} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
-                        {/* Evaluation Step Details */}
+                        {/* Step Type Specific: Evaluation */}
                         {stepDefinition.step_type === 'EVALUATION' && result.outputs && (
-                            <div className="mb-4">
-                                <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Evaluation Result</h4>
-
-                                {/* Debug output for evaluation results */}
-                                <div style={{ display: 'none' }}>
-                                    {(() => {
-                                        console.log('Evaluation outputs:', {
-                                            stepId: stepDefinition.step_id,
-                                            outputs: result.outputs,
-                                            conditionMet: getOutputValue(result.outputs, 'condition_met'),
-                                            action: getOutputValue(result.outputs, 'action'),
-                                            targetStepIndex: getOutputValue(result.outputs, 'target_step_index')
-                                        });
-                                        return null;
-                                    })()}
-                                </div>
-
-                                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded">
-                                    <p className="mb-2">
+                            <div>
+                                <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Condition Evaluation</h4>
+                                <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-md">
+                                    <div className="text-md font-medium text-gray-700 dark:text-gray-300">
                                         {getOutputValue(result.outputs, 'condition_met') === 'none' ? 'No conditions met' : 'Condition met'}
-                                    </p>
+                                    </div>
                                     {getOutputValue(result.outputs, 'condition_met') !== 'none' && (
-                                        <>
-                                            <Divider className="my-2" />
-                                            <h5 className="text-sm font-medium mb-1 text-gray-800 dark:text-gray-100">Condition Details</h5>
-                                            <p className="ml-2 mb-1">
-                                                Variable: {getOutputValue(result.outputs, 'variable_name')} = {getOutputValue(result.outputs, 'variable_value')}
-                                            </p>
-                                            <p className="ml-2 mb-2">
-                                                Condition: {getOutputValue(result.outputs, 'operator')} {getOutputValue(result.outputs, 'comparison_value')}
-                                            </p>
-                                            <h5 className="text-sm font-medium mb-1 text-gray-800 dark:text-gray-100">Action</h5>
-                                            <p className="ml-2">
-                                                {(() => {
-                                                    const action = getOutputValue(result.outputs, 'action').toLowerCase();
-                                                    const targetStepIndex = getOutputValue(result.outputs, 'target_step_index');
+                                        <div className="mt-2 space-y-1 text-sm">
+                                            <div>
+                                                <span className="font-medium text-gray-600 dark:text-gray-400">Variable: </span>
+                                                <span className="text-gray-800 dark:text-gray-200">
+                                                    Variable: {getOutputValue(result.outputs, 'variable_name')} = {getOutputValue(result.outputs, 'variable_value')}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-gray-600 dark:text-gray-400">Condition: </span>
+                                                <span className="text-gray-800 dark:text-gray-200">
+                                                    Condition: {getOutputValue(result.outputs, 'operator')} {getOutputValue(result.outputs, 'comparison_value')}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-gray-600 dark:text-gray-400">Action: </span>
+                                                <span className="text-gray-800 dark:text-gray-200">
+                                                    {(() => {
+                                                        const action = getOutputValue(result.outputs, 'action').toLowerCase();
+                                                        const targetStepIndex = getOutputValue(result.outputs, 'target_step_index');
 
-                                                    // Check if this is a jump action
-                                                    if (action === 'jump' || (targetStepIndex && targetStepIndex !== '' && targetStepIndex !== '-1')) {
-                                                        return `Jump to step ${parseInt(targetStepIndex) + 1}`;
-                                                    }
-
-                                                    // Check if this is an end action
-                                                    if (action === 'end') {
-                                                        return 'End workflow';
-                                                    }
-
-                                                    // Default to continue
-                                                    return 'Continue to next step';
-                                                })()}
-                                            </p>
+                                                        if (action === 'jump' && targetStepIndex) {
+                                                            const targetStepNumber = parseInt(targetStepIndex) + 1;
+                                                            return `Jump to step ${targetStepNumber}`;
+                                                        } else if (action === 'end') {
+                                                            return 'End workflow';
+                                                        } else {
+                                                            return 'Continue to next step';
+                                                        }
+                                                    })()}
+                                                </span>
+                                            </div>
                                             {getOutputValue(result.outputs, 'reason') && (
-                                                <p className="ml-2 mt-1">
-                                                    Reason: {getOutputValue(result.outputs, 'reason')}
-                                                </p>
+                                                <div>
+                                                    <span className="font-medium text-gray-600 dark:text-gray-400">Reason: </span>
+                                                    <span className="text-gray-800 dark:text-gray-200">
+                                                        Reason: {getOutputValue(result.outputs, 'reason')}
+                                                    </span>
+                                                </div>
                                             )}
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             </div>
                         )}
 
-                        {/* Tool Outputs */}
+                        {/* Output Mappings */}
                         {stepDefinition.step_type === 'ACTION' && outputMappings.length > 0 && (
-                            <div className="mb-4">
+                            <div>
                                 <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Output Mappings</h4>
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-50 dark:bg-gray-600">
-                                        <tr>
-                                            <th className="text-left p-2 text-gray-700 dark:text-gray-100">Tool Output</th>
-                                            <th className="text-left p-2 text-gray-700 dark:text-gray-100">Variable</th>
-                                            <th className="text-left p-2 text-gray-700 dark:text-gray-100">Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {outputMappings.map((output, idx) => (
-                                            <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
-                                                <td className="p-2 text-gray-700 dark:text-gray-200">{output.outputLabel}</td>
-                                                <td className="p-2 text-gray-700 dark:text-gray-200">{String(output.varName)}</td>
-                                                <td className="p-2 text-gray-700 dark:text-gray-200">{String(output.value)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                <div className="space-y-3 pl-2 border-l-2 border-gray-200 dark:border-gray-700">
+                                    {outputMappings.map((output, idx) => (
+                                        <div key={idx} className="space-y-1">
+                                            <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                                                <span className="font-medium">{output.outputLabel}</span>
+                                                <span className="mx-2 text-gray-400 dark:text-gray-500">→</span>
+                                                <span className="text-blue-600 dark:text-blue-400">{output.varName}</span>
+                                            </div>
+                                            <div className="pl-4">
+                                                <VariableRenderer value={output.value} schema={output.schema} isMarkdown={true} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
                         {/* Raw Outputs (for debugging or when no mappings exist) */}
-                        {stepDefinition.step_type === 'ACTION' && hasOutputs && (
-                            <div className="mb-4">
-                                <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Raw Outputs</h4>
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-50 dark:bg-gray-600">
-                                        <tr>
-                                            <th className="text-left p-2 text-gray-700 dark:text-gray-100">Name</th>
-                                            <th className="text-left p-2 text-gray-700 dark:text-gray-100">Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {Object.entries(result.outputs || {}).map(([key, value], idx) => (
-                                            <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
-                                                <td className="p-2 text-gray-700 dark:text-gray-200">{key}</td>
-                                                <td className="p-2 text-gray-700 dark:text-gray-200">{String(value)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                        {result.outputs && Object.keys(result.outputs).length > 0 &&
+                            stepDefinition.step_type === 'ACTION' && outputMappings.length === 0 && (
+                                <div>
+                                    <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Raw Output</h4>
+                                    <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-md">
+                                        <VariableRenderer value={result.outputs} />
+                                    </div>
+                                </div>
+                            )}
                     </div>
                 )}
             </div>

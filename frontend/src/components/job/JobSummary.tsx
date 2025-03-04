@@ -1,6 +1,7 @@
 import React from 'react';
 import { Job } from '../../types/jobs';
 import { useValueFormatter } from '../../hooks/useValueFormatter';
+import VariableRenderer from '../common/VariableRenderer';
 
 interface JobSummaryProps {
     job: Job;
@@ -66,23 +67,22 @@ export const JobSummary: React.FC<JobSummaryProps> = ({ job }) => {
                     <h3 className="text-md font-medium mb-3 text-gray-900 dark:text-gray-100">
                         Input Variables
                     </h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-100 dark:bg-gray-600">
-                                <tr>
-                                    <th className="text-left p-2 border-b border-gray-200 dark:border-gray-500 text-gray-700 dark:text-gray-100">Name</th>
-                                    <th className="text-left p-2 border-b border-gray-200 dark:border-gray-500 text-gray-700 dark:text-gray-100">Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {inputVariables.map((variable, index) => (
-                                    <tr key={index} className="border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                        <td className="p-2 font-medium text-gray-700 dark:text-gray-200">{String(variable.name)}</td>
-                                        <td className="p-2 text-gray-700 dark:text-gray-200">{formatValue(variable.value)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <div className="space-y-4">
+                        {inputVariables.map((variable, index) => (
+                            <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+                                <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-700">
+                                    <span className="font-medium text-gray-700 dark:text-gray-200">
+                                        {String(variable.name)}
+                                    </span>
+                                </div>
+                                <div className="p-3">
+                                    <VariableRenderer
+                                        value={variable.value}
+                                        schema={variable.schema}
+                                    />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
@@ -93,23 +93,23 @@ export const JobSummary: React.FC<JobSummaryProps> = ({ job }) => {
                     <h3 className="text-md font-medium mb-3 text-gray-900 dark:text-gray-100">
                         Final Outputs
                     </h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-100 dark:bg-gray-600">
-                                <tr>
-                                    <th className="text-left p-2 border-b border-gray-200 dark:border-gray-500 text-gray-700 dark:text-gray-100">Name</th>
-                                    <th className="text-left p-2 border-b border-gray-200 dark:border-gray-500 text-gray-700 dark:text-gray-100">Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {outputVariables.map((variable, index) => (
-                                    <tr key={index} className="border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                        <td className="p-2 font-medium text-gray-700 dark:text-gray-200">{String(variable.name)}</td>
-                                        <td className="p-2 text-gray-700 dark:text-gray-200">{formatValue(variable.value)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <div className="space-y-4">
+                        {outputVariables.map((variable, index) => (
+                            <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+                                <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-700">
+                                    <span className="font-medium text-gray-700 dark:text-gray-200">
+                                        {String(variable.name)}
+                                    </span>
+                                </div>
+                                <div className="p-3">
+                                    <VariableRenderer
+                                        value={variable.value}
+                                        schema={variable.schema}
+                                        isMarkdown={true}
+                                    />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

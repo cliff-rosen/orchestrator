@@ -7,6 +7,7 @@ import { Box, Typography, List, ListItem, ListItemText } from '@mui/material';
 import { WorkflowVariableName } from '../../types/workflows';
 import { SchemaValueType } from '../../types/schema';
 import { ToolOutputName } from '../../types/tools';
+import VariableRenderer from '../common/VariableRenderer';
 
 interface JobStepCardProps {
     job: Job;
@@ -181,25 +182,20 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ job, step, isExpanded, onTogg
                             <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
                                 Input Parameters
                             </h4>
-                            <div className="space-y-1">
+                            <div className="space-y-3">
                                 {Object.entries(step.parameter_mappings).map(([key, mapping]) => {
                                     const value = getInputValue(mapping);
-                                    const formattedValue = formatValue(value, true);
-                                    const isComplexValue = React.isValidElement(formattedValue);
 
                                     return (
-                                        <div key={key} className="text-sm grid grid-cols-[150px_30px_1fr] items-start">
-                                            <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
-                                            <span className="text-gray-400 dark:text-gray-500 text-center">=</span>
-                                            {isComplexValue ? (
-                                                <div className="min-w-0 text-gray-700 dark:text-gray-100">
-                                                    {formattedValue}
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-700 dark:text-gray-100">
-                                                    {formattedValue}
-                                                </span>
-                                            )}
+                                        <div key={key} className="text-sm">
+                                            <div className="flex items-center mb-1">
+                                                <span className="font-medium text-gray-600 dark:text-gray-300">{key}</span>
+                                                <span className="mx-2 text-gray-400 dark:text-gray-500">=</span>
+                                                <span className="text-blue-600 dark:text-blue-400">{mapping}</span>
+                                            </div>
+                                            <div className="pl-4">
+                                                <VariableRenderer value={value} />
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -209,37 +205,47 @@ const JobStepCard: React.FC<JobStepCardProps> = ({ job, step, isExpanded, onTogg
 
                     {/* Tool Outputs */}
                     {step.step_type === 'ACTION' && step.latest_execution?.outputs && Object.keys(step.latest_execution.outputs || {}).length > 0 && (
-                        <Box>
-                            <Typography variant="subtitle2" gutterBottom className="text-gray-900 dark:text-gray-100">
+                        <div>
+                            <h4 className="text-xs uppercase font-medium text-gray-500 dark:text-gray-400 mb-2">
                                 Outputs
-                            </Typography>
-                            <List>
+                            </h4>
+                            <div className="space-y-4">
                                 {Object.entries(step.latest_execution.outputs).map(([key, value]) => {
                                     const variableByOutputName = job.state.find(v => v.name === step.output_mappings?.[key as ToolOutputName])?.value;
+                                    const outputSchema = step.tool?.signature.outputs.find(o => o.name === key)?.schema;
+
                                     return (
-                                        <ListItem key={key}>
-                                            <ListItemText
-                                                className="text-gray-900 dark:text-gray-100"
-                                                primary={<span className="text-gray-900 dark:text-gray-100">{key}</span>}
-                                                secondary={
-                                                    <div className="text-gray-700 dark:text-gray-300">
-                                                        {formatValue(value)}
-                                                        {variableByOutputName !== undefined && step.output_mappings && (
-                                                            <>
-                                                                <br />
-                                                                <small className="text-gray-600 dark:text-gray-400">
-                                                                    Mapped to: <span className="text-gray-700 dark:text-gray-300">{step.output_mappings[key as ToolOutputName]} = {formatValue(variableByOutputName)}</span>
-                                                                </small>
-                                                            </>
-                                                        )}
+                                        <div key={key} className="border border-gray-200 dark:border-gray-700 rounded-md p-3">
+                                            <div className="mb-2">
+                                                <span className="font-medium text-gray-700 dark:text-gray-200">{key}</span>
+                                                {step.output_mappings?.[key as ToolOutputName] && (
+                                                    <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                                                        → {step.output_mappings[key as ToolOutputName]}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="mb-2">
+                                                <VariableRenderer
+                                                    value={value}
+                                                    schema={outputSchema}
+                                                    isMarkdown={true}
+                                                />
+                                            </div>
+
+                                            {variableByOutputName !== undefined && step.output_mappings && (
+                                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                                        Variable value after mapping:
                                                     </div>
-                                                }
-                                            />
-                                        </ListItem>
+                                                    <VariableRenderer value={variableByOutputName} />
+                                                </div>
+                                            )}
+                                        </div>
                                     );
                                 })}
-                            </List>
-                        </Box>
+                            </div>
+                        </div>
                     )}
                 </div>
             )}
