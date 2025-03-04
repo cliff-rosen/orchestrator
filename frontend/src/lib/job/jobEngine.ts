@@ -1,6 +1,5 @@
 import {
     Job,
-    JobStep,
     JobStatus,
     StepExecutionResult
 } from '../../types/jobs';
@@ -14,11 +13,9 @@ import {
     WorkflowVariableName,
     WorkflowStepType,
     WorkflowStatus,
-    EvaluationResult,
     StepExecutionResult as WorkflowStepResult
 } from '../../types/workflows';
 import { Schema, SchemaValueType, ValueType } from '../../types/schema';
-import { ToolParameterName, ToolOutputName } from '../../types/tools';
 
 /**
  * JobState represents the combined state of a job's variables and execution progress
@@ -54,6 +51,9 @@ export class JobEngine {
         nextStepIndex: number;
     }> {
         try {
+            // First check and fix any missing variables
+            job = this.checkAndFixMissingVariables(job);
+
             // Validate variable mappings before execution
             const validationErrors = this.validateVariableMappings(job, stepIndex);
             if (validationErrors.length > 0) {
@@ -84,7 +84,6 @@ export class JobEngine {
             };
 
             // Return the results directly from executeStepSimple
-            // No need for additional processing as it's already been done
             return {
                 updatedState,
                 result: stepExecutionResult,
@@ -113,41 +112,6 @@ export class JobEngine {
         }
     }
 
-    /**
-     * Get jump information from a step result
-     * This is used for UI display purposes
-     */
-    private static getJumpInfoFromResult(
-        job: Job,
-        stepIndex: number,
-        nextStepIndex: number,
-        stepResult: WorkflowStepResult
-    ): {
-        is_jump: boolean;
-        from_step: number;
-        to_step: number;
-        reason: string;
-    } | undefined {
-        // Only process evaluation steps
-        if (job.steps[stepIndex]?.step_type !== WorkflowStepType.EVALUATION) {
-            return undefined;
-        }
-
-        // Check if this is a jump (not just going to the next step)
-        const isJump = nextStepIndex !== stepIndex + 1;
-
-        // Get reason from step result
-        const outputs = stepResult.outputs || {};
-        const reasonValue = outputs['reason' as WorkflowVariableName];
-        const reason = typeof reasonValue === 'string' ? reasonValue : 'No reason provided';
-
-        return {
-            is_jump: isJump,
-            from_step: stepIndex,
-            to_step: nextStepIndex,
-            reason
-        };
-    }
 
     /**
      * Update a job with the results of a step execution
@@ -157,7 +121,7 @@ export class JobEngine {
      * @param nextStepIndex The index of the next step to execute
      * @returns The updated job
      */
-    static updateJobWithStepResult(
+    static getUpdatedJobWithStepResult(
         job: Job,
         stepIndex: number,
         result: WorkflowStepResult,
@@ -350,16 +314,79 @@ export class JobEngine {
     }
 
     /**
+     * Checks for missing variables in job state and attempts to fix them
+     * @param job The job to check
+     * @returns The job with fixed state if possible
+     */
+    static checkAndFixMissingVariables(job: Job): Job {
+        // Create a map of all variables that should be created by output mappings
+        const expectedVariables = new Map<string, { stepId: string, outputName: string }>();
+
+        // Collect all output mappings from all steps
+        job.steps.forEach(step => {
+            if (step.output_mappings) {
+                Object.entries(step.output_mappings).forEach(([outputName, varName]) => {
+                    expectedVariables.set(varName as string, {
+                        stepId: step.step_id,
+                        outputName
+                    });
+                });
+            }
+        });
+
+        // Check if any expected variables are missing from job state
+        const missingVariables = Array.from(expectedVariables.keys())
+            .filter(varName => !job.state.some(v => v.name === varName));
+
+        if (missingVariables.length === 0) {
+            return job; // No missing variables, return job as is
+        }
+
+        console.log('Found missing variables in job state:', missingVariables);
+
+        // Create a copy of job state to modify
+        const updatedState = [...job.state];
+
+        // Add placeholder values for missing variables
+        missingVariables.forEach(varName => {
+            const { stepId, outputName } = expectedVariables.get(varName)!;
+            console.log(`Adding placeholder for missing variable "${varName}" from step ${stepId}, output "${outputName}"`);
+
+            // Create a placeholder variable with empty string value
+            updatedState.push({
+                name: varName as WorkflowVariableName,
+                variable_id: varName,
+                value: '',
+                io_type: 'output',
+                schema: { type: 'string', is_array: false }
+            });
+        });
+
+        return {
+            ...job,
+            state: updatedState
+        };
+    }
+
+    /**
      * Validates that all required variable mappings are present and of correct type
      * @param job The job to validate
      * @param stepIndex The index of the step to validate
      * @returns Array of validation errors, empty if valid
      */
     static validateVariableMappings(job: Job, stepIndex: number): string[] {
+        // We no longer need to call checkAndFixMissingVariables here
+        // since it's already called in executeStep
+
         const errors: string[] = [];
         const step = job.steps[stepIndex];
 
         if (!step.tool) return errors;
+
+        // Debug logging to help diagnose the issue
+        console.log(`Validating variable mappings for step ${stepIndex + 1} (${step.step_id}):`);
+        console.log('- Parameter mappings:', step.parameter_mappings);
+        console.log('- Current job state variables:', job.state.map(v => v.name));
 
         // Validate parameter mappings for the current step
         step.tool.signature.parameters.forEach(param => {
@@ -375,6 +402,7 @@ export class JobEngine {
                 // Check if the variable exists in job state
                 if (!stateVar) {
                     errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" is mapped to variable "${mappedVar}" which does not exist in job state`);
+                    console.log(`ERROR: Variable "${mappedVar}" not found in job state for parameter "${param.name}"`);
                 } else if (!this.isSchemaCompatible(param.schema, stateVar.schema)) {
                     errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" type mismatch - expected ${JSON.stringify(param.schema)}, got ${JSON.stringify(stateVar.schema)}`);
                 }
@@ -404,42 +432,6 @@ export class JobEngine {
         return true;
     }
 
-
-    /**
-     * Updates job state with step outputs
-     */
-    private static updateStateWithOutputs(
-        job: Job,
-        step: JobStep,
-        outputs: Record<string, SchemaValueType>
-    ): WorkflowVariable[] {
-        const updatedState = [...job.state];
-
-        // Process each output mapping
-        Object.entries(step.output_mappings || {}).forEach(([outputName, varName]) => {
-            const outputValue = outputs[outputName];
-            if (outputValue === undefined) return;
-
-            // Find or create the state variable
-            let stateVar = updatedState.find(v => v.name === varName);
-            if (!stateVar) {
-                // Create new variable with inferred schema
-                stateVar = {
-                    name: varName,
-                    variable_id: varName,
-                    value: outputValue,
-                    io_type: 'output',
-                    schema: this.inferSchema(outputValue)
-                };
-                updatedState.push(stateVar);
-            } else {
-                // Update existing variable
-                stateVar.value = outputValue;
-            }
-        });
-
-        return updatedState;
-    }
 
     /**
      * Infer schema from a value

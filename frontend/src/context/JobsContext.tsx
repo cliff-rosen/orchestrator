@@ -479,10 +479,10 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
 
             // Update job with step result and the updated state from executeStep
-            currentJob = JobEngine.updateJobWithStepResult(
+            currentJob = JobEngine.getUpdatedJobWithStepResult(
                 {
                     ...currentJob,
-                    state: updatedState  // First update the state with the new variables
+                    state: updatedState
                 },
                 currentState.currentStepIndex,
                 result,
