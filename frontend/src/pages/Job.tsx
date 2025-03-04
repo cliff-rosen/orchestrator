@@ -5,7 +5,7 @@ import { useWorkflows } from '../context/WorkflowContext';
 
 import { JobStatus } from '../types/jobs';
 import { JobProgress } from '../components/job/JobProgress';
-import { JobStepDetails } from '../components/job/JobStepDetails';
+import { JobExecutionHistory } from '../components/job/JobExecutionHistory';
 import { JobLiveOutput } from '../components/job/JobLiveOutput';
 import { JobStepsList } from '../components/job/JobStepsList';
 import { JobInputForm } from '../components/job/JobInputForm';
@@ -207,7 +207,7 @@ const Job: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="p-4">
-                                    <JobStepDetails job={currentJob} />
+                                    <JobExecutionHistory job={currentJob} />
                                 </div>
                             </div>
                         </>

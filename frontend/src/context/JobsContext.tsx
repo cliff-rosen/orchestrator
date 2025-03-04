@@ -157,7 +157,43 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 //throw new Error(error.message);
             }
             //console.log('loadJob found job', job);
-            setState(prev => ({ ...prev, currentJob: job, isLoading: false }));
+
+            // For completed or failed jobs, initialize executionState with step results from job.steps[].executions
+            let executionState: JobExecutionState | undefined = undefined;
+
+            if (job && (job.status === JobStatus.COMPLETED || job.status === JobStatus.FAILED)) {
+                // Collect all step execution results
+                const allExecutions: StepExecutionResult[] = [];
+                job.steps.forEach(step => {
+                    if (step.executions && step.executions.length > 0) {
+                        allExecutions.push(...step.executions);
+                    } else if (step.latest_execution) {
+                        allExecutions.push(step.latest_execution);
+                    }
+                });
+
+                // Sort by started_at timestamp
+                const sortedExecutions = allExecutions.sort((a, b) =>
+                    new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
+                );
+
+                executionState = {
+                    job_id: job.job_id,
+                    current_step_index: job.execution_progress?.current_step || 0,
+                    total_steps: job.steps.length,
+                    is_paused: false,
+                    live_output: job.status === JobStatus.COMPLETED ? 'Job completed successfully' : 'Job failed',
+                    status: job.status,
+                    step_results: sortedExecutions
+                };
+            }
+
+            setState(prev => ({
+                ...prev,
+                currentJob: job,
+                executionState,
+                isLoading: false
+            }));
         } catch (error) {
             const jobError: JobError = {
                 message: error instanceof Error ? error.message : 'Failed to load job',
@@ -379,7 +415,6 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setState(prev => ({
                 ...prev,
                 currentJob: finalJob,
-                executionState: undefined
             }));
 
             // Navigate to job details page
@@ -414,7 +449,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let currentJob = job;
         let currentState = initialState;
 
-        var maxSteps = 5;
+        var maxSteps = 100;
         var stepCount = 0;
 
         while (currentState.currentStepIndex < job.steps.length && stepCount < maxSteps) {
@@ -423,24 +458,10 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('#######        #########       #########       ########    ############');
             console.log('executeJobWithEngine stepCount', stepCount, currentState.currentStepIndex);
 
-            // Log state before execution to debug evaluation variables
-            console.log('State BEFORE execution:',
-                currentJob.state
-                    .filter(v => v.io_type === 'evaluation' || v.name.startsWith('jump_count_'))
-                    .map(v => ({ name: v.name, value: v.value, io_type: v.io_type }))
-            );
-
             // Execute the current step
             const { updatedState, result, nextStepIndex } = await JobEngine.executeStep(
                 currentJob,
                 currentState.currentStepIndex
-            );
-
-            // Log state after execution to debug evaluation variables
-            console.log('State AFTER execution (from updatedState):',
-                updatedState
-                    .filter(v => v.io_type === 'evaluation' || v.name.startsWith('jump_count_'))
-                    .map(v => ({ name: v.name, value: v.value, io_type: v.io_type }))
             );
 
             console.log('executeJobWithEngine result:', {
@@ -468,12 +489,6 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 nextStepIndex
             );
 
-            // Log state after job update to ensure evaluation variables are preserved
-            console.log('State AFTER job update:',
-                currentJob.state
-                    .filter(v => v.io_type === 'evaluation' || v.name.startsWith('jump_count_'))
-                    .map(v => ({ name: v.name, value: v.value, io_type: v.io_type }))
-            );
 
             // Single state update with all changes
             setState(prev => ({
