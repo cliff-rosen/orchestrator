@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def search(db: Session, query: str, user_id: int = 0) -> List[SearchResult]:
     """
     Perform web search for the given query using Google Custom Search API
-    and score results using AI
+    without scoring results
 
     Args:
         db (Session): Database session
@@ -28,7 +28,7 @@ async def search(db: Session, query: str, user_id: int = 0) -> List[SearchResult
         user_id (int): ID of the user performing the search
 
     Returns:
-        List[SearchResult]: List of scored and sorted search results
+        List[SearchResult]: List of search results without scoring
     """
     logger.info(f"Performing web search for query: {query}")
 
@@ -43,17 +43,43 @@ async def search(db: Session, query: str, user_id: int = 0) -> List[SearchResult
                 snippet=result["snippet"],
                 displayLink=result["displayLink"],
                 pagemap=result["pagemap"],
-                relevance_score=0.0  # Initialize score
+                relevance_score=0.0  # Default score
             )
             for result in results
         ]
+
+        return search_results
+
+    except Exception as e:
+        logger.error(f"Error performing Google search: {str(e)}")
+        return []
+
+
+async def search_and_rank(db: Session, query: str, user_id: int = 0) -> List[SearchResult]:
+    """
+    Perform web search for the given query using Google Custom Search API
+    and score results using AI
+
+    Args:
+        db (Session): Database session
+        query (str): Search query
+        user_id (int): ID of the user performing the search
+
+    Returns:
+        List[SearchResult]: List of scored and sorted search results
+    """
+    logger.info(f"Performing web search with ranking for query: {query}")
+
+    try:
+        # Get search results without scoring
+        search_results = await search(db, query, user_id)
 
         # Score and sort results
         scored_results = await score_and_rank_results(query, search_results)
         return scored_results
 
     except Exception as e:
-        logger.error(f"Error performing Google search: {str(e)}")
+        logger.error(f"Error performing Google search with ranking: {str(e)}")
         return []
 
 

@@ -47,7 +47,7 @@ async def fetch_urls(request: FetchURLsRequest,
 
 
 @router.get(
-    "/search",
+    "/search-and-rank",
     response_model=List[SearchResult],
     summary="Search topics and their content with AI-powered relevance scoring",
     responses={
@@ -58,7 +58,7 @@ async def fetch_urls(request: FetchURLsRequest,
         401: {"description": "Not authenticated"}
     }
 )
-async def search(
+async def search_and_rank(
     query: str,
     num_results: int = Query(
         default=10,
@@ -87,14 +87,56 @@ async def search(
     Each result includes a relevance score indicating how well it matches the query.
     """
     logger.info(
-        f"search endpoint called with query: {query}, num_results: {num_results}, min_score: {min_score}")
+        f"search_and_rank endpoint called with query: {query}, num_results: {num_results}, min_score: {min_score}")
 
     # Get scored results
-    results = await search_service.search(db, query, current_user.user_id)
+    results = await search_service.search_and_rank(db, query, current_user.user_id)
 
     # Filter by minimum score and limit results
     filtered_results = [r for r in results if r.relevance_score >= min_score]
     return filtered_results[:num_results]
+
+
+@router.get(
+    "/search",
+    response_model=List[SearchResult],
+    summary="Search topics and their content without AI-powered relevance scoring",
+    responses={
+        200: {
+            "description": "Search results successfully retrieved",
+            "model": List[SearchResult]
+        },
+        401: {"description": "Not authenticated"}
+    }
+)
+async def search(
+    query: str,
+    num_results: int = Query(
+        default=10,
+        ge=1,
+        le=50,
+        description="Number of results to return"
+    ),
+    current_user=Depends(auth_service.validate_token),
+    db: Session = Depends(get_db)
+):
+    """
+    Search across topics and their content without AI-powered relevance scoring
+
+    Parameters:
+    - **query**: Search query string
+    - **num_results**: Number of results to return (1-50)
+
+    Returns a list of search results without relevance scoring.
+    """
+    logger.info(
+        f"search endpoint called with query: {query}, num_results: {num_results}")
+
+    # Get results without scoring
+    results = await search_service.search(db, query, current_user.user_id)
+
+    # Limit results
+    return results[:num_results]
 
 
 @router.get(
