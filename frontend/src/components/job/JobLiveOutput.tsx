@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Job, JobStatus, JobStep, JobExecutionState } from '../../types/jobs';
 import { Workflow } from '../../types/workflows';
 import { WorkflowInputs } from './WorkflowInputs';
-import { WorkflowOutputs } from './WorkflowOutputs';
 import { SchemaValueType } from '../../types/schema';
 import { JobEngine } from '../../lib/job/jobEngine';
 
