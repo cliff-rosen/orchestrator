@@ -429,28 +429,6 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 completed_at: new Date().toISOString()
             };
 
-
-            console.log('executeJobWithEngine state', {
-                updatedState,
-                result,
-                nextStepIndex
-            });
-
-            // Update execution state in UI
-            setState(prev => ({
-                ...prev,
-                executionState: {
-                    ...prev.executionState!,
-                    current_step_index: nextStepIndex,
-                    step_results: [...prev.executionState!.step_results, jobStepResult],
-                    live_output: `Step ${currentState.currentStepIndex + 1} completed. Moving to step ${nextStepIndex + 1}...`
-                },
-                currentJob: {
-                    ...prev.currentJob!,
-                    state: updatedState
-                }
-            }));
-
             // Update job with step result
             currentJob = JobEngine.updateJobWithStepResult(
                 currentJob,
@@ -459,9 +437,21 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 nextStepIndex
             );
 
-            // Update UI with current job
+            // Update job state with new variables
+            currentJob = {
+                ...currentJob,
+                state: updatedState
+            };
+
+            // Single state update with all changes
             setState(prev => ({
                 ...prev,
+                executionState: {
+                    ...prev.executionState!,
+                    current_step_index: nextStepIndex,
+                    step_results: [...prev.executionState!.step_results, jobStepResult],
+                    live_output: `Step ${currentState.currentStepIndex + 1} completed. Moving to step ${nextStepIndex + 1}...`
+                },
                 currentJob
             }));
 

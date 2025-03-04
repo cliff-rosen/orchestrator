@@ -49,7 +49,7 @@ export class JobEngine {
     }> {
         try {
             // Validate variable mappings before execution
-            const validationErrors = this.validateVariableMappings(job);
+            const validationErrors = this.validateVariableMappings(job, stepIndex);
             if (validationErrors.length > 0) {
                 throw new Error(`Variable mapping validation failed:\n${validationErrors.join('\n')}`);
             }
@@ -213,52 +213,6 @@ export class JobEngine {
     }
 
     /**
-     * Update a job with new variables
-     * @param job The job to update
-     * @param variables The new variables
-     * @returns The updated job
-     */
-    static updateJobState(
-        job: Job,
-        variables: Record<WorkflowVariableName, SchemaValueType>
-    ): Job {
-        // Convert variables to workflow variables
-        const state = Object.entries(variables).map(([name, value]) => {
-            // Find existing variable to preserve metadata
-            const existingVar = job.state.find(v => v.name === name);
-            if (existingVar) {
-                return {
-                    ...existingVar,
-                    value
-                };
-            }
-
-            // Determine the type safely for new variables
-            let type: ValueType = 'string';
-            if (typeof value === 'number') type = 'number';
-            else if (typeof value === 'boolean') type = 'boolean';
-            else if (typeof value === 'object') type = 'object';
-
-            // Create new variable
-            return {
-                name: name as WorkflowVariableName,
-                variable_id: name,
-                value: value,
-                io_type: 'output' as const, // Assume new variables are outputs
-                schema: {
-                    type,
-                    is_array: Array.isArray(value)
-                }
-            };
-        });
-
-        return {
-            ...job,
-            state
-        };
-    }
-
-    /**
      * Convert a job to a workflow for use with WorkflowEngine
      * @param job The job to convert
      * @returns A workflow representation of the job
@@ -410,44 +364,32 @@ export class JobEngine {
     /**
      * Validates that all required variable mappings are present and of correct type
      * @param job The job to validate
+     * @param stepIndex The index of the step to validate
      * @returns Array of validation errors, empty if valid
      */
-    static validateVariableMappings(job: Job): string[] {
+    static validateVariableMappings(job: Job, stepIndex: number): string[] {
         const errors: string[] = [];
+        const step = job.steps[stepIndex];
 
-        // Check each step's parameter mappings
-        job.steps.forEach((step, stepIndex) => {
-            if (!step.tool) return;
+        if (!step.tool) return errors;
 
-            // Validate parameter mappings
-            step.tool.signature.parameters.forEach(param => {
-                const mappedVar = step.parameter_mappings[param.name];
-                if (param.required && !mappedVar) {
-                    errors.push(`Step ${stepIndex + 1}: Required parameter "${param.name}" is not mapped`);
-                    return;
+        // Validate parameter mappings for the current step
+        step.tool.signature.parameters.forEach(param => {
+            const mappedVar = step.parameter_mappings[param.name];
+            if (param.required && !mappedVar) {
+                errors.push(`Step ${stepIndex + 1}: Required parameter "${param.name}" is not mapped`);
+                return;
+            }
+
+            if (mappedVar) {
+                const stateVar = job.state.find(v => v.name === mappedVar);
+
+                // Check if the variable exists in job state
+                if (!stateVar) {
+                    errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" is mapped to variable "${mappedVar}" which does not exist in job state`);
+                } else if (!this.isSchemaCompatible(param.schema, stateVar.schema)) {
+                    errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" type mismatch - expected ${JSON.stringify(param.schema)}, got ${JSON.stringify(stateVar.schema)}`);
                 }
-
-                if (mappedVar) {
-                    const stateVar = job.state.find(v => v.name === mappedVar);
-                    if (!stateVar) {
-                        errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" is mapped to non-existent variable "${mappedVar}"`);
-                    } else if (!this.isSchemaCompatible(param.schema, stateVar.schema)) {
-                        errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" type mismatch - expected ${JSON.stringify(param.schema)}, got ${JSON.stringify(stateVar.schema)}`);
-                    }
-                }
-            });
-
-            // Validate output mappings
-            if (step.tool.signature.outputs) {
-                step.tool.signature.outputs.forEach(output => {
-                    const mappedVar = step.output_mappings[output.name];
-                    if (mappedVar) {
-                        const stateVar = job.state.find(v => v.name === mappedVar);
-                        if (stateVar && !this.isSchemaCompatible(output.schema, stateVar.schema)) {
-                            errors.push(`Step ${stepIndex + 1}: Output "${output.name}" type mismatch - expected ${JSON.stringify(output.schema)}, got ${JSON.stringify(stateVar.schema)}`);
-                        }
-                    }
-                });
             }
         });
 
@@ -456,12 +398,19 @@ export class JobEngine {
 
     /**
      * Check if two schemas are compatible
+     * Allows array of strings to be compatible with string by joining with newlines
      */
     private static isSchemaCompatible(schema1: Schema, schema2: Schema): boolean {
+        // Special case: allow array of strings to be compatible with string
+        if (schema1.type === 'string' && !schema1.is_array &&
+            schema2.type === 'string' && schema2.is_array) {
+            return true;
+        }
+
         // Basic type compatibility
         if (schema1.type !== schema2.type) return false;
 
-        // Array compatibility
+        // Array compatibility (except for the special case above)
         if (schema1.is_array !== schema2.is_array) return false;
 
         return true;
@@ -482,7 +431,17 @@ export class JobEngine {
         Object.entries(step.parameter_mappings).forEach(([paramName, varName]) => {
             const stateVar = jobState.find(v => v.name === varName);
             if (stateVar?.value !== undefined) {
-                inputs[paramName as ToolParameterName] = stateVar.value as SchemaValueType;
+                const paramDef = step.tool!.signature.parameters.find(p => p.name === paramName);
+
+                // Handle array to string conversion if needed
+                if (paramDef &&
+                    paramDef.schema.type === 'string' && !paramDef.schema.is_array &&
+                    stateVar.schema.type === 'string' && stateVar.schema.is_array &&
+                    Array.isArray(stateVar.value)) {
+                    inputs[paramName as ToolParameterName] = stateVar.value.join('\n');
+                } else {
+                    inputs[paramName as ToolParameterName] = stateVar.value as SchemaValueType;
+                }
             }
         });
 
