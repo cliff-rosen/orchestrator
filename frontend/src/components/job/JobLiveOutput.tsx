@@ -48,11 +48,11 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow, ste
 
     return (
         <div className="space-y-6">
-            {/* Job Summary Header */}
+            {/* Live Execution Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">
-                        Job Summary
+                        Current Execution
                     </h2>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                         {workflow ? (
@@ -66,12 +66,15 @@ export const JobLiveOutput: React.FC<JobLiveOutputProps> = ({ job, workflow, ste
                                 </Link>
                             </>
                         ) : (
-                            'Workflow execution completed successfully'
+                            'Workflow execution in progress'
                         )}
                     </p>
                 </div>
-                <span className="px-3 py-1 text-sm font-medium rounded-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 ring-1 ring-green-600/20 dark:ring-green-300/20">
-                    Completed
+                <span className={`px-3 py-1 text-sm font-medium rounded-full ${job.status === JobStatus.RUNNING
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 ring-1 ring-blue-600/20 dark:ring-blue-300/20'
+                    : 'bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 ring-1 ring-gray-600/20 dark:ring-gray-300/20'
+                    }`}>
+                    {job.status}
                 </span>
             </div>
 

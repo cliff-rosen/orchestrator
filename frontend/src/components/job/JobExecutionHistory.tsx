@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Job, JobStatus, StepExecutionResult } from '../../types/jobs';
+import { Job, JobStatus, StepExecutionResult, JobExecutionState } from '../../types/jobs';
 import { useJobs } from '../../context/JobsContext';
 import { useValueFormatter } from '../../hooks/useValueFormatter';
 import { Box, Typography, List, ListItem, ListItemText, Divider } from '@mui/material';
@@ -8,6 +8,7 @@ import { SchemaValueType } from '../../types/schema';
 
 interface JobExecutionHistoryProps {
     job: Job;
+    executionState?: JobExecutionState;
 }
 
 interface StepResultCardProps {
@@ -70,9 +71,22 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
             return [];
         }
 
+        // For debugging
+        console.log('Step output mappings:', {
+            stepId: stepDefinition.step_id,
+            toolName: stepDefinition.tool?.name,
+            outputMappings: stepDefinition.output_mappings,
+            resultOutputs: result.outputs
+        });
+
+        const outputs = result.outputs || {};
+
         return Object.entries(stepDefinition.output_mappings).map(([outputName, varName]) => {
-            // Find the output in result outputs
-            const outputValue = result.outputs ? result.outputs[varName] : undefined;
+            // Try multiple strategies to find the output value
+            let outputValue;
+
+            outputValue = outputs[outputName as WorkflowVariableName];
+
             const outputDef = stepDefinition.tool?.signature.outputs.find(o => o.name === outputName);
 
             return {
@@ -143,21 +157,21 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                     {/* Input Parameters */}
                     {stepDefinition.step_type === 'ACTION' && inputMappings.length > 0 && (
                         <div className="mb-4">
-                            <h4 className="text-sm font-medium mb-2">Input Parameters</h4>
+                            <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Input Parameters</h4>
                             <table className="w-full text-sm">
-                                <thead className="bg-gray-50 dark:bg-gray-800">
+                                <thead className="bg-gray-50 dark:bg-gray-600">
                                     <tr>
-                                        <th className="text-left p-2">Parameter</th>
-                                        <th className="text-left p-2">Variable</th>
-                                        <th className="text-left p-2">Value</th>
+                                        <th className="text-left p-2 text-gray-700 dark:text-gray-100">Parameter</th>
+                                        <th className="text-left p-2 text-gray-700 dark:text-gray-100">Variable</th>
+                                        <th className="text-left p-2 text-gray-700 dark:text-gray-100">Value</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {inputMappings.map((input, idx) => (
                                         <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
-                                            <td className="p-2">{input.paramLabel}</td>
-                                            <td className="p-2">{String(input.varName)}</td>
-                                            <td className="p-2">{String(input.value)}</td>
+                                            <td className="p-2 text-gray-700 dark:text-gray-200">{input.paramLabel}</td>
+                                            <td className="p-2 text-gray-700 dark:text-gray-200">{String(input.varName)}</td>
+                                            <td className="p-2 text-gray-700 dark:text-gray-200">{String(input.value)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -168,7 +182,7 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                     {/* Evaluation Step Details */}
                     {stepDefinition.step_type === 'EVALUATION' && result.outputs && (
                         <div className="mb-4">
-                            <h4 className="text-sm font-medium mb-2">Evaluation Result</h4>
+                            <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Evaluation Result</h4>
                             <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded">
                                 <p className="mb-2">
                                     {getOutputValue(result.outputs, 'condition_met') === 'none' ? 'No conditions met' : 'Condition met'}
@@ -176,14 +190,14 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                                 {getOutputValue(result.outputs, 'condition_met') !== 'none' && (
                                     <>
                                         <Divider className="my-2" />
-                                        <h5 className="text-sm font-medium mb-1">Condition Details</h5>
+                                        <h5 className="text-sm font-medium mb-1 text-gray-800 dark:text-gray-100">Condition Details</h5>
                                         <p className="ml-2 mb-1">
                                             Variable: {getOutputValue(result.outputs, 'variable_name')} = {getOutputValue(result.outputs, 'variable_value')}
                                         </p>
                                         <p className="ml-2 mb-2">
                                             Condition: {getOutputValue(result.outputs, 'operator')} {getOutputValue(result.outputs, 'comparison_value')}
                                         </p>
-                                        <h5 className="text-sm font-medium mb-1">Action</h5>
+                                        <h5 className="text-sm font-medium mb-1 text-gray-800 dark:text-gray-100">Action</h5>
                                         <p className="ml-2">
                                             {getOutputValue(result.outputs, 'action') === 'jump'
                                                 ? `Jump to step ${parseInt(getOutputValue(result.outputs, 'target_step_index')) + 1}`
@@ -206,21 +220,21 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                     {/* Tool Outputs */}
                     {stepDefinition.step_type === 'ACTION' && outputMappings.length > 0 && (
                         <div className="mb-4">
-                            <h4 className="text-sm font-medium mb-2">Output Mappings</h4>
+                            <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Output Mappings</h4>
                             <table className="w-full text-sm">
-                                <thead className="bg-gray-50 dark:bg-gray-800">
+                                <thead className="bg-gray-50 dark:bg-gray-600">
                                     <tr>
-                                        <th className="text-left p-2">Tool Output</th>
-                                        <th className="text-left p-2">Variable</th>
-                                        <th className="text-left p-2">Value</th>
+                                        <th className="text-left p-2 text-gray-700 dark:text-gray-100">Tool Output</th>
+                                        <th className="text-left p-2 text-gray-700 dark:text-gray-100">Variable</th>
+                                        <th className="text-left p-2 text-gray-700 dark:text-gray-100">Value</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {outputMappings.map((output, idx) => (
                                         <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
-                                            <td className="p-2">{output.outputLabel}</td>
-                                            <td className="p-2">{String(output.varName)}</td>
-                                            <td className="p-2">{String(output.value)}</td>
+                                            <td className="p-2 text-gray-700 dark:text-gray-200">{output.outputLabel}</td>
+                                            <td className="p-2 text-gray-700 dark:text-gray-200">{String(output.varName)}</td>
+                                            <td className="p-2 text-gray-700 dark:text-gray-200">{String(output.value)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -229,21 +243,21 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                     )}
 
                     {/* Raw Outputs (for debugging or when no mappings exist) */}
-                    {stepDefinition.step_type === 'ACTION' && hasOutputs && outputMappings.length === 0 && (
+                    {stepDefinition.step_type === 'ACTION' && hasOutputs && (
                         <div className="mb-4">
-                            <h4 className="text-sm font-medium mb-2">Raw Outputs</h4>
+                            <h4 className="text-sm font-medium mb-2 text-gray-800 dark:text-gray-100">Raw Outputs</h4>
                             <table className="w-full text-sm">
-                                <thead className="bg-gray-50 dark:bg-gray-800">
+                                <thead className="bg-gray-50 dark:bg-gray-600">
                                     <tr>
-                                        <th className="text-left p-2">Name</th>
-                                        <th className="text-left p-2">Value</th>
+                                        <th className="text-left p-2 text-gray-700 dark:text-gray-100">Name</th>
+                                        <th className="text-left p-2 text-gray-700 dark:text-gray-100">Value</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {Object.entries(result.outputs || {}).map(([key, value], idx) => (
                                         <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
-                                            <td className="p-2">{key}</td>
-                                            <td className="p-2">{String(value)}</td>
+                                            <td className="p-2 text-gray-700 dark:text-gray-200">{key}</td>
+                                            <td className="p-2 text-gray-700 dark:text-gray-200">{String(value)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -256,8 +270,7 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
     );
 };
 
-export const JobExecutionHistory: React.FC<JobExecutionHistoryProps> = ({ job }) => {
-    const { executionState } = useJobs();
+export const JobExecutionHistory: React.FC<JobExecutionHistoryProps> = ({ job, executionState }) => {
     const [expandedResults, setExpandedResults] = useState<Set<number>>(new Set());
 
     const toggleResult = (index: number) => {
@@ -270,8 +283,22 @@ export const JobExecutionHistory: React.FC<JobExecutionHistoryProps> = ({ job })
         setExpandedResults(newExpanded);
     };
 
-    // Use step_results from executionState if available, otherwise show a message
-    if (!executionState || !executionState.step_results || executionState.step_results.length === 0) {
+    // Get step results from executionState if available, otherwise try to build from job steps
+    let stepResults: StepExecutionResult[] = [];
+
+    if (executionState?.step_results && executionState.step_results.length > 0) {
+        // Use execution state if available
+        stepResults = executionState.step_results;
+    } else {
+        // Fall back to job step execution history
+        stepResults = job.steps
+            .filter(step => step.latest_execution)
+            .map(step => step.latest_execution!)
+            .filter(execution => execution !== undefined);
+    }
+
+    // Show message if no execution history is available
+    if (stepResults.length === 0) {
         return (
             <div className="p-4 text-center text-gray-500 dark:text-gray-400">
                 No execution history available
@@ -282,7 +309,7 @@ export const JobExecutionHistory: React.FC<JobExecutionHistoryProps> = ({ job })
     return (
         <div className="space-y-2">
             {/* Step Results List */}
-            {executionState.step_results.map((result, index) => (
+            {stepResults.map((result, index) => (
                 <StepResultCard
                     key={`${result.step_id}-${index}`}
                     job={job}

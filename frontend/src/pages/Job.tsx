@@ -28,7 +28,8 @@ const Job: React.FC = () => {
         setInputValue,
         validateInputs,
         areInputsValid,
-        error
+        error,
+        executionState
     } = useJobs();
     const { workflows } = useWorkflows();
 
@@ -185,24 +186,17 @@ const Job: React.FC = () => {
                                     <JobProgress job={currentJob} />
                                 </div>
 
-                                {/* Current Step Section */}
-                                <div className="p-4">
-                                    <JobLiveOutput job={currentJob} workflow={workflow} />
-                                </div>
+                                {/* Current Step Section - Only show for running or pending jobs */}
+                                {(currentJob.status === JobStatus.RUNNING || currentJob.status === JobStatus.PENDING) && (
+                                    <div className="p-4">
+                                        <JobLiveOutput job={currentJob} workflow={workflow} />
+                                    </div>
+                                )}
                             </div>
 
                             {/* Job Summary - Only show for completed or failed jobs */}
                             {(currentJob.status === JobStatus.COMPLETED || currentJob.status === JobStatus.FAILED) && (
-                                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                    <div className="border-b border-gray-200 dark:border-gray-700 p-4">
-                                        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-50">
-                                            Job Summary
-                                        </h2>
-                                    </div>
-                                    <div className="p-4">
-                                        <JobSummary job={currentJob} />
-                                    </div>
-                                </div>
+                                <JobSummary job={currentJob} />
                             )}
 
                             {/* Job History Log */}
@@ -222,7 +216,10 @@ const Job: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="p-4">
-                                    <JobExecutionHistory job={currentJob} />
+                                    <JobExecutionHistory
+                                        job={currentJob}
+                                        executionState={executionState}
+                                    />
                                 </div>
                             </div>
                         </>
