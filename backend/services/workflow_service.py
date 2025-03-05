@@ -682,7 +682,18 @@ class WorkflowService:
             raise InvalidStepConfigurationError(f"Unknown step type: {step.step_type}")
 
     def _get_llm_signature(self, prompt_template_id: str) -> Dict:
-        """Get the signature for an LLM tool based on its prompt template."""
+        """
+        Get the signature for an LLM tool based on its prompt template.
+        
+        This method converts a prompt template's tokens into tool parameters
+        and its output schema into tool outputs, creating a complete tool signature.
+        
+        Args:
+            prompt_template_id: The ID of the prompt template
+            
+        Returns:
+            A dictionary with 'parameters' and 'outputs' lists defining the tool signature
+        """
         prompt_template = self.db.query(PromptTemplate).filter(
             PromptTemplate.template_id == prompt_template_id
         ).first()
@@ -690,45 +701,85 @@ class WorkflowService:
         if not prompt_template:
             print(f"No prompt template found for id: {prompt_template_id}")
             return {'parameters': [], 'outputs': []}
-            
+        
         print(f"Found prompt template: {prompt_template.template_id}")
         
-        # Convert tokens to parameters based on their type
-        parameters = [
-            {
+        # Convert tokens to parameters
+        parameters = []
+        for token in prompt_template.tokens:
+            # Ensure token has required fields
+            if not isinstance(token, dict) or 'name' not in token:
+                continue
+            
+            token_type = token.get('type', 'string')
+            
+            # Create parameter schema based on token type
+            schema = {
                 'name': token['name'],
-                'description': f"Value for {{{{{token['name']}}}}} in the prompt" if token['type'] == 'string' 
-                             else f"File content for <<file:{token['name']}>> in the prompt",
-                'schema': {
-                    'name': token['name'],
-                    'type': 'string' if token['type'] == 'string' else 'file'
-                }
+                'type': 'string' if token_type == 'string' else 'file',
+                'is_array': False,  # Default to non-array type
+                'description': token.get('description', '')
             }
-            for token in prompt_template.tokens
-        ]
+            
+            # Add format and content_types for file parameters
+            if token_type == 'file' and 'format' in token:
+                schema['format'] = token['format']
+            
+            if token_type == 'file' and 'content_types' in token:
+                schema['content_types'] = token['content_types']
+            
+            parameters.append({
+                'name': token['name'],
+                'description': f"Value for {{{{{token['name']}}}}} in the prompt" if token_type == 'string' 
+                             else f"File content for <<file:{token['name']}>> in the prompt",
+                'schema': schema,
+                'required': token.get('required', True)  # Default to required
+            })
         
         # Convert output schema to outputs
-        if prompt_template.output_schema['type'] == 'object' and 'schema' in prompt_template.output_schema:
-            outputs = [
-                {
-                    'name': key,
-                    'description': field.get('description', ''),
-                    'schema': {
-                        'name': key,
-                        'type': field['type']
-                    }
+        outputs = []
+        
+        # Ensure output_schema exists and is a dict
+        if not isinstance(prompt_template.output_schema, dict):
+            print(f"Invalid output schema for template {prompt_template_id}")
+            return {'parameters': parameters, 'outputs': []}
+        
+        output_type = prompt_template.output_schema.get('type', 'string')
+        
+        if output_type == 'object' and 'fields' in prompt_template.output_schema:
+            # Handle object type with fields
+            fields = prompt_template.output_schema.get('fields', {})
+            
+            for field_name, field_schema in fields.items():
+                if not isinstance(field_schema, dict):
+                    continue
+                
+                schema = {
+                    'name': field_name,
+                    'type': field_schema.get('type', 'string'),
+                    'is_array': field_schema.get('is_array', False),
+                    'description': field_schema.get('description', '')
                 }
-                for key, field in prompt_template.output_schema['schema']['fields'].items()
-            ]
+                
+                outputs.append({
+                    'name': field_name,
+                    'description': field_schema.get('description', f"Output field: {field_name}"),
+                    'schema': schema
+                })
         else:
-            outputs = [{
+            # Handle primitive types (string, number, boolean) or arrays
+            schema = {
                 'name': 'response',
-                'description': prompt_template.output_schema.get('description', ''),
-                'schema': {
-                    'name': 'response',
-                    'type': prompt_template.output_schema['type']
-                }
-            }]
+                'type': output_type,
+                'is_array': prompt_template.output_schema.get('is_array', False),
+                'description': prompt_template.output_schema.get('description', '')
+            }
+            
+            outputs.append({
+                'name': 'response',
+                'description': prompt_template.output_schema.get('description', 'LLM response'),
+                'schema': schema
+            })
         
         return {
             'parameters': parameters,

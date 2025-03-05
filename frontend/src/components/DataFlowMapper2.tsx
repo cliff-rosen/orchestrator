@@ -63,14 +63,6 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
         }
     }, [tool]);
 
-    const handleParameterMappingChange = (paramName: string, value: string) => {
-        const newMappings = {
-            ...parameter_mappings,
-            [paramName as ToolParameterName]: value as WorkflowVariableName
-        };
-        onParameterMappingChange(newMappings);
-    };
-
     const handleCreateParameterVariable = (paramName: string) => {
         const param = tool.signature.parameters.find(p => p.name === paramName);
         setCreatingForParameter(paramName);
@@ -109,6 +101,14 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
             [outputName as ToolOutputName]: value as WorkflowVariableName
         };
         onOutputMappingChange(newMappings);
+    };
+
+    const handleParameterMappingChange = (paramName: string, value: string) => {
+        const newMappings = {
+            ...parameter_mappings,
+            [paramName as ToolParameterName]: value as WorkflowVariableName
+        };
+        onParameterMappingChange(newMappings);
     };
 
     const handleCreateOutputVariable = (outputName: string) => {

@@ -18,7 +18,7 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
     tools,
     onStepUpdate
 }) => {
-    const { workflow, updateWorkflow, updateWorkflowByAction } = useWorkflows();
+    const { workflow, updateWorkflowByAction } = useWorkflows();
 
     const handleToolSelect = (tool: Tool | undefined) => {
         console.log('handleToolSelect', tool);

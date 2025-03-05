@@ -33,25 +33,30 @@ export function findVariableByRootName(
 export function resolvePropertyPath(
     obj: any,
     propPath: string[]
-): { value: any; validPath: boolean } {
+): { value: any; validPath: boolean; errorMessage?: string } {
     if (propPath.length === 0) {
         return { value: obj, validPath: true };
     }
 
     let currentValue = obj;
     let validPath = true;
+    let errorProp = '';
 
     for (const prop of propPath) {
         if (currentValue && typeof currentValue === "object" && prop in currentValue) {
             currentValue = currentValue[prop];
         } else {
             validPath = false;
-            console.warn(`Invalid property path. Property '${prop}' not found.`);
+            errorProp = prop;
             break;
         }
     }
 
-    return { value: validPath ? currentValue : undefined, validPath };
+    return {
+        value: validPath ? currentValue : undefined,
+        validPath,
+        errorMessage: validPath ? undefined : `Property '${errorProp}' not found in path '${propPath.join('.')}'`
+    };
 }
 
 /**
@@ -63,19 +68,40 @@ export function resolvePropertyPath(
 export function resolveVariablePath(
     variables: WorkflowVariable[],
     variablePath: string
-): { value: any; validPath: boolean } {
+): { value: any; validPath: boolean; errorMessage?: string } {
     const { rootName, propPath } = parseVariablePath(variablePath);
     const variable = findVariableByRootName(variables, rootName);
 
-    if (!variable?.value) {
-        return { value: undefined, validPath: false };
+    if (!variable) {
+        return {
+            value: undefined,
+            validPath: false,
+            errorMessage: `Variable "${rootName}" not found`
+        };
+    }
+
+    if (!variable.value) {
+        return {
+            value: undefined,
+            validPath: false,
+            errorMessage: `Variable "${rootName}" has no value`
+        };
     }
 
     if (propPath.length === 0) {
         return { value: variable.value, validPath: true };
     }
 
-    return resolvePropertyPath(variable.value, propPath);
+    const result = resolvePropertyPath(variable.value, propPath);
+
+    if (!result.validPath) {
+        return {
+            ...result,
+            errorMessage: `Property path "${propPath.join('.')}" not found in variable "${rootName}"`
+        };
+    }
+
+    return result;
 }
 
 /**

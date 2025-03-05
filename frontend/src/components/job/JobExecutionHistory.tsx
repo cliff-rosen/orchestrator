@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Job, StepExecutionResult, JobExecutionState, JobStatus } from '../../types/jobs';
-import { useValueFormatter } from '../../hooks/useValueFormatter';
 import { WorkflowVariableName } from '../../types/workflows';
 import { SchemaValueType } from '../../types/schema';
 import VariableRenderer from '../common/VariableRenderer';
@@ -48,7 +47,6 @@ const getOutputValue = (outputs: Record<WorkflowVariableName, SchemaValueType> |
 };
 
 const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded, onToggle, executionIndex }) => {
-    const { formatValue } = useValueFormatter();
     const { templates } = usePromptTemplates();
 
     // Function to format timestamp

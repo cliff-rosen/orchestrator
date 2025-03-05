@@ -1,6 +1,7 @@
 import { Tool, ToolSignature, ToolOutputName, ToolParameterName } from '../../types/tools';
 import { PromptTemplate, PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateTest } from '../../types/prompts';
 import { api, handleApiError } from './index';
+import { WorkflowStep } from '../../types/workflows';
 // Caches for tools and prompt templates    
 let toolsCache: Tool[] | null = null;
 let promptTemplatesCache: PromptTemplate[] | null = null;
@@ -73,7 +74,7 @@ export const toolApi = {
         // Clear parameter mappings for parameters that no longer exist
         if (step.parameter_mappings) {
             Object.keys(step.parameter_mappings).forEach(param => {
-                if (!signature.parameters.find(p => p.schema.type === param)) {
+                if (!signature.parameters.find(p => p.name === param)) {
                     delete parameterMappings[param as ToolParameterName];
                 }
             });
@@ -82,7 +83,7 @@ export const toolApi = {
         // Clear output mappings for outputs that no longer exist
         if (step.output_mappings) {
             Object.keys(step.output_mappings).forEach(output => {
-                if (!signature.outputs.find(o => o.schema.type === output)) {
+                if (!signature.outputs.find(o => o.name === output)) {
                     delete outputMappings[output as ToolOutputName];
                 }
             });

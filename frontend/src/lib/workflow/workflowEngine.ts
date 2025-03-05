@@ -296,12 +296,12 @@ export class WorkflowEngine {
         const allVariables = workflow.state || [];
         for (const [paramName, varNamePath] of Object.entries(step.parameter_mappings)) {
             // Use the utility library to resolve variable paths
-            const { value, validPath } = resolveVariablePath(allVariables, varNamePath.toString());
+            const { value, validPath, errorMessage } = resolveVariablePath(allVariables, varNamePath.toString());
 
             if (validPath && value !== undefined) {
                 parameters[paramName as ToolParameterName] = value as SchemaValueType;
             } else {
-                console.warn(`Invalid or undefined variable path: ${varNamePath}`);
+                console.warn(`Invalid or undefined variable path: ${varNamePath}`, errorMessage ? `Error: ${errorMessage}` : '');
             }
         }
 
@@ -331,12 +331,13 @@ export class WorkflowEngine {
 
                 // If we have a path within the output, resolve it to get the specific value
                 if (outputPropPath.length > 0 && outputValue !== undefined) {
-                    const { value, validPath } = resolvePropertyPath(outputValue, outputPropPath);
+                    const { value, validPath, errorMessage } = resolvePropertyPath(outputValue, outputPropPath);
 
                     if (validPath) {
                         outputValue = value;
                     } else {
-                        console.warn(`Invalid output property path: ${outputPath}. Using undefined value.`);
+                        console.warn(`Invalid output property path: ${outputPath}. Using undefined value.`,
+                            errorMessage ? `Error: ${errorMessage}` : '');
                         outputValue = undefined;
                     }
                 }

@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { Job, JobStatus, JobStep } from '../../types/jobs';
-import { ChevronDown } from 'lucide-react';
-import { useValueFormatter } from '../../hooks/useValueFormatter.tsx';
 import { PromptTemplateLink } from './PromptTemplateLink';
-import { Box, Typography, List, ListItem, ListItemText } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { WorkflowVariableName } from '../../types/workflows';
 import { SchemaValueType } from '../../types/schema';
 import { ToolOutputName } from '../../types/tools';
@@ -24,8 +22,6 @@ const getOutputValue = (outputs: Record<WorkflowVariableName, SchemaValueType> |
 };
 
 const JobStepCard: React.FC<JobStepCardProps> = ({ job, step, isExpanded, onToggle }) => {
-    const { formatValue } = useValueFormatter();
-
     // Function to format timestamp
     const formatTimestamp = (timestamp: string | undefined) => {
         if (!timestamp) return '';
