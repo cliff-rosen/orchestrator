@@ -16,6 +16,8 @@ import {
     StepExecutionResult as WorkflowStepResult
 } from '../../types/workflows';
 import { Schema, SchemaValueType, ValueType } from '../../types/schema';
+import { Tool, ToolOutputName, ToolParameterName } from '../../types/tools';
+import { parseVariablePath, resolvePropertyPath, findVariableByRootName, validatePropertyPathAgainstSchema, validateAndResolveVariablePath } from '../utils/variablePathUtils';
 
 /**
  * JobState represents the combined state of a job's variables and execution progress
@@ -369,8 +371,8 @@ export class JobEngine {
     }
 
     /**
-     * Validates that all required variable mappings are present and of correct type
-     * @param job The job to validate
+     * Validate variable mappings for a given step
+     * @param job The job containing the step
      * @param stepIndex The index of the step to validate
      * @returns Array of validation errors, empty if valid
      */
@@ -390,21 +392,35 @@ export class JobEngine {
 
         // Validate parameter mappings for the current step
         step.tool.signature.parameters.forEach(param => {
-            const mappedVar = step.parameter_mappings[param.name];
-            if (param.required && !mappedVar) {
+            const mappedVarPath = step.parameter_mappings[param.name];
+            if (param.required && !mappedVarPath) {
                 errors.push(`Step ${stepIndex + 1}: Required parameter "${param.name}" is not mapped`);
                 return;
             }
 
-            if (mappedVar) {
-                const stateVar = job.state.find(v => v.name === mappedVar);
+            if (mappedVarPath) {
+                // Parse the variable path
+                const { rootName, propPath } = parseVariablePath(mappedVarPath.toString());
+                const stateVar = findVariableByRootName(job.state, rootName);
 
-                // Check if the variable exists in job state
+                // Check if the root variable exists in job state
                 if (!stateVar) {
-                    errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" is mapped to variable "${mappedVar}" which does not exist in job state`);
-                    console.log(`ERROR: Variable "${mappedVar}" not found in job state for parameter "${param.name}"`);
-                } else if (!this.isSchemaCompatible(param.schema, stateVar.schema)) {
-                    errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" type mismatch - expected ${JSON.stringify(param.schema)}, got ${JSON.stringify(stateVar.schema)}`);
+                    errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" is mapped to variable "${rootName}" which does not exist in job state`);
+                    console.log(`ERROR: Variable "${rootName}" not found in job state for parameter "${param.name}"`);
+                    return;
+                }
+
+                // Use utility to validate and resolve the variable path
+                const validation = validateAndResolveVariablePath(stateVar, propPath);
+
+                if (!validation.valid) {
+                    errors.push(`Step ${stepIndex + 1}: ${validation.errorMessage || `Invalid path "${mappedVarPath}"`}`);
+                    return;
+                }
+
+                // Check type compatibility
+                if (validation.schema && !this.isSchemaCompatible(param.schema, validation.schema)) {
+                    errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" type mismatch with "${mappedVarPath}" - expected ${JSON.stringify(param.schema)}, got ${JSON.stringify(validation.schema)}`);
                 }
             }
         });
@@ -486,15 +502,15 @@ export class JobEngine {
             return [];
         }
 
-        // Get the variable names from the output mappings
-        const finalOutputNames = Object.values(lastStep.output_mappings)
-            .map(mapping => mapping.toString());
+        // Get the variable names that receive the outputs
+        const finalOutputVarNames = Object.values(lastStep.output_mappings)
+            .map(name => name.toString());
 
         // Filter state variables to only include those in the final output mappings
         return job.state.filter(variable =>
             variable.io_type === 'output' &&
             !variable.name.toString().startsWith('__eval_') &&
-            finalOutputNames.includes(variable.name.toString())
+            finalOutputVarNames.includes(variable.name.toString())
         );
     }
 
@@ -510,26 +526,43 @@ export class JobEngine {
     }
 
     /**
-     * Get input mappings for a specific step in a job
+     * Get input mappings for a specific step with their resolved values
      * @param job The job containing the step
      * @param stepId The ID of the step to get input mappings for
-     * @returns Array of input mappings with variable names and values
+     * @returns Array of input mappings with variable names and resolved values
      */
     static getStepInputMappings(job: Job, stepId: string) {
         const step = job.steps.find(s => s.step_id === stepId);
 
-        if (!step?.parameter_mappings || !step.tool) {
+        if (!step?.parameter_mappings) {
             return [];
         }
 
-        return Object.entries(step.parameter_mappings).map(([paramName, varName]) => {
-            // Get the input variable value from the job state
-            const varValue = job.state?.find(v => v.name === varName)?.value;
+        return Object.entries(step.parameter_mappings).map(([paramName, varPathSpec]) => {
+            // Parse the variable path into a root name and property path
+            const { rootName, propPath } = parseVariablePath(varPathSpec.toString());
+
+            // Get the root variable from the job state
+            const rootVar = findVariableByRootName(job.state || [], rootName);
+            let varValue = undefined;
+
+            if (rootVar?.value !== undefined) {
+                if (propPath.length === 0) {
+                    // Direct mapping
+                    varValue = rootVar.value;
+                } else {
+                    // Use utility to resolve property path
+                    const { value, validPath } = resolvePropertyPath(rootVar.value, propPath);
+                    if (validPath) {
+                        varValue = value;
+                    }
+                }
+            }
 
             return {
                 paramName,
-                varName,
-                paramLabel: varName as string,
+                varName: varPathSpec,
+                paramLabel: varPathSpec as string,
                 value: varValue
             };
         });
@@ -549,16 +582,43 @@ export class JobEngine {
             return [];
         }
 
-        return Object.entries(step.output_mappings).map(([outputName, varName]) => {
-            // Get output value
+        return Object.entries(step.output_mappings).map(([outputName, varPathSpec]) => {
             const outputValue = outputs[outputName as WorkflowVariableName];
+
+            // Parse the variable path into root name and property path
+            const { rootName, propPath } = parseVariablePath(varPathSpec.toString());
+
+            let targetVariable: WorkflowVariable | undefined = job.state?.find(v => v.name === rootName);
+
+            // If variable doesn't exist yet, we'll create it during execution
+            // For now, just return the mapping information
+            if (!targetVariable) {
+                return {
+                    outputName,
+                    varName: varPathSpec,
+                    outputLabel: varPathSpec as string,
+                    value: outputValue
+                };
+            }
+
+            // For property paths, we need to handle updating a specific part of the value
+            if (propPath.length > 0 && targetVariable.value !== undefined) {
+                // This information will be used by the step execution to update the nested property
+                return {
+                    outputName,
+                    varName: varPathSpec,
+                    outputLabel: varPathSpec as string,
+                    value: outputValue,
+                    rootName,
+                    propPath
+                };
+            }
 
             return {
                 outputName,
-                varName,
-                outputLabel: varName as string,
-                value: outputValue,
-                schema: step.tool?.signature.outputs.find(o => o.name === outputName)?.schema
+                varName: varPathSpec,
+                outputLabel: varPathSpec as string,
+                value: outputValue
             };
         });
     }

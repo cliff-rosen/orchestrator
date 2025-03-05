@@ -12,6 +12,7 @@ import {
 import { ToolParameterName, ToolOutputName, Tool } from '../../types/tools';
 import { SchemaValueType, Schema } from '../../types/schema';
 import { ToolEngine } from '../tool/toolEngine';
+import { resolveVariablePath, parseVariablePath, setValueAtPath, resolvePropertyPath, findVariableByRootName } from '../utils/variablePathUtils';
 
 export type StepReorderPayload = {
     reorderedSteps: WorkflowStep[];
@@ -212,6 +213,32 @@ export class WorkflowEngine {
                 return `File: ${value.name || value.file_id}`;
             }
 
+            // Handle schema objects with improved field name display
+            if (schema?.type === 'object' && schema.fields) {
+                // Format object with field names clearly visible
+                const formattedEntries = Object.entries(value)
+                    .filter(([key]) => schema.fields && key in schema.fields)
+                    .map(([key, val]) => {
+                        const fieldSchema = schema.fields?.[key];
+                        const fieldValue = this.formatValueForDisplay(
+                            val,
+                            fieldSchema,
+                            {
+                                maxTextLength: Math.min(50, maxTextLength / 2),
+                                maxArrayLength: 2,
+                                maxArrayItemLength: 30
+                            }
+                        );
+                        return `"${key}": ${fieldValue}`;
+                    });
+
+                const formatted = `{ ${formattedEntries.join(', ')} }`;
+                if (formatted.length > maxTextLength) {
+                    return `${formatted.substring(0, maxTextLength)}...`;
+                }
+                return formatted;
+            }
+
             // Handle other objects
             const json = JSON.stringify(value, null, 2);
             if (json.length > maxTextLength) {
@@ -267,11 +294,14 @@ export class WorkflowEngine {
         if (!step.parameter_mappings) return parameters;
 
         const allVariables = workflow.state || [];
-        for (const [paramName, varName] of Object.entries(step.parameter_mappings)) {
-            const variable = allVariables.find(v => v.name === varName);
+        for (const [paramName, varNamePath] of Object.entries(step.parameter_mappings)) {
+            // Use the utility library to resolve variable paths
+            const { value, validPath } = resolveVariablePath(allVariables, varNamePath.toString());
 
-            if (variable?.value !== undefined) {
-                parameters[paramName as ToolParameterName] = variable.value as SchemaValueType;
+            if (validPath && value !== undefined) {
+                parameters[paramName as ToolParameterName] = value as SchemaValueType;
+            } else {
+                console.warn(`Invalid or undefined variable path: ${varNamePath}`);
             }
         }
 
@@ -292,14 +322,33 @@ export class WorkflowEngine {
 
         // If step is type tool, we need to update the outputs with the tool results
         if (step.step_type === WorkflowStepType.ACTION) {
-            for (const [outputName, varName] of Object.entries(step.output_mappings)) {
-                const value = outputs[outputName as ToolOutputName];
+            for (const [outputPath, varName] of Object.entries(step.output_mappings)) {
+                // Parse the output path to extract a specific value from the tool output
+                const { rootName: rootOutputName, propPath: outputPropPath } = parseVariablePath(outputPath.toString());
+
+                // Start with the root output value
+                let outputValue = outputs[rootOutputName as ToolOutputName];
+
+                // If we have a path within the output, resolve it to get the specific value
+                if (outputPropPath.length > 0 && outputValue !== undefined) {
+                    const { value, validPath } = resolvePropertyPath(outputValue, outputPropPath);
+
+                    if (validPath) {
+                        outputValue = value;
+                    } else {
+                        console.warn(`Invalid output property path: ${outputPath}. Using undefined value.`);
+                        outputValue = undefined;
+                    }
+                }
+
+                // Find the variable to store the result in
                 const outputVarIndex = updatedState.findIndex(v => v.name === varName);
 
                 if (outputVarIndex !== -1) {
+                    // Store the entire (possibly resolved) output value in the variable
                     updatedState[outputVarIndex] = {
                         ...updatedState[outputVarIndex],
-                        value
+                        value: outputValue
                     };
                 }
             }
@@ -1078,5 +1127,50 @@ export class WorkflowEngine {
                 error: error instanceof Error ? error.message : 'Unknown error occurred'
             };
         }
+    }
+
+    /**
+     * Updates a variable value with support for property paths
+     */
+    static updateVariableValue(
+        variables: WorkflowVariable[],
+        variablePath: string,
+        value: SchemaValueType
+    ): WorkflowVariable[] {
+        const { rootName, propPath } = parseVariablePath(variablePath);
+
+        // Create a copy of the variables array to avoid mutating the original
+        const updatedVariables = [...variables];
+
+        // Find the target variable
+        const targetIndex = updatedVariables.findIndex(v => v.name === rootName);
+
+        // If target variable doesn't exist, we can't update it
+        if (targetIndex < 0) return variables;
+
+        // Get a copy of the target variable
+        const targetVariable = { ...updatedVariables[targetIndex] };
+
+        // If there's no property path, just update the whole value
+        if (propPath.length === 0) {
+            targetVariable.value = value;
+        } else {
+            // If there's a property path, update that specific path in the object
+            // First create a default value if none exists
+            const currentValue = targetVariable.value !== undefined
+                ? targetVariable.value
+                : (targetVariable.schema.type === 'object' ? {} : undefined);
+
+            // If we have a valid object to update
+            if (currentValue !== undefined && typeof currentValue === 'object' && !Array.isArray(currentValue)) {
+                // Use utility to set value at property path
+                targetVariable.value = setValueAtPath(currentValue, propPath, value);
+            }
+        }
+
+        // Update the variable in the array
+        updatedVariables[targetIndex] = targetVariable;
+
+        return updatedVariables;
     }
 } 

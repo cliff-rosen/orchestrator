@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
-import { WorkflowVariable, WorkflowVariableName } from '../types/workflows';
-import { Schema } from '../types/schema';
+import { Schema, ValueType } from '../types/schema';
+import { WorkflowVariable, WorkflowVariableName, createWorkflowVariable } from '../types/workflows';
+import { parseVariablePath } from '../lib/utils/variablePathUtils';
+import { renderVariablePaths, formatVariablePath, getTypeColor, isCompatibleType } from '../lib/utils/variableUIUtils';
 
 interface DataFlowMapper2Props {
     // Original DataFlowMapper props
@@ -41,39 +43,25 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
     const [newVarSchema, setNewVarSchema] = useState<Schema | null>(null);
     const [nameError, setNameError] = useState<string | null>(null);
 
-    // Compatibility check from original DataFlowMapper
-    const isCompatibleType = (paramSchema: Schema, varSchema: Schema): boolean => {
-        if (paramSchema.type === 'string' && !paramSchema.is_array &&
-            varSchema.type === 'string' && varSchema.is_array) {
-            return true;
-        }
-        if (paramSchema.is_array !== varSchema.is_array) {
-            return false;
-        }
-        if (paramSchema.type !== varSchema.type) {
-            return false;
-        }
-        if (paramSchema.type === 'object' && paramSchema.fields && varSchema.fields) {
-            return Object.entries(paramSchema.fields).every(([fieldName, fieldSchema]) => {
-                const varFields = varSchema.fields || {};
-                const varField = varFields[fieldName];
-                return varField && isCompatibleType(fieldSchema, varField);
-            });
-        }
-        return true;
-    };
+    // Add useEffect to log tool signature structure
+    useEffect(() => {
 
-    // Get color for data type (maintained for consistency)
-    const getTypeColor = (type: string, isArray: boolean = false): string => {
-        if (isArray) return 'text-orange-600 dark:text-orange-400';
-        switch (type) {
-            case 'string': return 'text-blue-600 dark:text-blue-400';
-            case 'number': return 'text-green-600 dark:text-green-400';
-            case 'boolean': return 'text-purple-600 dark:text-purple-400';
-            case 'object': return 'text-red-600 dark:text-red-400';
-            default: return 'text-gray-600 dark:text-gray-400';
+        if (tool.signature.outputs && tool.signature.outputs.length > 0) {
+            const firstOutput = tool.signature.outputs[0];
+            console.log('First output:', firstOutput);
+            console.log('First output schema:', firstOutput.schema);
+            console.log('First output schema type:', firstOutput.schema?.type);
+            console.log('First output schema is_array:', firstOutput.schema?.is_array);
         }
-    };
+
+        if (tool.signature.parameters && tool.signature.parameters.length > 0) {
+            const firstParam = tool.signature.parameters[0];
+            console.log('First parameter:', firstParam);
+            console.log('First parameter schema:', firstParam.schema);
+            console.log('First parameter schema type:', firstParam.schema?.type);
+            console.log('First parameter schema is_array:', firstParam.schema?.is_array);
+        }
+    }, [tool]);
 
     const handleParameterMappingChange = (paramName: string, value: string) => {
         const newMappings = {
@@ -83,10 +71,34 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
         onParameterMappingChange(newMappings);
     };
 
-    const handleCreateVariable = (paramName: string) => {
+    const handleCreateParameterVariable = (paramName: string) => {
         const param = tool.signature.parameters.find(p => p.name === paramName);
         setCreatingForParameter(paramName);
-        setNewVarSchema(param?.schema || null);
+
+        // The schema structure is nested, so we need to extract it properly
+        if (!param || !param.schema) {
+            // Fallback to a default schema if param or schema is missing
+            setNewVarSchema({
+                type: 'string' as ValueType,
+                is_array: false,
+                description: '',
+                fields: {}
+            });
+        } else {
+            // Create a properly structured Schema object from the parameter schema
+            // Ensure we're correctly handling the schema structure
+            const schema = param.schema;
+            const safeSchema: Schema = {
+                type: (schema.type as ValueType) || 'string',
+                is_array: Boolean(schema.is_array),
+                description: schema.description || '',
+                fields: schema.fields ? { ...schema.fields } : {},
+                format: schema.format,
+                content_types: schema.content_types
+            };
+            setNewVarSchema(safeSchema);
+        }
+
         setNewVarName(paramName);
         setShowVariableCreation(true);
     };
@@ -102,7 +114,38 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
     const handleCreateOutputVariable = (outputName: string) => {
         const output = tool.signature.outputs.find(o => o.name === outputName);
         setCreatingForOutput(outputName);
-        setNewVarSchema(output?.schema || null);
+
+        // The schema structure is nested, so we need to extract it properly
+        if (!output || !output.schema || output.schema.type != 'object') {
+            // Fallback to a default schema if output or schema is missing
+            setNewVarSchema({
+                type: 'string' as ValueType,
+                is_array: false,
+                description: '',
+                fields: {}
+            });
+        } else {
+            const fields = output.schema.fields?.fields || {};
+            console.log('fields', fields);
+
+            var newFields: Record<string, Schema> = {};
+
+            // iterate over the fields and create a new schema for each field       
+            Object.entries(fields).forEach(([fieldName, fieldSchema]) => {
+                newFields[fieldName] = fieldSchema as Schema;
+            });
+
+            const newSchema = {
+                type: 'object' as ValueType,
+                is_array: output.schema.is_array,
+                description: output.schema.description,
+                fields: newFields
+            };
+
+            console.log('newSchema', newSchema);
+            setNewVarSchema(newSchema);
+        }
+
         setNewVarName(outputName);
         setShowVariableCreation(true);
     };
@@ -110,50 +153,56 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
     const handleCreateVariableSubmit = () => {
         const paramOrOutput = creatingForParameter
             ? tool.signature.parameters.find(p => p.name === creatingForParameter)
-            : tool.signature.outputs.find(o => o.name === creatingForOutput);
+            : creatingForOutput
+                ? tool.signature.outputs.find(o => o.name === creatingForOutput)
+                : null;
 
-        if (!paramOrOutput || !newVarSchema) return;
+        console.log('Creating variable from:', paramOrOutput);
+        console.log('Using schema:', newVarSchema);
 
-        // Check for duplicate names
-        const existingVariables = creatingForOutput ? outputs : inputs;
-        const isDuplicateName = existingVariables.some(v => v.name === newVarName);
-        if (isDuplicateName) {
-            setNameError(`A ${creatingForOutput ? 'output' : 'input'} variable with name "${newVarName}" already exists`);
+        if (!newVarName || !newVarSchema) {
+            setNameError('Variable name and schema are required');
             return;
         }
 
-        setNameError(null);
-        const newVariable: WorkflowVariable = {
-            variable_id: `new_${Date.now()}`, // Temporary ID, backend will assign real one
-            name: newVarName as WorkflowVariableName,
-            description: newVarDescription,
-            schema: newVarSchema,
-            io_type: creatingForOutput ? 'output' : 'input'
+        // Ensure the schema is properly structured before creating the variable
+        const validatedSchema: Schema = {
+            type: newVarSchema.type || 'string',
+            is_array: Boolean(newVarSchema.is_array),
+            description: newVarSchema.description || '',
+            fields: newVarSchema.fields ? { ...newVarSchema.fields } : {},
+            format: newVarSchema.format,
+            content_types: newVarSchema.content_types
         };
 
-        // Notify parent about new variable
-        onVariableCreate?.(newVariable);
+        // Create the new variable
+        const newVar = createWorkflowVariable(
+            `new_${Date.now()}`, // Temporary ID, backend will assign real one
+            newVarName,
+            validatedSchema,
+            creatingForParameter ? 'input' : 'output'
+        );
 
-        // Add to appropriate list and update mapping
-        if (creatingForParameter) {
-            handleParameterMappingChange(creatingForParameter, newVariable.name);
-        } else if (creatingForOutput) {
-            handleOutputMappingChange(creatingForOutput, newVariable.name);
+        console.log('Created new variable:', newVar);
+
+        // Call the callback
+        if (onVariableCreate) {
+            onVariableCreate(newVar);
         }
 
-        // Reset form and close modal
-        setNewVarName('');
-        setNewVarDescription('');
-        setNewVarSchema(null);
+        // Update the mapping
+        if (creatingForParameter) {
+            handleParameterMappingChange(creatingForParameter, newVarName);
+        } else if (creatingForOutput) {
+            handleOutputMappingChange(creatingForOutput, newVarName);
+        }
+
+        // Reset state
         setShowVariableCreation(false);
+        setNewVarName('');
+        setNewVarSchema(null);
         setCreatingForParameter(null);
         setCreatingForOutput(null);
-
-        // Force a re-render after a short delay to ensure the new variable is available
-        setTimeout(() => {
-            setActiveParameter(null);
-            setActiveOutput(null);
-        }, 100);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -176,22 +225,38 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                     <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md space-y-2">
                         <div className="flex items-center space-x-2">
                             <span className="text-sm text-gray-600 dark:text-gray-400">Type:</span>
-                            <span className={`text-sm ${getTypeColor(newVarSchema.type, newVarSchema.is_array)}`}>
-                                {newVarSchema.type}{newVarSchema.is_array ? '[]' : ''}
+                            <span className={`text-sm ${getTypeColor(newVarSchema.type || 'string', Boolean(newVarSchema.is_array))}`}>
+                                {newVarSchema.type || 'string'}{newVarSchema.is_array ? '[]' : ''}
                             </span>
                         </div>
                         {newVarSchema.type === 'object' && newVarSchema.fields && (
                             <div className="mt-2">
                                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Fields:</div>
                                 <div className="space-y-2 pl-4">
-                                    {Object.entries(newVarSchema.fields).map(([fieldName, fieldSchema]) => (
-                                        <div key={fieldName} className="flex items-center justify-between">
-                                            <span className="text-sm text-gray-700 dark:text-gray-300">{fieldName}</span>
-                                            <span className={`text-sm ${getTypeColor(fieldSchema.type, fieldSchema.is_array)}`}>
-                                                {fieldSchema.type}{fieldSchema.is_array ? '[]' : ''}
-                                            </span>
-                                        </div>
-                                    ))}
+                                    {Object.entries(newVarSchema.fields || {}).map(([fieldName, fieldSchema]) => {
+                                        // Add null check for fieldSchema
+                                        if (!fieldSchema) return null;
+
+                                        // Ensure we have a type
+                                        const fieldType = fieldSchema.type || 'string';
+                                        const isArray = Boolean(fieldSchema.is_array);
+
+                                        return (
+                                            <div key={fieldName} className="flex items-center justify-between border-l-2 border-gray-200 dark:border-gray-700 pl-2 py-1">
+                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                    <span className="font-bold">{fieldName}</span>
+                                                    {fieldSchema.description && (
+                                                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                                            ({fieldSchema.description})
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <span className={`text-sm ${getTypeColor(fieldType, isArray)}`}>
+                                                    {fieldType}{isArray ? '[]' : ''}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -208,9 +273,10 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                 fields: {
                     ...fields,
                     [`field_${Object.keys(fields).length + 1}`]: {
-                        type: 'string',
+                        type: 'string' as ValueType,
                         description: '',
-                        is_array: false
+                        is_array: false,
+                        fields: {}
                     }
                 }
             });
@@ -219,14 +285,29 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
         const updateObjectField = (fieldName: string, updates: Partial<Schema>) => {
             if (!newVarSchema.fields) return;
 
+            // Ensure the field exists
+            const currentField = newVarSchema.fields[fieldName] || {
+                type: 'string' as ValueType,
+                description: '',
+                is_array: false,
+                fields: {}
+            };
+
+            // Create a properly structured updated field
+            const updatedField: Schema = {
+                ...currentField,
+                ...updates,
+                // Ensure fields is properly initialized if type is changing to object
+                fields: updates.type === 'object' ?
+                    (updates.fields || currentField.fields || {}) :
+                    (currentField.type === 'object' ? currentField.fields : {})
+            };
+
             setNewVarSchema({
                 ...newVarSchema,
                 fields: {
                     ...newVarSchema.fields,
-                    [fieldName]: {
-                        ...newVarSchema.fields[fieldName],
-                        ...updates
-                    }
+                    [fieldName]: updatedField
                 }
             });
         };
@@ -381,14 +462,14 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                                  text-gray-900 dark:text-gray-100
                                  hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                        {currentMapping || 'Select or create variable'}
+                        {formatVariablePath(currentMapping) || 'Select or create variable'}
                     </button>
 
                     {isActive && (
                         <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700">
                             <div className="p-2 border-b border-gray-200 dark:border-gray-700">
                                 <button
-                                    onClick={() => handleCreateVariable(param.name)}
+                                    onClick={() => handleCreateParameterVariable(param.name)}
                                     className="w-full px-3 py-2 text-left text-sm text-blue-600 dark:text-blue-400
                                              hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                                 >
@@ -399,23 +480,13 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                             <div className="max-h-48 overflow-y-auto">
                                 {inputs.concat(outputs)
                                     .filter(v => isCompatibleType(param.schema, v.schema))
-                                    .map(variable => (
-                                        <button
-                                            key={variable.variable_id}
-                                            onClick={() => {
-                                                handleParameterMappingChange(param.name, variable.name);
-                                                setActiveParameter(null);
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100
-                                                     hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between"
-                                        >
-                                            <span>{variable.name}</span>
-                                            <span className={`text-xs ${getTypeColor(variable.schema.type, variable.schema.is_array)}`}>
-                                                {variable.schema.type}{variable.schema.is_array ? '[]' : ''}
-                                            </span>
-                                        </button>
-                                    ))
-                                }
+                                    .flatMap(variable => renderVariablePaths(
+                                        variable,
+                                        (path) => {
+                                            handleParameterMappingChange(param.name, path as WorkflowVariableName);
+                                            setActiveParameter(null);
+                                        }
+                                    ))}
                             </div>
                         </div>
                     )}
@@ -423,7 +494,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
 
                 {currentMapping && (
                     <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        {inputs.concat(outputs).find(v => v.name === currentMapping)?.schema.description}
+                        {inputs.concat(outputs).find(v => v.name === parseVariablePath(currentMapping).rootName)?.schema.description}
                     </div>
                 )}
             </div>
@@ -456,14 +527,14 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                                  text-gray-900 dark:text-gray-100
                                  hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                        {currentMapping || 'Map to variable'}
+                        {formatVariablePath(currentMapping) || 'Map to variable'}
                     </button>
 
                     {isActive && (
                         <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700">
                             <div className="p-2 border-b border-gray-200 dark:border-gray-700">
                                 <button
-                                    onClick={() => handleCreateOutputVariable(output.name)}
+                                    onClick={() => handleCreateOutputVariable(output.name as ToolOutputName)}
                                     className="w-full px-3 py-2 text-left text-sm text-blue-600 dark:text-blue-400
                                              hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                                 >
@@ -474,23 +545,13 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                             <div className="max-h-48 overflow-y-auto">
                                 {outputs.concat(inputs)
                                     .filter(v => isCompatibleType(output.schema, v.schema))
-                                    .map(variable => (
-                                        <button
-                                            key={variable.variable_id}
-                                            onClick={() => {
-                                                handleOutputMappingChange(output.name, variable.name);
-                                                setActiveOutput(null);
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100
-                                                     hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between"
-                                        >
-                                            <span>{variable.name}</span>
-                                            <span className={`text-xs ${getTypeColor(variable.schema.type, variable.schema.is_array)}`}>
-                                                {variable.schema.type}{variable.schema.is_array ? '[]' : ''}
-                                            </span>
-                                        </button>
-                                    ))
-                                }
+                                    .flatMap(variable => renderVariablePaths(
+                                        variable,
+                                        (path) => {
+                                            handleOutputMappingChange(output.name, path as WorkflowVariableName);
+                                            setActiveOutput(null);
+                                        }
+                                    ))}
                             </div>
                         </div>
                     )}
@@ -498,7 +559,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
 
                 {currentMapping && (
                     <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        {outputs.concat(inputs).find(v => v.name === currentMapping)?.schema.description}
+                        {outputs.concat(inputs).find(v => v.name === parseVariablePath(currentMapping).rootName)?.schema.description}
                     </div>
                 )}
             </div>

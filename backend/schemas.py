@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any, Union, Literal
 from enum import Enum
 import base64
+import json
+from pydantic import field_validator
 
 ##### USER SCHEMA #####
 
@@ -245,10 +247,12 @@ class SchemaValue(BaseModel):
     type: str = Field(description="Base type (string, number, boolean, object)")
     description: Optional[str] = None
     is_array: bool = Field(default=False, description="Whether this is an array of the base type")
-    fields: Optional[Dict[str, 'SchemaValue']] = Field(None, description="Fields for object type")
+    fields: Optional[Dict[str, Any]] = Field(None, description="Fields for object type")
     # File-specific fields
     format: Optional[str] = Field(None, description="Format specification")
     content_types: Optional[List[str]] = Field(None, description="Allowed content types")
+    
+    model_config = ConfigDict(extra="allow")  # Allow extra fields for flexibility
 
 class ToolParameter(BaseModel):
     """Schema for tool parameter definition"""
@@ -257,33 +261,45 @@ class ToolParameter(BaseModel):
     schema: SchemaValue = Field(description="Schema defining the parameter type and structure")
     required: bool = Field(default=True, description="Whether the parameter is required")
     default: Optional[Any] = Field(None, description="Default value for the parameter")
+    
+    model_config = ConfigDict(extra="allow")  # Allow extra fields for flexibility
 
 class ToolOutput(BaseModel):
     """Schema for tool output definition"""
     name: str = Field(description="Name of the output")
     description: str = Field(description="Description of the output")
     schema: SchemaValue = Field(description="Schema defining the output type and structure")
+    
+    model_config = ConfigDict(extra="allow")  # Allow extra fields for flexibility
 
 class ParameterSchema(BaseModel):
     name: str
     description: str
     schema: SchemaValue
+    
+    model_config = ConfigDict(extra="allow")
 
 class OutputSchema(BaseModel):
     name: str
     description: str
     schema: SchemaValue
+    
+    model_config = ConfigDict(extra="allow")
 
 class ToolSignature(BaseModel):
     parameters: List[ToolParameter]
     outputs: List[ToolOutput]
+    
+    model_config = ConfigDict(extra="allow")  # Allow extra fields for flexibility
 
 class ToolBase(BaseModel):
     """Base schema for tools"""
     name: str = Field(description="Name of the tool")
     description: str = Field(description="Description of the tool")
     tool_type: str = Field(description="Type of tool")
-    signature: ToolSignature = Field(description="Tool's parameter and output signature")
+    signature: Dict[str, Any] = Field(description="Tool's parameter and output signature")
+    
+    model_config = ConfigDict(extra="allow")
 
 class ToolCreate(ToolBase):
     """Schema for creating tools"""
@@ -293,7 +309,9 @@ class ToolUpdate(BaseModel):
     """Schema for updating tools"""
     name: Optional[str] = Field(None, description="New name for the tool")
     description: Optional[str] = Field(None, description="New description for the tool")
-    signature: Optional[ToolSignature] = Field(None, description="New signature for the tool")
+    signature: Optional[Dict[str, Any]] = Field(None, description="New signature for the tool")
+    
+    model_config = ConfigDict(extra="allow")
 
 class ToolResponse(BaseModel):
     """Schema for tool responses"""
@@ -301,11 +319,24 @@ class ToolResponse(BaseModel):
     name: str = Field(description="Name of the tool")
     description: str = Field(description="Description of the tool")
     tool_type: str = Field(description="Type of tool")
-    signature: ToolSignature = Field(description="Tool's parameter and output signature")
+    signature: Dict[str, Any] = Field(description="Tool's parameter and output signature")
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+    
+    @field_validator('signature', mode='before')
+    @classmethod
+    def validate_signature(cls, v):
+        """Ensure signature is properly formatted"""
+        if isinstance(v, dict):
+            return v
+        elif isinstance(v, str):
+            try:
+                return json.loads(v)
+            except:
+                return {"parameters": [], "outputs": []}
+        return v
 
 class VariableType(str, Enum):
     STRING = "string"

@@ -19,6 +19,8 @@ interface SchemaFieldProps {
 
 const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, indent = 0, onFileSelect }) => {
     const [showFileSelector, setShowFileSelector] = useState(false);
+    const [fieldNameInput, setFieldNameInput] = useState('');
+    const [isEditingFieldName, setIsEditingFieldName] = useState(false);
 
     const handleTypeChange = (type: ValueType) => {
         onChange({ ...value, type });
@@ -98,33 +100,85 @@ const SchemaField: React.FC<SchemaFieldProps> = ({ value, onChange, onRemove, in
             {value.type === 'object' && 'fields' in value && (
                 <div className="ml-8 space-y-4">
                     {Object.entries(value.fields || {}).map(([fieldName, fieldValue]) => (
-                        <SchemaField
-                            key={fieldName}
-                            value={fieldValue}
-                            onChange={newValue => {
-                                const newFields = { ...value.fields };
-                                newFields[fieldName] = newValue;
-                                onChange({ ...value, fields: newFields });
-                            }}
-                            onRemove={() => {
-                                const { [fieldName]: removed, ...newFields } = value.fields || {};
-                                onChange({ ...value, fields: newFields });
-                            }}
-                            indent={indent + 1}
-                            onFileSelect={onFileSelect}
-                        />
+                        <div key={fieldName} className="border-l-2 border-gray-200 dark:border-gray-700 pl-2">
+                            <div className="flex items-center mb-2">
+                                {isEditingFieldName && fieldName === fieldNameInput ? (
+                                    <input
+                                        type="text"
+                                        value={fieldNameInput}
+                                        onChange={(e) => setFieldNameInput(e.target.value)}
+                                        onBlur={() => {
+                                            if (fieldNameInput && fieldNameInput !== fieldName) {
+                                                const newFields = { ...value.fields };
+                                                delete newFields[fieldName];
+                                                newFields[fieldNameInput] = fieldValue;
+                                                onChange({ ...value, fields: newFields });
+                                            }
+                                            setIsEditingFieldName(false);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.currentTarget.blur();
+                                            }
+                                        }}
+                                        className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <div
+                                        className="font-medium text-sm text-gray-800 dark:text-gray-200 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                                        onClick={() => {
+                                            setFieldNameInput(fieldName);
+                                            setIsEditingFieldName(true);
+                                        }}
+                                    >
+                                        Field Name: <span className="font-bold">{fieldName}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <SchemaField
+                                value={fieldValue}
+                                onChange={newValue => {
+                                    const newFields = { ...value.fields };
+                                    newFields[fieldName] = newValue;
+                                    onChange({ ...value, fields: newFields });
+                                }}
+                                onRemove={() => {
+                                    const { [fieldName]: removed, ...newFields } = value.fields || {};
+                                    onChange({ ...value, fields: newFields });
+                                }}
+                                indent={indent + 1}
+                                onFileSelect={onFileSelect}
+                            />
+                        </div>
                     ))}
-                    <button
-                        onClick={() => {
-                            const newFields = { ...value.fields };
-                            const fieldName = `field${Object.keys(newFields).length + 1}`;
-                            newFields[fieldName] = createBasicSchema('string');
-                            onChange({ ...value, fields: newFields });
-                        }}
-                        className="ml-8 px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                        + Add Field
-                    </button>
+                    <div className="flex items-center">
+                        <input
+                            type="text"
+                            value={fieldNameInput}
+                            onChange={(e) => setFieldNameInput(e.target.value)}
+                            placeholder="New field name"
+                            className="ml-8 px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md"
+                        />
+                        <button
+                            onClick={() => {
+                                if (fieldNameInput.trim()) {
+                                    const newFields = { ...value.fields };
+                                    newFields[fieldNameInput] = createBasicSchema('string');
+                                    onChange({ ...value, fields: newFields });
+                                    setFieldNameInput('');
+                                } else {
+                                    const newFields = { ...value.fields };
+                                    const fieldName = `field${Object.keys(newFields).length + 1}`;
+                                    newFields[fieldName] = createBasicSchema('string');
+                                    onChange({ ...value, fields: newFields });
+                                }
+                            }}
+                            className="ml-2 px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+                        >
+                            + Add Field
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
