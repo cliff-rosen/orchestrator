@@ -38,14 +38,16 @@ export interface EvaluationOutputs {
     jump_count?: string;
     max_jumps?: string;
     max_jumps_reached?: string;
-    [key: WorkflowVariableName]: SchemaValueType; // Index signature to make it compatible with Record<WorkflowVariableName, SchemaValueType>
+    [key: string]: SchemaValueType | undefined;  // Index signature to make it compatible with SchemaObjectType
 }
 
 // Evaluation result that determines the next step in workflow
 export interface EvaluationResult extends Omit<StepExecutionResult, 'outputs'> {
-    next_action: 'continue' | 'jump' | 'end';
-    target_step_index?: number;  // Only required when next_action is 'jump'
+    conditionMet: string;  // ID of the condition that was met, or 'none'
+    nextAction: 'continue' | 'jump' | 'end';
+    targetStepIndex?: number;  // Only required when nextAction is 'jump'
     reason?: string;  // Optional explanation for the decision
+    updatedState?: WorkflowVariable[];  // Optional updated workflow state
     outputs?: EvaluationOutputs;  // Typed outputs for evaluation steps
 }
 

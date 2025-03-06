@@ -4,8 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 // Types
 import {
     WorkflowStep,
-    WorkflowStepType,
-    WorkflowStepId
+    WorkflowStepType
 } from '../types/workflows';
 
 // Context

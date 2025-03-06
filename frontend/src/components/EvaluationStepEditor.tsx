@@ -1,6 +1,7 @@
 import React from 'react';
-import { WorkflowStep, WorkflowVariableName } from '../types/workflows';
+import { WorkflowStep, WorkflowVariableName, EvaluationOperator } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
+import VariablePathSelector from './VariablePathSelector';
 
 interface EvaluationStepEditorProps {
     step: WorkflowStep;
@@ -146,19 +147,12 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Variable
                                         </label>
-                                        <select
+                                        <VariablePathSelector
+                                            variables={workflow?.state || []}
                                             value={condition.variable}
-                                            onChange={(e) => handleConditionChange(index, 'variable', e.target.value as WorkflowVariableName)}
-                                            className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md 
-                                                     bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                        >
-                                            <option value="">Select a variable</option>
-                                            {availableVariables.map((variable) => (
-                                                <option key={`var-${variable.name}`} value={variable.name}>
-                                                    {variable.name} ({variable.description})
-                                                </option>
-                                            ))}
-                                        </select>
+                                            onChange={(value) => handleConditionChange(index, 'variable', value as WorkflowVariableName)}
+                                            placeholder="Select a variable"
+                                        />
                                     </div>
 
                                     {/* Operator Selection */}

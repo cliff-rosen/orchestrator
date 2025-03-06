@@ -3,6 +3,7 @@ import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
 import { Schema, ValueType } from '../types/schema';
 import { WorkflowVariable, WorkflowVariableName, createWorkflowVariable } from '../types/workflows';
 import { getTypeColor, isCompatibleType } from '../lib/utils/variableUIUtils';
+import VariablePathSelector from './VariablePathSelector';
 
 interface DataFlowMapper2Props {
     // Original DataFlowMapper props
@@ -463,23 +464,14 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                             </button>
                         </div>
 
-                        <select
+                        <VariablePathSelector
+                            variables={inputs}
                             value={parameter_mappings[param.name as ToolParameterName] || ''}
-                            onChange={(e) => handleParameterMappingChange(param.name, e.target.value)}
-                            className="w-full px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded 
-                                    bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                        >
-                            <option value="">Select input...</option>
-                            {inputs.map(input => (
-                                <option
-                                    key={input.name}
-                                    value={input.name}
-                                    disabled={!isCompatibleType(param.schema, input.schema)}
-                                >
-                                    {input.name}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(value) => handleParameterMappingChange(param.name, value)}
+                            targetSchema={param.schema}
+                            placeholder="Select input variable or property..."
+                            className="text-xs py-1"
+                        />
                     </div>
                 ))}
             </div>
@@ -500,10 +492,12 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                 {tool.signature.outputs.map(output => (
                     <div key={output.name} className="bg-gray-50 dark:bg-gray-800/50 rounded-md p-1.5">
                         <div className="flex items-center justify-between mb-1">
-                            <span className={`text-xs font-medium ${getTypeColor(output.schema?.type || 'string', Boolean(output.schema?.is_array))}`}>
-                                {output.name}
-                                {output.schema?.is_array && '[]'}
-                            </span>
+                            <div className="flex items-center gap-1">
+                                <span className={`text-xs font-medium ${getTypeColor(output.schema?.type || 'string', Boolean(output.schema?.is_array))}`}>
+                                    {output.name}
+                                    {output.schema?.is_array && '[]'}
+                                </span>
+                            </div>
                             <button
                                 onClick={() => handleCreateOutputVariable(output.name)}
                                 className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
@@ -512,23 +506,13 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                             </button>
                         </div>
 
-                        <select
+                        <VariablePathSelector
+                            variables={outputs}
                             value={output_mappings[output.name as ToolOutputName] || ''}
-                            onChange={(e) => handleOutputMappingChange(output.name, e.target.value)}
-                            className="w-full px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded 
-                                    bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                        >
-                            <option value="">Select output...</option>
-                            {outputs.map(out => (
-                                <option
-                                    key={out.name}
-                                    value={out.name}
-                                    disabled={!isCompatibleType(output.schema, out.schema)}
-                                >
-                                    {out.name}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(value) => handleOutputMappingChange(output.name, value)}
+                            placeholder="Select output variable..."
+                            className="text-xs py-1"
+                        />
                     </div>
                 ))}
             </div>

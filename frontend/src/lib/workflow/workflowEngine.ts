@@ -400,96 +400,143 @@ export class WorkflowEngine {
     ): EvaluationResult {
         if (!step.evaluation_config) {
             return {
-                success: false,
-                error: 'No evaluation configuration found',
-                next_action: 'end'
+                success: true,
+                conditionMet: 'none',
+                nextAction: 'continue',
+                targetStepIndex: undefined,
+                reason: 'No evaluation configuration',
+                outputs: {
+                    condition_met: 'none',
+                    next_action: 'continue',
+                    reason: 'No evaluation configuration'
+                }
             };
         }
 
-        const variables = new Map<WorkflowVariableName, any>();
-        (workflow.state || []).forEach(variable => {
-            variables.set(variable.name, variable.value);
-        });
+        const { conditions, default_action } = step.evaluation_config;
+        const allVariables = workflow.state || [];
 
-        // Get current jump count
-        const jumpCounterName = `jump_count_${step.step_id.slice(0, 8)}` as WorkflowVariableName;
-        let jumpCount = 0;
-        const jumpCountVar = workflow.state?.find(v => v.name === jumpCounterName);
-        if (jumpCountVar?.value !== undefined) {
-            jumpCount = Number(jumpCountVar.value);
+        // If no conditions, use default action
+        if (!conditions || conditions.length === 0) {
+            return {
+                success: true,
+                conditionMet: 'none',
+                nextAction: default_action,
+                targetStepIndex: undefined,
+                reason: 'No conditions defined',
+                outputs: {
+                    condition_met: 'none',
+                    next_action: default_action,
+                    reason: 'No conditions defined'
+                }
+            };
         }
 
-        // Check if we've reached the maximum jumps limit
-        const maxJumps = step.evaluation_config.maximum_jumps || 3; // Default to 3 if not specified
-        const maxJumpsReached = jumpCount >= maxJumps;
+        // Evaluate each condition
+        for (const condition of conditions) {
+            // Get the variable value using the variable path
+            const { value, validPath } = resolveVariablePath(allVariables, condition.variable.toString());
 
-        // Find first matching condition
-        let metCondition = null;
-        for (const condition of step.evaluation_config.conditions) {
-            const variableValue = variables.get(condition.variable);
-            if (variableValue === undefined) continue;
+            // Skip if variable not found or path is invalid
+            if (!validPath || value === undefined) {
+                console.warn(`Variable ${condition.variable} not found or has no value`);
+                continue;
+            }
 
-            if (this.evaluateCondition(condition.operator, variableValue, condition.value)) {
-                metCondition = {
-                    condition,
-                    value: variableValue
+            // Evaluate the condition
+            const conditionMet = this.evaluateCondition(
+                condition.operator,
+                value,
+                condition.value
+            );
+
+            if (conditionMet) {
+                // Determine next action
+                const nextAction = condition.target_step_index !== undefined ? 'jump' : 'continue';
+                const targetStepIndex = condition.target_step_index;
+
+                // If we need to jump, check if we can
+                if (nextAction === 'jump' && targetStepIndex !== undefined) {
+                    // Check if we can jump (max jumps not reached)
+                    const { canJump, jumpCount, updatedState, jumpInfo } = this.manageJumpCount(
+                        step,
+                        allVariables,
+                        step.sequence_number,
+                        targetStepIndex,
+                        `Condition met: ${condition.variable} ${condition.operator} ${condition.value}`
+                    );
+
+                    if (canJump) {
+                        return {
+                            success: true,
+                            conditionMet: condition.condition_id,
+                            nextAction,
+                            targetStepIndex,
+                            reason: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}`,
+                            updatedState,
+                            outputs: {
+                                condition_met: condition.condition_id,
+                                next_action: nextAction,
+                                target_step_index: targetStepIndex.toString(),
+                                reason: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}`,
+                                jump_count: jumpCount.toString(),
+                                max_jumps: step.evaluation_config.maximum_jumps.toString(),
+                                max_jumps_reached: 'false',
+                                ...jumpInfo
+                            }
+                        };
+                    } else {
+                        // Max jumps reached, continue to next step
+                        return {
+                            success: true,
+                            conditionMet: condition.condition_id,
+                            nextAction: 'continue',
+                            targetStepIndex: undefined,
+                            reason: `Condition met but maximum jumps (${step.evaluation_config.maximum_jumps}) reached`,
+                            updatedState,
+                            outputs: {
+                                condition_met: condition.condition_id,
+                                next_action: 'continue',
+                                reason: `Condition met but maximum jumps (${step.evaluation_config.maximum_jumps}) reached`,
+                                jump_count: jumpCount.toString(),
+                                max_jumps: step.evaluation_config.maximum_jumps.toString(),
+                                max_jumps_reached: 'true',
+                                ...jumpInfo
+                            }
+                        };
+                    }
+                }
+
+                // No jump needed, just continue
+                return {
+                    success: true,
+                    conditionMet: condition.condition_id,
+                    nextAction,
+                    targetStepIndex,
+                    reason: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}`,
+                    outputs: {
+                        condition_met: condition.condition_id,
+                        next_action: nextAction,
+                        target_step_index: targetStepIndex?.toString(),
+                        reason: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}`
+                    }
                 };
-                break;
             }
         }
 
-        // Return evaluation result that matches the EvaluationResult interface
-        if (metCondition && !maxJumpsReached) {
-            return {
-                success: true,
-                outputs: {
-                    ['condition_met' as WorkflowVariableName]: metCondition.condition.condition_id as SchemaValueType,
-                    ['variable_name' as WorkflowVariableName]: metCondition.condition.variable as SchemaValueType,
-                    ['variable_value' as WorkflowVariableName]: String(metCondition.value) as SchemaValueType,
-                    ['operator' as WorkflowVariableName]: metCondition.condition.operator as SchemaValueType,
-                    ['comparison_value' as WorkflowVariableName]: String(metCondition.condition.value) as SchemaValueType,
-                    ['reason' as WorkflowVariableName]: `Condition '${metCondition.condition.condition_id}' was met` as SchemaValueType,
-                    ['next_action' as WorkflowVariableName]: 'jump' as SchemaValueType,
-                    ['target_step_index' as WorkflowVariableName]: String(metCondition.condition.target_step_index) as SchemaValueType,
-                    ['jump_count' as WorkflowVariableName]: String(jumpCount) as SchemaValueType,
-                    ['max_jumps' as WorkflowVariableName]: String(maxJumps) as SchemaValueType
-                },
-                next_action: 'jump',
-                target_step_index: metCondition.condition.target_step_index,
-                reason: `Condition '${metCondition.condition.condition_id}' was met`
-            };
-        } else if (metCondition && maxJumpsReached) {
-            // Condition met but max jumps reached
-            return {
-                success: true,
-                outputs: {
-                    ['condition_met' as WorkflowVariableName]: metCondition.condition.condition_id as SchemaValueType,
-                    ['variable_name' as WorkflowVariableName]: metCondition.condition.variable as SchemaValueType,
-                    ['variable_value' as WorkflowVariableName]: String(metCondition.value) as SchemaValueType,
-                    ['operator' as WorkflowVariableName]: metCondition.condition.operator as SchemaValueType,
-                    ['comparison_value' as WorkflowVariableName]: String(metCondition.condition.value) as SchemaValueType,
-                    ['reason' as WorkflowVariableName]: `Condition '${metCondition.condition.condition_id}' was met but maximum jumps (${maxJumps}) reached` as SchemaValueType,
-                    ['next_action' as WorkflowVariableName]: 'continue' as SchemaValueType,
-                    ['jump_count' as WorkflowVariableName]: String(jumpCount) as SchemaValueType,
-                    ['max_jumps' as WorkflowVariableName]: String(maxJumps) as SchemaValueType,
-                    ['max_jumps_reached' as WorkflowVariableName]: 'true' as SchemaValueType
-                },
-                next_action: 'continue',
-                reason: `Condition '${metCondition.condition.condition_id}' was met but maximum jumps (${maxJumps}) reached`
-            };
-        } else {
-            return {
-                success: true,
-                outputs: {
-                    ['condition_met' as WorkflowVariableName]: 'none' as SchemaValueType,
-                    ['reason' as WorkflowVariableName]: 'No conditions met - continuing to next step' as SchemaValueType,
-                    ['jump_count' as WorkflowVariableName]: String(jumpCount) as SchemaValueType,
-                    ['max_jumps' as WorkflowVariableName]: String(maxJumps) as SchemaValueType
-                },
-                next_action: step.evaluation_config.default_action as 'continue' | 'end',
-                reason: 'No conditions were met'
-            };
-        }
+        // No conditions met, use default action
+        return {
+            success: true,
+            conditionMet: 'none',
+            nextAction: default_action,
+            targetStepIndex: undefined,
+            reason: 'No conditions met',
+            outputs: {
+                condition_met: 'none',
+                next_action: default_action,
+                reason: 'No conditions met'
+            }
+        };
     }
 
     /**
@@ -813,75 +860,63 @@ export class WorkflowEngine {
     }
 
     /**
-     * Gets the next step index based on the current step and workflow state
-     * For evaluation steps, this may involve jumping to a specific step
-     * based on the evaluation result
-     * 
-     * @returns An object containing the next step index and the updated workflow
+     * Determines the next step to execute based on the current step's result
      */
     static getNextStepIndex(
         workflow: Workflow,
         currentStepIndex: number
     ): { nextStepIndex: number, updatedState: WorkflowVariable[] } {
-        console.log('getNextStepIndex called with workflow:', workflow);
-        console.log('Current step index:', currentStepIndex);
-
-        // Create a copy of the workflow state to avoid mutating the original
-        const workflowStateCopy = [...(workflow.state || [])];
-
-        // Basic validation checks
         const currentStep = workflow.steps[currentStepIndex];
-        if (!currentStep) {
-            console.warn('Invalid step index or no current step found');
-            return { nextStepIndex: currentStepIndex, updatedState: workflowStateCopy };
-        }
+        let nextStepIndex = currentStepIndex + 1;
+        let updatedState = [...(workflow.state || [])];
 
-        // First check if this is NOT an evaluation step - handle the simple case first
-        if (currentStep.step_type !== WorkflowStepType.EVALUATION) {
-            return { nextStepIndex: currentStepIndex + 1, updatedState: workflowStateCopy };
-        }
+        // For evaluation steps, check conditions to determine next step
+        if (currentStep.step_type === WorkflowStepType.EVALUATION) {
+            // Evaluate conditions
+            const evaluationResult = this.evaluateConditions(currentStep, workflow);
 
-        // For evaluation steps, check the evaluation result to see what executeStepSimple decided
-        const shortStepId = currentStep.step_id.slice(0, 8);
-        const evalVarName = `eval_${shortStepId}`;
+            // Update state with evaluation results
+            if (evaluationResult.outputs) {
+                const evalVarName = `eval_${currentStep.step_id.slice(0, 8)}` as WorkflowVariableName;
+                const evalVarIndex = updatedState.findIndex(v => v.name === evalVarName);
 
-        const evalResult = workflowStateCopy.find(
-            o => o.name === evalVarName
-        )?.value as EvaluationResult | undefined;
-
-        // If there's a jump decision and it wasn't blocked by jump count (which executeStepSimple already checked)
-        if (evalResult?.next_action === 'jump' &&
-            evalResult?.target_step_index !== undefined) {
-
-            console.log('Found jump decision:', evalResult);
-
-            // Get the jump info from the outputs
-            const jumpValue = workflowStateCopy.find(
-                o => o.name === `_jump_info_${shortStepId}`
-            )?.value as string | undefined;
-            console.log('Jump info:', jumpValue);
-
-            // compare the jumpVar to the evalResult._jump_info
-            if (jumpValue && Number(jumpValue) < Number(evalResult.outputs?.['max_jumps' as WorkflowVariableName])) {
-                console.log('Jump was approved, using target step index:', evalResult.target_step_index);
-                return {
-                    nextStepIndex: Number(evalResult.target_step_index),
-                    updatedState: workflowStateCopy
-                };
+                if (evalVarIndex >= 0) {
+                    // Update existing variable
+                    updatedState[evalVarIndex] = {
+                        ...updatedState[evalVarIndex],
+                        value: evaluationResult.outputs
+                    };
+                } else {
+                    // Create new variable
+                    updatedState.push({
+                        variable_id: `var-${Date.now()}`,
+                        name: evalVarName,
+                        schema: {
+                            type: 'object',
+                            is_array: false,
+                            description: `Evaluation results for step ${currentStep.label}`,
+                            fields: {}
+                        },
+                        value: evaluationResult.outputs,
+                        io_type: 'evaluation'
+                    });
+                }
             }
 
+            // If we have updated state from the evaluation, use it
+            if (evaluationResult.updatedState) {
+                updatedState = evaluationResult.updatedState;
+            }
 
-            console.log('Jump was approved, using target step index:', evalResult.target_step_index);
-            // Jump was approved by executeStepSimple, so use its target
-            return {
-                nextStepIndex: Number(evalResult.target_step_index),
-                updatedState: workflowStateCopy
+            // Determine next step based on evaluation result
+            if (evaluationResult.nextAction === 'jump' && evaluationResult.targetStepIndex !== undefined) {
+                nextStepIndex = evaluationResult.targetStepIndex;
+            } else if (evaluationResult.nextAction === 'end') {
+                nextStepIndex = workflow.steps.length; // End workflow
             }
         }
 
-        console.log('No jump or jump was blocked, continuing to next step');
-        // No jump or jump was blocked, continue to next step
-        return { nextStepIndex: currentStepIndex + 1, updatedState: workflowStateCopy };
+        return { nextStepIndex, updatedState };
     }
 
     /**

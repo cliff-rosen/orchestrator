@@ -1,6 +1,8 @@
 import React from 'react';
 import { WorkflowStep, EvaluationOutputs } from '../types/workflows';
 import { useWorkflows } from '../context/WorkflowContext';
+import { resolveVariablePath } from '../lib/utils/variablePathUtils';
+import { formatVariablePath } from '../lib/utils/variableUIUtils';
 
 interface EvaluationStepRunnerProps {
     step: WorkflowStep;
@@ -75,7 +77,11 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
                 <h3 className="text-md font-medium text-gray-700 dark:text-gray-300">Conditions</h3>
                 <div className="space-y-2">
                     {step.evaluation_config.conditions.map((condition, index) => {
-                        const variableValue = availableVariables.find(v => v.name === condition.variable)?.value;
+                        // Get the variable value using the variable path
+                        const { value: variableValue, validPath } = resolveVariablePath(
+                            availableVariables,
+                            condition.variable.toString()
+                        );
 
                         // Check if this condition was met
                         const isConditionMet = isExecuted &&
@@ -100,11 +106,11 @@ const EvaluationStepRunner: React.FC<EvaluationStepRunnerProps> = ({
                                                 ? 'text-gray-700 dark:text-gray-300'
                                                 : 'text-emerald-600 dark:text-emerald-300'
                                             : 'text-gray-700 dark:text-gray-300'}`}>
-                                            {condition.variable}
+                                            {formatVariablePath(condition.variable.toString())}
                                         </div>
                                         {isExecuted && (
                                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                Current value: {variableValue !== undefined ? String(variableValue) : 'undefined'}
+                                                Current value: {validPath && variableValue !== undefined ? String(variableValue) : 'undefined'}
                                             </div>
                                         )}
                                     </div>

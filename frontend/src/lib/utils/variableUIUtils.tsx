@@ -146,7 +146,6 @@ export const isCompatibleType = (paramSchema: Schema, varSchema: Schema): boolea
         return true;
     }
 
-
     // Special case for string arrays to string conversion
     if (paramSchema.type === 'string' && !paramSchema.is_array &&
         varSchema.type === 'string' && varSchema.is_array) {
@@ -172,4 +171,128 @@ export const isCompatibleType = (paramSchema: Schema, varSchema: Schema): boolea
     }
 
     return false;
+};
+
+/**
+ * Enhanced version of renderVariablePaths that includes property paths for compatible types
+ * This allows selecting individual properties of object variables for mapping to primitive parameters
+ * @param variable The workflow variable to render
+ * @param targetSchema Optional target schema to filter compatible paths
+ * @param onClick Callback when a path is clicked, receives the full path string
+ * @param depth Current depth (for recursion)
+ * @param currentPath Current path segments (for recursion)
+ * @returns Array of JSX elements for rendering
+ */
+export const renderVariablePathsWithProperties = (
+    variable: WorkflowVariable,
+    targetSchema: Schema | null,
+    onClick: (path: string) => void,
+    depth = 0,
+    currentPath: string[] = []
+): JSX.Element[] => {
+    const { schema } = variable;
+
+    // For non-object types or objects without fields, return the base variable button
+    if (schema.type !== 'object' || !schema.fields) {
+        // If we have a target schema, check compatibility
+        if (targetSchema && !isCompatibleType(targetSchema, schema)) {
+            return [];
+        }
+
+        return [
+            <button
+                key={variable.name + '_' + currentPath.join('.')}
+                onClick={() => {
+                    const fullPath = currentPath.length > 0
+                        ? `${variable.name}.${currentPath.join('.')}`
+                        : variable.name;
+                    onClick(fullPath);
+                }}
+                className={`w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100
+                        hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between
+                        ${depth > 0 ? 'pl-' + (depth * 4 + 3) + ' border-l border-gray-200 dark:border-gray-700' : ''}`}
+            >
+                <span>{currentPath.length > 0 ? currentPath[currentPath.length - 1] : variable.name}</span>
+                <span className={`text-xs ${getTypeColor(schema.type, schema.is_array)}`}>
+                    {schema.type}{schema.is_array ? '[]' : ''}
+                </span>
+            </button>
+        ];
+    }
+
+    // For objects, first add a button for the whole object (only at the root level)
+    const baseButton = currentPath.length === 0 ? [
+        <button
+            key={variable.name}
+            onClick={() => {
+                onClick(variable.name);
+            }}
+            className={`w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100
+                    hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between
+                    ${depth > 0 ? 'pl-' + (depth * 4 + 3) + ' border-l border-gray-200 dark:border-gray-700' : ''}`}
+        >
+            <span>{variable.name} (whole object)</span>
+            <span className={`text-xs ${getTypeColor(schema.type, schema.is_array)}`}>
+                {schema.type}{schema.is_array ? '[]' : ''}
+            </span>
+        </button>
+    ] : [];
+
+    // If we have a target schema and the whole object isn't compatible, don't show the base button
+    if (targetSchema && currentPath.length === 0 && !isCompatibleType(targetSchema, schema)) {
+        baseButton.length = 0;
+    }
+
+    // Then add buttons for each field of the object
+    const fieldButtons = Object.entries(schema.fields).flatMap(([fieldName, fieldSchema]) => {
+        const newPath = [...currentPath, fieldName];
+        const newDepth = depth + 1;
+
+        // If we have a target schema, check if this field or any of its subfields are compatible
+        if (targetSchema) {
+            // For primitive fields, check direct compatibility
+            if (fieldSchema.type !== 'object' && !isCompatibleType(targetSchema, fieldSchema)) {
+                return [];
+            }
+        }
+
+        // Create the button for this field
+        const fieldButton = (
+            <button
+                key={variable.name + '_' + newPath.join('.')}
+                onClick={() => {
+                    const fullPath = `${variable.name}.${newPath.join('.')}`;
+                    onClick(fullPath);
+                }}
+                className={`w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100
+                        hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between
+                        pl-${newDepth * 4 + 3} border-l border-gray-200 dark:border-gray-700`}
+            >
+                <span>{fieldName}</span>
+                <span className={`text-xs ${getTypeColor(fieldSchema.type, fieldSchema.is_array)}`}>
+                    {fieldSchema.type}{fieldSchema.is_array ? '[]' : ''}
+                </span>
+            </button>
+        );
+
+        // If this field is an object with fields, recursively get its properties
+        if (fieldSchema.type === 'object' && fieldSchema.fields) {
+            // Create a temporary variable with this field's schema
+            const tempVar: WorkflowVariable = {
+                ...variable,
+                schema: fieldSchema
+            } as WorkflowVariable;
+
+            // Return this field's button plus all its nested properties
+            return [
+                fieldButton,
+                ...renderVariablePathsWithProperties(tempVar, targetSchema, onClick, newDepth, newPath)
+            ];
+        }
+
+        // For non-object fields, just return the field button
+        return [fieldButton];
+    });
+
+    return [...baseButton, ...fieldButtons];
 }; 
