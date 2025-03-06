@@ -92,7 +92,7 @@ const EvaluationStepEditor: React.FC<EvaluationStepEditorProps> = ({
 
     // Get all available variables for condition evaluation
     const availableVariables = [
-        ...(workflow?.inputs || []),
+        ...(workflow?.state || []),
         ...workflow?.steps
             .filter(s => s.sequence_number < step.sequence_number)
             .flatMap(s => Object.entries(s.output_mappings || {})

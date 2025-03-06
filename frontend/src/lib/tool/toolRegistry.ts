@@ -1,18 +1,22 @@
-import { ResolvedParameters, ToolOutputName } from '../../types/tools';
+import { ResolvedParameters, ToolOutputName, ToolOutputs } from '../../types/tools';
 import { SchemaValueType } from '../../types/schema';
 import { executeSearch, executePubMedSearch, executeLLM } from './toolExecutors';
 
 // Tool registry to store tool execution methods
-const toolRegistry = new Map<string, (toolId: string, parameters: ResolvedParameters) => Promise<Record<ToolOutputName, SchemaValueType>>>();
+const toolRegistry = new Map<string, (toolId: string, parameters: ResolvedParameters) => Promise<ToolOutputs>>();
 
 // Function to register a tool's execution method
-export const registerToolExecutor = (toolId: string, executor: (toolId: string, parameters: ResolvedParameters) => Promise<Record<ToolOutputName, SchemaValueType>>) => {
+export const registerToolExecutor = (toolId: string, executor: (toolId: string, parameters: ResolvedParameters) => Promise<ToolOutputs>) => {
     toolRegistry.set(toolId, executor);
 };
 
-// Function to get a tool's execution method
-export const getToolExecutor = (toolId: string) => {
-    return toolRegistry.get(toolId);
+// Function to execute a tool by ID
+export const executeTool = async (toolId: string, parameters: ResolvedParameters): Promise<ToolOutputs> => {
+    const executor = toolRegistry.get(toolId);
+    if (!executor) {
+        throw new Error(`No executor registered for tool ${toolId}`);
+    }
+    return await executor(toolId, parameters);
 };
 
 // Tool type definitions

@@ -1,4 +1,4 @@
-import { ResolvedParameters, ToolOutputName, Tool } from '../../types/tools';
+import { ResolvedParameters, ToolOutputName, ToolOutputs, Tool } from '../../types/tools';
 import { SchemaValueType } from '../../types/schema';
 import { api } from '../api';
 import { searchApi } from '../api/searchApi';
@@ -54,7 +54,7 @@ const prepareLLMParameters = async (tool: Tool, parameters: ResolvedParameters):
 };
 
 // Execute search tool function
-export const executeSearch = async (_toolId: string, parameters: ResolvedParameters): Promise<Record<ToolOutputName, SchemaValueType>> => {
+export const executeSearch = async (_toolId: string, parameters: ResolvedParameters): Promise<ToolOutputs> => {
     const query = (parameters as Record<string, string>)['query'];
     try {
         const searchResults = await searchApi.search(query);
@@ -70,7 +70,7 @@ export const executeSearch = async (_toolId: string, parameters: ResolvedParamet
 };
 
 // Execute PubMed search tool function
-export const executePubMedSearch = async (_toolId: string, parameters: ResolvedParameters): Promise<Record<ToolOutputName, SchemaValueType>> => {
+export const executePubMedSearch = async (_toolId: string, parameters: ResolvedParameters): Promise<ToolOutputs> => {
     console.log('Executing PubMed search with parameters:', parameters);
     const query = (parameters as Record<string, string>)['query'];
     try {
@@ -96,7 +96,7 @@ export const executePubMedSearch = async (_toolId: string, parameters: ResolvedP
 };
 
 // Execute LLM tool function
-export const executeLLM = async (toolId: string, parameters: ResolvedParameters): Promise<Record<ToolOutputName, SchemaValueType>> => {
+export const executeLLM = async (toolId: string, parameters: ResolvedParameters): Promise<ToolOutputs> => {
     console.log('Executing LLM with parameters:', parameters);
 
     try {
@@ -112,12 +112,11 @@ export const executeLLM = async (toolId: string, parameters: ResolvedParameters)
         return {
             ['response' as ToolOutputName]: response.data.response
         };
-        
+
     } catch (error: any) {
         console.error('Error executing LLM:', error);
         if (error.response?.status === 401 || error.response?.status === 403) {
             window.location.href = '/login';
-            throw new Error('Please log in to continue');
         }
         throw error;
     }

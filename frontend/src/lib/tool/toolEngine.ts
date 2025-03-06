@@ -4,8 +4,8 @@ import {
     ToolOutputName,
     ResolvedParameters
 } from '../../types/tools';
-import { SchemaValueType } from '../../types/schema';
-import { getToolExecutor } from './toolRegistry';
+import { SchemaValueType, SchemaObjectType } from '../../types/schema';
+import { executeTool } from './toolRegistry';
 
 export class ToolEngine {
     /**
@@ -15,14 +15,13 @@ export class ToolEngine {
         tool: Tool,
         parameters: ResolvedParameters
     ): Promise<ToolOutputs> {
-        // Get the executor from registry
-        const executor = getToolExecutor(tool.tool_id);
-        if (!executor) {
-            throw new Error(`No executor found for tool: ${tool.tool_id}`);
+        try {
+            // Execute the tool using the registry
+            return await executeTool(tool.tool_id, parameters);
+        } catch (error) {
+            console.error(`Error executing tool ${tool.tool_id}:`, error);
+            throw error;
         }
-
-        // Execute the tool
-        return await executor(tool.tool_id, parameters);
     }
 
 
@@ -63,11 +62,25 @@ export class ToolEngine {
             case 'boolean':
                 return Boolean(value);
             case 'array':
-                return Array.isArray(value) ? value : [value];
+                // Arrays are not directly part of SchemaValueType
+                // We need to convert the array to a SchemaObjectType with indexed keys
+                if (Array.isArray(value)) {
+                    const result: Record<string, SchemaValueType> = {};
+                    value.forEach((item, index) => {
+                        result[index.toString()] = typeof item === 'object' && item !== null
+                            ? item as SchemaValueType
+                            : item as SchemaValueType;
+                    });
+                    return result;
+                }
+                // If not an array, wrap in an object with a single item
+                return { '0': value } as SchemaObjectType;
             case 'object':
-                return typeof value === 'object' ? value : { value };
+                return typeof value === 'object' && value !== null
+                    ? value as SchemaObjectType
+                    : { value } as SchemaObjectType;
             default:
-                return value;
+                return String(value);
         }
     }
 } 

@@ -397,18 +397,14 @@ export class WorkflowEngine {
     private static evaluateConditions(
         step: WorkflowStep,
         workflow: Workflow
-    ): EvaluationResult {
+    ): StepExecutionResult {
         if (!step.evaluation_config) {
             return {
                 success: true,
-                conditionMet: 'none',
-                nextAction: 'continue',
-                targetStepIndex: undefined,
-                reason: 'No evaluation configuration',
                 outputs: {
-                    condition_met: 'none',
-                    next_action: 'continue',
-                    reason: 'No evaluation configuration'
+                    ['condition_met' as WorkflowVariableName]: 'none' as SchemaValueType,
+                    ['next_action' as WorkflowVariableName]: 'continue' as SchemaValueType,
+                    ['reason' as WorkflowVariableName]: 'No evaluation configuration' as SchemaValueType
                 }
             };
         }
@@ -420,14 +416,10 @@ export class WorkflowEngine {
         if (!conditions || conditions.length === 0) {
             return {
                 success: true,
-                conditionMet: 'none',
-                nextAction: default_action,
-                targetStepIndex: undefined,
-                reason: 'No conditions defined',
                 outputs: {
-                    condition_met: 'none',
-                    next_action: default_action,
-                    reason: 'No conditions defined'
+                    ['condition_met' as WorkflowVariableName]: 'none' as SchemaValueType,
+                    ['next_action' as WorkflowVariableName]: default_action as SchemaValueType,
+                    ['reason' as WorkflowVariableName]: 'No conditions defined' as SchemaValueType
                 }
             };
         }
@@ -467,42 +459,47 @@ export class WorkflowEngine {
                     );
 
                     if (canJump) {
+                        // Convert jumpInfo to proper output format
+                        const outputs: Record<WorkflowVariableName, SchemaValueType> = {
+                            ['condition_met' as WorkflowVariableName]: condition.condition_id as SchemaValueType,
+                            ['next_action' as WorkflowVariableName]: nextAction as SchemaValueType,
+                            ['target_step_index' as WorkflowVariableName]: targetStepIndex.toString() as SchemaValueType,
+                            ['reason' as WorkflowVariableName]: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}` as SchemaValueType,
+                            ['jump_count' as WorkflowVariableName]: jumpCount.toString() as SchemaValueType,
+                            ['max_jumps' as WorkflowVariableName]: step.evaluation_config.maximum_jumps.toString() as SchemaValueType,
+                            ['max_jumps_reached' as WorkflowVariableName]: 'false' as SchemaValueType
+                        };
+
+                        // Add any additional jump info
+                        for (const [key, value] of Object.entries(jumpInfo)) {
+                            outputs[key as WorkflowVariableName] = value as SchemaValueType;
+                        }
+
                         return {
                             success: true,
-                            conditionMet: condition.condition_id,
-                            nextAction,
-                            targetStepIndex,
-                            reason: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}`,
-                            updatedState,
-                            outputs: {
-                                condition_met: condition.condition_id,
-                                next_action: nextAction,
-                                target_step_index: targetStepIndex.toString(),
-                                reason: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}`,
-                                jump_count: jumpCount.toString(),
-                                max_jumps: step.evaluation_config.maximum_jumps.toString(),
-                                max_jumps_reached: 'false',
-                                ...jumpInfo
-                            }
+                            outputs,
+                            updatedState
                         };
                     } else {
                         // Max jumps reached, continue to next step
+                        const outputs: Record<WorkflowVariableName, SchemaValueType> = {
+                            ['condition_met' as WorkflowVariableName]: condition.condition_id as SchemaValueType,
+                            ['next_action' as WorkflowVariableName]: 'continue' as SchemaValueType,
+                            ['reason' as WorkflowVariableName]: `Condition met but maximum jumps (${step.evaluation_config.maximum_jumps}) reached` as SchemaValueType,
+                            ['jump_count' as WorkflowVariableName]: jumpCount.toString() as SchemaValueType,
+                            ['max_jumps' as WorkflowVariableName]: step.evaluation_config.maximum_jumps.toString() as SchemaValueType,
+                            ['max_jumps_reached' as WorkflowVariableName]: 'true' as SchemaValueType
+                        };
+
+                        // Add any additional jump info
+                        for (const [key, value] of Object.entries(jumpInfo)) {
+                            outputs[key as WorkflowVariableName] = value as SchemaValueType;
+                        }
+
                         return {
                             success: true,
-                            conditionMet: condition.condition_id,
-                            nextAction: 'continue',
-                            targetStepIndex: undefined,
-                            reason: `Condition met but maximum jumps (${step.evaluation_config.maximum_jumps}) reached`,
-                            updatedState,
-                            outputs: {
-                                condition_met: condition.condition_id,
-                                next_action: 'continue',
-                                reason: `Condition met but maximum jumps (${step.evaluation_config.maximum_jumps}) reached`,
-                                jump_count: jumpCount.toString(),
-                                max_jumps: step.evaluation_config.maximum_jumps.toString(),
-                                max_jumps_reached: 'true',
-                                ...jumpInfo
-                            }
+                            outputs,
+                            updatedState
                         };
                     }
                 }
@@ -510,15 +507,11 @@ export class WorkflowEngine {
                 // No jump needed, just continue
                 return {
                     success: true,
-                    conditionMet: condition.condition_id,
-                    nextAction,
-                    targetStepIndex,
-                    reason: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}`,
                     outputs: {
-                        condition_met: condition.condition_id,
-                        next_action: nextAction,
-                        target_step_index: targetStepIndex?.toString(),
-                        reason: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}`
+                        ['condition_met' as WorkflowVariableName]: condition.condition_id as SchemaValueType,
+                        ['next_action' as WorkflowVariableName]: nextAction as SchemaValueType,
+                        ['target_step_index' as WorkflowVariableName]: targetStepIndex?.toString() as SchemaValueType,
+                        ['reason' as WorkflowVariableName]: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}` as SchemaValueType
                     }
                 };
             }
@@ -527,14 +520,10 @@ export class WorkflowEngine {
         // No conditions met, use default action
         return {
             success: true,
-            conditionMet: 'none',
-            nextAction: default_action,
-            targetStepIndex: undefined,
-            reason: 'No conditions met',
             outputs: {
-                condition_met: 'none',
-                next_action: default_action,
-                reason: 'No conditions met'
+                ['condition_met' as WorkflowVariableName]: 'none' as SchemaValueType,
+                ['next_action' as WorkflowVariableName]: default_action as SchemaValueType,
+                ['reason' as WorkflowVariableName]: 'No conditions met' as SchemaValueType
             }
         };
     }
@@ -873,10 +862,10 @@ export class WorkflowEngine {
         // For evaluation steps, check conditions to determine next step
         if (currentStep.step_type === WorkflowStepType.EVALUATION) {
             // Evaluate conditions
-            const evaluationResult = this.evaluateConditions(currentStep, workflow);
+            const result = this.evaluateConditions(currentStep, workflow);
 
             // Update state with evaluation results
-            if (evaluationResult.outputs) {
+            if (result.outputs) {
                 const evalVarName = `eval_${currentStep.step_id.slice(0, 8)}` as WorkflowVariableName;
                 const evalVarIndex = updatedState.findIndex(v => v.name === evalVarName);
 
@@ -884,7 +873,7 @@ export class WorkflowEngine {
                     // Update existing variable
                     updatedState[evalVarIndex] = {
                         ...updatedState[evalVarIndex],
-                        value: evaluationResult.outputs
+                        value: result.outputs as unknown as SchemaValueType
                     };
                 } else {
                     // Create new variable
@@ -897,21 +886,24 @@ export class WorkflowEngine {
                             description: `Evaluation results for step ${currentStep.label}`,
                             fields: {}
                         },
-                        value: evaluationResult.outputs,
+                        value: result.outputs as unknown as SchemaValueType,
                         io_type: 'evaluation'
                     });
                 }
             }
 
-            // If we have updated state from the evaluation, use it
-            if (evaluationResult.updatedState) {
-                updatedState = evaluationResult.updatedState;
+            // If we have updated state from the result, use it
+            if ('updatedState' in result && result.updatedState) {
+                updatedState = result.updatedState;
             }
 
             // Determine next step based on evaluation result
-            if (evaluationResult.nextAction === 'jump' && evaluationResult.targetStepIndex !== undefined) {
-                nextStepIndex = evaluationResult.targetStepIndex;
-            } else if (evaluationResult.nextAction === 'end') {
+            const nextAction = result.outputs?.['next_action' as WorkflowVariableName] as string;
+            const targetStepIndex = result.outputs?.['target_step_index' as WorkflowVariableName] as string | undefined;
+
+            if (nextAction === 'jump' && targetStepIndex !== undefined) {
+                nextStepIndex = parseInt(targetStepIndex, 10);
+            } else if (nextAction === 'end') {
                 nextStepIndex = workflow.steps.length; // End workflow
             }
         }
