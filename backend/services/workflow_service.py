@@ -747,25 +747,32 @@ class WorkflowService:
         output_type = prompt_template.output_schema.get('type', 'string')
         
         if output_type == 'object' and 'fields' in prompt_template.output_schema:
-            # Handle object type with fields
-            fields = prompt_template.output_schema.get('fields', {})
+
+            # Only add the entire object as an output option
+            outputs = [{
+                'name': 'result',
+                'description': prompt_template.output_schema.get('description', 'Complete output object'),
+                'schema': prompt_template.output_schema
+            }]
             
-            for field_name, field_schema in fields.items():
-                if not isinstance(field_schema, dict):
-                    continue
+            # Comment out individual field processing
+            # fields = prompt_template.output_schema.get('fields', {})
+            
+            # for field_name, field_schema in fields.items():
+            #     if not isinstance(field_schema, dict):
+            #         continue
                 
-                schema = {
-                    'name': field_name,
-                    'type': field_schema.get('type', 'string'),
-                    'is_array': field_schema.get('is_array', False),
-                    'description': field_schema.get('description', '')
-                }
+            #     schema = {
+            #         'type': field_schema.get('type', 'string'),
+            #         'is_array': field_schema.get('is_array', False),
+            #         'description': field_schema.get('description', '')
+            #     }
                 
-                outputs.append({
-                    'name': field_name,
-                    'description': field_schema.get('description', f"Output field: {field_name}"),
-                    'schema': schema
-                })
+            #     outputs.append({
+            #         'name': field_name,
+            #         'description': field_schema.get('description', f"Output field: {field_name}"),
+            #         'schema': schema
+            #     })
         else:
             # Handle primitive types (string, number, boolean) or arrays
             schema = {

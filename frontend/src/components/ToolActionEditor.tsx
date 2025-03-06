@@ -77,9 +77,9 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
     };
 
     return (
-        <>
-            {/* Tool Selection */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="space-y-3">
+            {/* Compact Tool Selection */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
                 <ToolSelector
                     tools={tools}
                     selectedTool={step.tool}
@@ -87,10 +87,10 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
                 />
             </div>
 
-            {/* Prompt Template Selection (for LLM tools) */}
+            {/* Prompt Template Selection (for LLM tools) - more compact */}
             {step.tool?.tool_type === 'llm' && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
+                    <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 mb-2">
                         Select Prompt Template
                     </h3>
                     <PromptTemplateSelector
@@ -100,10 +100,10 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
                 </div>
             )}
 
-            {/* Parameter and Output Mapping */}
+            {/* Parameter and Output Mapping - more compact */}
             {(step.tool && (step.tool.tool_type !== 'llm' || step.prompt_template_id)) && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
+                    <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 mb-2">
                         Data Flow Configuration
                     </h3>
                     <DataFlowMapper2
@@ -118,7 +118,7 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
                     />
                 </div>
             )}
-        </>
+        </div>
     );
 };
 

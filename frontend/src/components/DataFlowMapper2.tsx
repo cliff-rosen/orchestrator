@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
 import { Schema, ValueType } from '../types/schema';
 import { WorkflowVariable, WorkflowVariableName, createWorkflowVariable } from '../types/workflows';
-import { parseVariablePath } from '../lib/utils/variablePathUtils';
-import { renderVariablePaths, formatVariablePath, getTypeColor, isCompatibleType } from '../lib/utils/variableUIUtils';
+import { getTypeColor, isCompatibleType } from '../lib/utils/variableUIUtils';
 
 interface DataFlowMapper2Props {
     // Original DataFlowMapper props
@@ -28,9 +27,6 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
     onOutputMappingChange,
     onVariableCreate
 }) => {
-    // Track which parameter/output is being configured
-    const [activeParameter, setActiveParameter] = useState<string | null>(null);
-    const [activeOutput, setActiveOutput] = useState<string | null>(null);
 
     // Track variable creation modal
     const [showVariableCreation, setShowVariableCreation] = useState(false);
@@ -46,21 +42,21 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
     // Add useEffect to log tool signature structure
     useEffect(() => {
 
-        if (tool.signature.outputs && tool.signature.outputs.length > 0) {
-            const firstOutput = tool.signature.outputs[0];
-            console.log('First output:', firstOutput);
-            console.log('First output schema:', firstOutput.schema);
-            console.log('First output schema type:', firstOutput.schema?.type);
-            console.log('First output schema is_array:', firstOutput.schema?.is_array);
-        }
+        // if (tool.signature.outputs && tool.signature.outputs.length > 0) {
+        //     const firstOutput = tool.signature.outputs[0];
+        //     console.log('First output:', firstOutput);
+        //     console.log('First output schema:', firstOutput.schema);
+        //     console.log('First output schema type:', firstOutput.schema?.type);
+        //     console.log('First output schema is_array:', firstOutput.schema?.is_array);
+        // }
 
-        if (tool.signature.parameters && tool.signature.parameters.length > 0) {
-            const firstParam = tool.signature.parameters[0];
-            console.log('First parameter:', firstParam);
-            console.log('First parameter schema:', firstParam.schema);
-            console.log('First parameter schema type:', firstParam.schema?.type);
-            console.log('First parameter schema is_array:', firstParam.schema?.is_array);
-        }
+        // if (tool.signature.parameters && tool.signature.parameters.length > 0) {
+        //     const firstParam = tool.signature.parameters[0];
+        //     console.log('First parameter:', firstParam);
+        //     console.log('First parameter schema:', firstParam.schema);
+        //     console.log('First parameter schema type:', firstParam.schema?.type);
+        //     console.log('First parameter schema is_array:', firstParam.schema?.is_array);
+        // }
     }, [tool]);
 
     const handleCreateParameterVariable = (paramName: string) => {
@@ -95,22 +91,6 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
         setShowVariableCreation(true);
     };
 
-    const handleOutputMappingChange = (outputName: string, value: string) => {
-        const newMappings = {
-            ...output_mappings,
-            [outputName as ToolOutputName]: value as WorkflowVariableName
-        };
-        onOutputMappingChange(newMappings);
-    };
-
-    const handleParameterMappingChange = (paramName: string, value: string) => {
-        const newMappings = {
-            ...parameter_mappings,
-            [paramName as ToolParameterName]: value as WorkflowVariableName
-        };
-        onParameterMappingChange(newMappings);
-    };
-
     const handleCreateOutputVariable = (outputName: string) => {
         const output = tool.signature.outputs.find(o => o.name === outputName);
         setCreatingForOutput(outputName);
@@ -125,7 +105,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                 fields: {}
             });
         } else {
-            const fields = output.schema.fields?.fields || {};
+            const fields = output.schema.fields || {};
             console.log('fields', fields);
 
             var newFields: Record<string, Schema> = {};
@@ -148,6 +128,22 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
 
         setNewVarName(outputName);
         setShowVariableCreation(true);
+    };
+
+    const handleOutputMappingChange = (outputName: string, value: string) => {
+        const newMappings = {
+            ...output_mappings,
+            [outputName as ToolOutputName]: value as WorkflowVariableName
+        };
+        onOutputMappingChange(newMappings);
+    };
+
+    const handleParameterMappingChange = (paramName: string, value: string) => {
+        const newMappings = {
+            ...parameter_mappings,
+            [paramName as ToolParameterName]: value as WorkflowVariableName
+        };
+        onParameterMappingChange(newMappings);
     };
 
     const handleCreateVariableSubmit = () => {
@@ -436,168 +432,115 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
         );
     };
 
-    const renderParameterMapping = (param: any) => {
-        const isActive = activeParameter === param.name;
-        const currentMapping = parameter_mappings[param.name as ToolParameterName];
+    const renderParameterMappings = () => {
+        if (!tool.signature.parameters || tool.signature.parameters.length === 0) {
+            return (
+                <div className="text-xs text-gray-500 dark:text-gray-400 italic">
+                    This tool has no input parameters.
+                </div>
+            );
+        }
 
         return (
-            <div
-                key={param.name}
-                className={`p-4 rounded-lg border ${isActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'
-                    }`}
-            >
-                <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
-                        {param.name}
-                    </span>
-                    <span className={`text-xs ${getTypeColor(param.schema.type, param.schema.is_array)}`}>
-                        {param.schema.type}{param.schema.is_array ? '[]' : ''}
-                    </span>
-                </div>
-
-                <div className="relative">
-                    <button
-                        onClick={() => setActiveParameter(isActive ? null : param.name)}
-                        className="w-full px-3 py-2 text-left text-sm border rounded-md bg-white dark:bg-gray-800
-                                 text-gray-900 dark:text-gray-100
-                                 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        {formatVariablePath(currentMapping) || 'Select or create variable'}
-                    </button>
-
-                    {isActive && (
-                        <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700">
-                            <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-                                <button
-                                    onClick={() => handleCreateParameterVariable(param.name)}
-                                    className="w-full px-3 py-2 text-left text-sm text-blue-600 dark:text-blue-400
-                                             hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                                >
-                                    + Create new variable
-                                </button>
+            <div className="space-y-1.5">
+                {tool.signature.parameters.map(param => (
+                    <div key={param.name} className="bg-gray-50 dark:bg-gray-800/50 rounded-md p-1.5">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1">
+                                <span className={`text-xs font-medium ${getTypeColor(param.schema?.type || 'string', Boolean(param.schema?.is_array))}`}>
+                                    {param.name}
+                                    {param.schema?.is_array && '[]'}
+                                </span>
+                                {param.required && (
+                                    <span className="text-xs text-red-500">*</span>
+                                )}
                             </div>
-
-                            <div className="max-h-48 overflow-y-auto">
-                                {inputs.concat(outputs)
-                                    .filter(v => isCompatibleType(param.schema, v.schema))
-                                    .flatMap(variable => renderVariablePaths(
-                                        variable,
-                                        (path) => {
-                                            handleParameterMappingChange(param.name, path as WorkflowVariableName);
-                                            setActiveParameter(null);
-                                        }
-                                    ))}
-                            </div>
+                            <button
+                                onClick={() => handleCreateParameterVariable(param.name)}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                                + Create Variable
+                            </button>
                         </div>
-                    )}
-                </div>
 
-                {currentMapping && (
-                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        {inputs.concat(outputs).find(v => v.name === parseVariablePath(currentMapping).rootName)?.schema.description}
+                        <select
+                            value={parameter_mappings[param.name as ToolParameterName] || ''}
+                            onChange={(e) => handleParameterMappingChange(param.name, e.target.value)}
+                            className="w-full px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded 
+                                    bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        >
+                            <option value="">Select input...</option>
+                            {inputs.map(input => (
+                                <option
+                                    key={input.name}
+                                    value={input.name}
+                                    disabled={!isCompatibleType(param.schema, input.schema)}
+                                >
+                                    {input.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
-                )}
+                ))}
             </div>
         );
     };
 
-    const renderOutputMapping = (output: any) => {
-        const isActive = activeOutput === output.name;
-        const currentMapping = output_mappings[output.name as ToolOutputName];
+    const renderOutputMappings = () => {
+        if (!tool.signature.outputs || tool.signature.outputs.length === 0) {
+            return (
+                <div className="text-xs text-gray-500 dark:text-gray-400 italic">
+                    This tool has no outputs.
+                </div>
+            );
+        }
 
         return (
-            <div
-                key={output.name}
-                className={`p-4 rounded-lg border ${isActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'
-                    }`}
-            >
-                <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
-                        {output.name}
-                    </span>
-                    <span className={`text-xs ${getTypeColor(output.schema.type, output.schema.is_array)}`}>
-                        {output.schema.type}{output.schema.is_array ? '[]' : ''}
-                    </span>
-                </div>
-
-                <div className="relative">
-                    <button
-                        onClick={() => setActiveOutput(isActive ? null : output.name)}
-                        className="w-full px-3 py-2 text-left text-sm border rounded-md bg-white dark:bg-gray-800
-                                 text-gray-900 dark:text-gray-100
-                                 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        {formatVariablePath(currentMapping) || 'Map to variable'}
-                    </button>
-
-                    {isActive && (
-                        <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700">
-                            <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-                                <button
-                                    onClick={() => handleCreateOutputVariable(output.name as ToolOutputName)}
-                                    className="w-full px-3 py-2 text-left text-sm text-blue-600 dark:text-blue-400
-                                             hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                                >
-                                    + Create new variable
-                                </button>
-                            </div>
-
-                            <div className="max-h-48 overflow-y-auto">
-                                {outputs.concat(inputs)
-                                    .filter(v => isCompatibleType(output.schema, v.schema))
-                                    .flatMap(variable => renderVariablePaths(
-                                        variable,
-                                        (path) => {
-                                            handleOutputMappingChange(output.name, path as WorkflowVariableName);
-                                            setActiveOutput(null);
-                                        }
-                                    ))}
-                            </div>
+            <div className="space-y-1.5">
+                {tool.signature.outputs.map(output => (
+                    <div key={output.name} className="bg-gray-50 dark:bg-gray-800/50 rounded-md p-1.5">
+                        <div className="flex items-center justify-between mb-1">
+                            <span className={`text-xs font-medium ${getTypeColor(output.schema?.type || 'string', Boolean(output.schema?.is_array))}`}>
+                                {output.name}
+                                {output.schema?.is_array && '[]'}
+                            </span>
+                            <button
+                                onClick={() => handleCreateOutputVariable(output.name)}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                                + Create Variable
+                            </button>
                         </div>
-                    )}
-                </div>
 
-                {currentMapping && (
-                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        {outputs.concat(inputs).find(v => v.name === parseVariablePath(currentMapping).rootName)?.schema.description}
+                        <select
+                            value={output_mappings[output.name as ToolOutputName] || ''}
+                            onChange={(e) => handleOutputMappingChange(output.name, e.target.value)}
+                            className="w-full px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded 
+                                    bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        >
+                            <option value="">Select output...</option>
+                            {outputs.map(out => (
+                                <option
+                                    key={out.name}
+                                    value={out.name}
+                                    disabled={!isCompatibleType(output.schema, out.schema)}
+                                >
+                                    {out.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
-                )}
+                ))}
             </div>
         );
     };
 
     return (
-        <div className="flex flex-col h-full overflow-hidden">
-            {/* Main Content Area with Parameters and Outputs */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {/* Parameters Section */}
-                <div className="space-y-4">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 py-2 sticky top-0 z-10">
-                        Tool Parameters
-                    </h4>
-                    <div className="space-y-4">
-                        {tool.signature.parameters.map(param => renderParameterMapping(param))}
-                    </div>
-                </div>
-
-                {/* Outputs Section */}
-                <div className="space-y-4">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 py-2 sticky top-0 z-10">
-                        Tool Outputs
-                    </h4>
-                    <div className="space-y-4">
-                        {tool.signature.outputs.map(output => renderOutputMapping(output))}
-                    </div>
-                </div>
-            </div>
-
-            {/* Variable Creation Modal - Now positioned relative to viewport with highest z-index */}
+        <div className="space-y-3">
+            {/* Variable Creation Modal */}
             {showVariableCreation && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div
-                        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[32rem] max-h-[90vh] flex flex-col"
-                        style={{ zIndex: 9999 }}
-                    >
+                <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-4 max-h-[90vh] overflow-y-auto">
                         <div className="p-6 flex-1 overflow-y-auto" onKeyDown={handleKeyDown}>
                             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 sticky top-0 bg-white dark:bg-gray-800 py-2 z-10">
                                 Create New Variable
@@ -670,6 +613,22 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                     </div>
                 </div>
             )}
+
+            {/* Compact Parameter Mappings */}
+            <div>
+                <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Input Parameters
+                </h4>
+                {renderParameterMappings()}
+            </div>
+
+            {/* Compact Output Mappings */}
+            <div>
+                <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Output Mappings
+                </h4>
+                {renderOutputMappings()}
+            </div>
         </div>
     );
 };

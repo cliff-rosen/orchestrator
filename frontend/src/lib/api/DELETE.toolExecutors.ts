@@ -51,7 +51,6 @@ export const executeLLM = async (parameters: ResolvedParameters): Promise<ToolOu
     const templateId = parameters['prompt_template_id'] as string;
     const regular_variables = parameters['regular_variables'] as Record<string, any>;
     const file_variables = parameters['file_variables'] as Record<string, string>;
-    let res;
 
     try {
         // Call the backend LLM execution endpoint
@@ -61,19 +60,17 @@ export const executeLLM = async (parameters: ResolvedParameters): Promise<ToolOu
             file_variables,
         });
 
-        // Handle the response
-        if (typeof response.data.response === 'object') {
-            res = Object.entries(response.data.response).reduce((acc, [key, value]) => {
-                acc[key as ToolOutputName] = value as string | number | boolean | string[];
-                return acc;
-            }, {} as ToolOutputs);
-        } else {
-            res = response.data.response;
-        }
+        console.log('LLM response:', response.data);
 
-        return {
-            ['response' as ToolOutputName]: res
+
+        const finalResponse = {
+            ['result' as ToolOutputName]: response.data.response
         };
+
+        console.log('Final response:', finalResponse);
+
+        return finalResponse;
+
     } catch (error: any) {
         console.error('Error executing LLM:', error);
         if (error.response?.status === 401 || error.response?.status === 403) {

@@ -326,6 +326,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Workflow Execution Methods
     const executeCurrentStep = useCallback(async (): Promise<StepExecutionResult> => {
+        console.log('executeCurrentStep called');
         if (!workflow) {
             const errorMessage = 'No workflow loaded';
             setError(errorMessage);
@@ -354,6 +355,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
             // Execute step using WorkflowEngine.executeStepSimple instead of executeStep
             const { updatedState, result } = await WorkflowEngine.executeStepSimple(workflow, stepIndex);
+            console.log('executeCurrentStep result:', result);
 
             // Update the workflow state manually
             if (updatedState !== workflow.state) {

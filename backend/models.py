@@ -104,7 +104,7 @@ class PromptTemplate(Base):
         """Validate output_schema field to ensure it's a proper dictionary."""
         if value is None:
             return {}
-            
+
         if isinstance(value, str):
             try:
                 value = json.loads(value)

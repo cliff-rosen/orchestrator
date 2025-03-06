@@ -110,22 +110,22 @@ export const executeLLM = async (toolId: string, parameters: ResolvedParameters)
         // Call the backend LLM execution endpoint
         const response = await api.post('/api/execute_llm', llmParams);
 
-        // Handle the response
-        if (typeof response.data.response === 'object') {
-            res = Object.entries(response.data.response).reduce((acc, [key, value]) => {
-                if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-                    acc[key] = value;
-                } else if (Array.isArray(value)) {
-                    acc[key] = value.join('\n');
-                }
-                return acc;
-            }, {} as Record<string, SchemaValueType>);
-        } else {
-            res = response.data.response as SchemaValueType;
-        }
+        // // Handle the response
+        // if (typeof response.data.response === 'object') {
+        //     res = Object.entries(response.data.response).reduce((acc, [key, value]) => {
+        //         if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        //             acc[key] = value;
+        //         } else if (Array.isArray(value)) {
+        //             acc[key] = value.join('\n');
+        //         }
+        //         return acc;
+        //     }, {} as Record<string, SchemaValueType>);
+        // } else {
+        //     res = response.data.response as SchemaValueType;
+        // }
 
         return {
-            ['response' as ToolOutputName]: res
+            ['result' as ToolOutputName]: response.data.response
         };
     } catch (error: any) {
         console.error('Error executing LLM:', error);

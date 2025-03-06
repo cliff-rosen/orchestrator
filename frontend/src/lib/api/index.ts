@@ -31,6 +31,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.log('API Error:', error);
     // Check for authentication/authorization errors
     if ((error.response?.status === 401 || error.response?.status === 403) &&
       !error.config.url?.includes('/login') &&
@@ -63,6 +64,7 @@ api.interceptors.response.use(
 
 // Common error handling
 export const handleApiError = (error: any): string => {
+  console.log('handleApiError:', error);
   if (error.response) {
     // Don't show auth errors since they're handled by the interceptor
     if (error.response.status === 401 || error.response.status === 403) {
