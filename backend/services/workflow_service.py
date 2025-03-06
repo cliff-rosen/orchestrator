@@ -755,28 +755,9 @@ class WorkflowService:
                 'schema': prompt_template.output_schema
             }]
             
-            # Comment out individual field processing
-            # fields = prompt_template.output_schema.get('fields', {})
-            
-            # for field_name, field_schema in fields.items():
-            #     if not isinstance(field_schema, dict):
-            #         continue
-                
-            #     schema = {
-            #         'type': field_schema.get('type', 'string'),
-            #         'is_array': field_schema.get('is_array', False),
-            #         'description': field_schema.get('description', '')
-            #     }
-                
-            #     outputs.append({
-            #         'name': field_name,
-            #         'description': field_schema.get('description', f"Output field: {field_name}"),
-            #         'schema': schema
-            #     })
         else:
             # Handle primitive types (string, number, boolean) or arrays
             schema = {
-                'name': 'response',
                 'type': output_type,
                 'is_array': prompt_template.output_schema.get('is_array', False),
                 'description': prompt_template.output_schema.get('description', '')
