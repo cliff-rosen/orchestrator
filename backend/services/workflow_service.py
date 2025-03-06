@@ -750,7 +750,7 @@ class WorkflowService:
 
             # Only add the entire object as an output option
             outputs = [{
-                'name': 'result',
+                'name': 'response',
                 'description': prompt_template.output_schema.get('description', 'Complete output object'),
                 'schema': prompt_template.output_schema
             }]
