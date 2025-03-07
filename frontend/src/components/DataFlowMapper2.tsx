@@ -3,7 +3,7 @@ import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
 import { Schema, ValueType } from '../types/schema';
 import { WorkflowVariable, WorkflowVariableName, createWorkflowVariable } from '../types/workflows';
 import { getTypeColor, isCompatibleType } from '../lib/utils/variableUIUtils';
-import VariablePathSelector from './VariablePathSelector';
+import VariablePathButton from './VariablePathButton';
 
 /**
  * DataFlowMapper2 - Maps tool parameters and outputs to workflow variables
@@ -482,13 +482,14 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                             </button>
                         </div>
 
-                        <VariablePathSelector
+                        <VariablePathButton
                             variables={workflowState || []}
                             value={parameter_mappings[param.name as ToolParameterName] || ''}
                             onChange={(value) => handleParameterMappingChange(param.name, value)}
                             targetSchema={param.schema}
                             placeholder="Select variable or property..."
                             className="text-xs py-1"
+                            modalTitle={`Select for parameter: ${param.name}`}
                         />
                     </div>
                 ))}
@@ -524,13 +525,14 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                             </button>
                         </div>
 
-                        <VariablePathSelector
+                        <VariablePathButton
                             variables={workflowState || []}
                             value={output_mappings[output.name as ToolOutputName] || ''}
                             onChange={(value) => handleOutputMappingChange(output.name, value)}
                             placeholder="Select variable..."
                             className="text-xs py-1"
                             targetSchema={output.schema}
+                            modalTitle={`Select for output: ${output.name}`}
                         />
                     </div>
                 ))}
