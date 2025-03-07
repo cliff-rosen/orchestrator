@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { WorkflowStep, WorkflowVariableName, WorkflowVariable, Workflow, addWorkflowVariable, getWorkflowInputs, getWorkflowOutputs } from '../types/workflows';
+import { WorkflowStep, WorkflowVariableName, WorkflowVariable, Workflow, addWorkflowVariable } from '../types/workflows';
 import { Tool, ToolParameterName, ToolOutputName } from '../types/tools';
 import { toolApi } from '../lib/api/toolApi';
 import PromptTemplateSelector from './PromptTemplateSelector';
@@ -77,7 +77,7 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
     };
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
             {/* Compact Tool Selection */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
                 <ToolSelector
@@ -110,8 +110,7 @@ const ToolActionEditor: React.FC<ToolActionEditorProps> = ({
                         tool={step.tool}
                         parameter_mappings={step.parameter_mappings || {}}
                         output_mappings={step.output_mappings || {}}
-                        inputs={workflow ? getWorkflowInputs(workflow) : []}
-                        outputs={workflow ? getWorkflowOutputs(workflow) : []}
+                        workflowState={workflow?.state || []}
                         onParameterMappingChange={handleParameterMappingChange}
                         onOutputMappingChange={handleOutputMappingChange}
                         onVariableCreate={handleAddVariable}

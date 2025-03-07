@@ -14,7 +14,7 @@ interface VariablePathSelectorProps {
 }
 
 const VariablePathSelector: React.FC<VariablePathSelectorProps> = ({
-    variables,
+    variables = [],
     value,
     onChange,
     targetSchema = null,
@@ -23,7 +23,68 @@ const VariablePathSelector: React.FC<VariablePathSelectorProps> = ({
     disabled = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [dropdownPosition, setDropdownPosition] = useState<'bottom' | 'top'>('bottom');
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const dropdownContentRef = useRef<HTMLDivElement>(null);
+    const [dropdownStyles, setDropdownStyles] = useState<React.CSSProperties>({});
+
+    // Calculate and update dropdown position when opening
+    useEffect(() => {
+        if (!isOpen) return;
+
+        // Use requestAnimationFrame to ensure DOM is fully updated
+        const updatePosition = () => {
+            if (!dropdownRef.current) return;
+
+            const rect = dropdownRef.current.getBoundingClientRect();
+            const width = dropdownRef.current.offsetWidth;
+            const viewportHeight = window.innerHeight;
+            const viewportWidth = window.innerWidth;
+
+            // Initial styles
+            const styles: React.CSSProperties = {
+                width: `${width}px`,
+                left: `${rect.left}px`,
+            };
+
+            // Check if dropdown would go off-screen to the right
+            if (rect.left + width > viewportWidth) {
+                styles.left = `${viewportWidth - width - 10}px`;
+            }
+
+            // Measure dropdown height after rendering
+            if (dropdownContentRef.current) {
+                const dropdownHeight = dropdownContentRef.current.scrollHeight;
+                const spaceBelow = viewportHeight - rect.bottom;
+                const spaceAbove = rect.top;
+
+                // Decide whether to show above or below
+                if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+                    setDropdownPosition('top');
+                    styles.bottom = `${viewportHeight - rect.top}px`;
+                    styles.maxHeight = `${Math.min(spaceAbove - 10, 300)}px`;
+                } else {
+                    setDropdownPosition('bottom');
+                    styles.top = `${rect.bottom}px`;
+                    styles.maxHeight = `${Math.min(spaceBelow - 10, 300)}px`;
+                }
+            }
+
+            setDropdownStyles(styles);
+        };
+
+        // Update position immediately and after a short delay to account for any layout shifts
+        updatePosition();
+        const timeoutId = setTimeout(updatePosition, 50);
+
+        // Add resize listener
+        window.addEventListener('resize', updatePosition);
+
+        return () => {
+            clearTimeout(timeoutId);
+            window.removeEventListener('resize', updatePosition);
+        };
+    }, [isOpen]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -76,9 +137,13 @@ const VariablePathSelector: React.FC<VariablePathSelectorProps> = ({
             </div>
 
             {isOpen && (
-                <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto">
+                <div
+                    ref={dropdownContentRef}
+                    className="fixed z-[100] bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 overflow-y-auto"
+                    style={dropdownStyles}
+                >
                     <div className="py-1">
-                        {variables.length === 0 ? (
+                        {!variables || variables.length === 0 ? (
                             <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                                 No variables available
                             </div>

@@ -12,7 +12,7 @@ import {
 import { ToolParameterName, ToolOutputName, Tool } from '../../types/tools';
 import { SchemaValueType, Schema } from '../../types/schema';
 import { ToolEngine } from '../tool/toolEngine';
-import { resolveVariablePath, parseVariablePath, setValueAtPath, resolvePropertyPath, findVariableByRootName } from '../utils/variablePathUtils';
+import { resolveVariablePath, parseVariablePath, setValueAtPath, resolvePropertyPath, findVariableByRootName, validatePropertyPathAgainstSchema } from '../utils/variablePathUtils';
 
 export type StepReorderPayload = {
     reorderedSteps: WorkflowStep[];
@@ -87,10 +87,15 @@ export class WorkflowEngine {
 
         const result: Record<string, { value: any, schema: any }> = {};
 
-        Object.entries(step.parameter_mappings).forEach(([paramName, varName]) => {
-            const variable = workflow.state?.find(v => v.name === varName);
+        Object.entries(step.parameter_mappings).forEach(([paramName, varPath]) => {
+            // Use the resolveVariablePath utility to handle variable paths
+            const { value, validPath } = resolveVariablePath(workflow.state || [], varPath.toString());
 
-            if (!variable) {
+            // Get the variable and schema information
+            const { rootName, propPath } = parseVariablePath(varPath.toString());
+            const variable = findVariableByRootName(workflow.state || [], rootName);
+
+            if (!variable || !validPath) {
                 result[paramName] = {
                     value: null,
                     schema: null
@@ -98,9 +103,16 @@ export class WorkflowEngine {
                 return;
             }
 
+            // Get the schema for the path
+            let schema: Schema | null = variable.schema;
+            if (propPath.length > 0 && schema) {
+                const schemaValidation = validatePropertyPathAgainstSchema(schema, propPath);
+                schema = schemaValidation.schema || null;
+            }
+
             result[paramName] = {
-                value: variable.value,
-                schema: variable.schema
+                value: value,
+                schema: schema
             };
         });
 
@@ -270,12 +282,32 @@ export class WorkflowEngine {
 
         const result: Record<string, { value: any, schema: any }> = {};
 
-        Object.entries(step.output_mappings).forEach(([outputName, varName]) => {
-            const variable = workflow.state?.find(v => v.name === varName);
+        Object.entries(step.output_mappings).forEach(([outputName, varPath]) => {
+            // Use the resolveVariablePath utility to handle variable paths
+            const { value, validPath } = resolveVariablePath(workflow.state || [], varPath.toString());
+
+            // Get the variable and schema information
+            const { rootName, propPath } = parseVariablePath(varPath.toString());
+            const variable = findVariableByRootName(workflow.state || [], rootName);
+
+            if (!variable || !validPath) {
+                result[outputName] = {
+                    value: null,
+                    schema: null
+                };
+                return;
+            }
+
+            // Get the schema for the path
+            let schema: Schema | null = variable.schema;
+            if (propPath.length > 0 && schema) {
+                const schemaValidation = validatePropertyPathAgainstSchema(schema, propPath);
+                schema = schemaValidation.schema || null;
+            }
 
             result[outputName] = {
-                value: variable?.value,
-                schema: variable?.schema
+                value: value,
+                schema: schema
             };
         });
 

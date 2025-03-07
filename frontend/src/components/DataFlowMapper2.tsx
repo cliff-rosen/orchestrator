@@ -5,13 +5,24 @@ import { WorkflowVariable, WorkflowVariableName, createWorkflowVariable } from '
 import { getTypeColor, isCompatibleType } from '../lib/utils/variableUIUtils';
 import VariablePathSelector from './VariablePathSelector';
 
+/**
+ * DataFlowMapper2 - Maps tool parameters and outputs to workflow variables
+ * 
+ * This component uses a unified state approach where all workflow variables are available
+ * for both parameter and output mappings. While variables have an io_type property ('input' or 'output'),
+ * this is primarily metadata about their original purpose. In practice, any variable can be used
+ * as input to or receive output from any step, regardless of its io_type.
+ * 
+ * For example, a variable initially created as an 'input' can later receive output from a step,
+ * and a variable created as an 'output' from one step can be used as input to another step.
+ */
 interface DataFlowMapper2Props {
     // Original DataFlowMapper props
     tool: Tool;
     parameter_mappings: Record<ToolParameterName, WorkflowVariableName>;
     output_mappings: Record<ToolOutputName, WorkflowVariableName>;
-    inputs: WorkflowVariable[];
-    outputs: WorkflowVariable[];
+    // Use a unified state array instead of separate inputs/outputs
+    workflowState: WorkflowVariable[];
     onParameterMappingChange: (mappings: Record<ToolParameterName, WorkflowVariableName>) => void;
     onOutputMappingChange: (mappings: Record<ToolOutputName, WorkflowVariableName>) => void;
     // New prop for variable creation
@@ -22,8 +33,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
     tool,
     parameter_mappings,
     output_mappings,
-    inputs,
-    outputs,
+    workflowState = [],
     onParameterMappingChange,
     onOutputMappingChange,
     onVariableCreate
@@ -39,6 +49,14 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
     const [newVarDescription, setNewVarDescription] = useState('');
     const [newVarSchema, setNewVarSchema] = useState<Schema | null>(null);
     const [nameError, setNameError] = useState<string | null>(null);
+
+    // Debug log to see what variables are being passed
+    console.log('DataFlowMapper2 workflowState:', workflowState);
+    console.log('workflowState by io_type:', {
+        inputs: workflowState.filter(v => v.io_type === 'input'),
+        outputs: workflowState.filter(v => v.io_type === 'output'),
+        evaluation: workflowState.filter(v => v.io_type === 'evaluation')
+    });
 
     // Add useEffect to log tool signature structure
     useEffect(() => {
@@ -465,11 +483,11 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                         </div>
 
                         <VariablePathSelector
-                            variables={inputs}
+                            variables={workflowState || []}
                             value={parameter_mappings[param.name as ToolParameterName] || ''}
                             onChange={(value) => handleParameterMappingChange(param.name, value)}
                             targetSchema={param.schema}
-                            placeholder="Select input variable or property..."
+                            placeholder="Select variable or property..."
                             className="text-xs py-1"
                         />
                     </div>
@@ -507,10 +525,10 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                         </div>
 
                         <VariablePathSelector
-                            variables={outputs}
+                            variables={workflowState || []}
                             value={output_mappings[output.name as ToolOutputName] || ''}
                             onChange={(value) => handleOutputMappingChange(output.name, value)}
-                            placeholder="Select output variable..."
+                            placeholder="Select variable..."
                             className="text-xs py-1"
                         />
                     </div>
@@ -520,7 +538,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
     };
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-3 relative min-h-[200px]">
             {/* Variable Creation Modal */}
             {showVariableCreation && (
                 <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
@@ -599,7 +617,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
             )}
 
             {/* Compact Parameter Mappings */}
-            <div>
+            <div className="relative mb-6">
                 <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     Input Parameters
                 </h4>
@@ -607,7 +625,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
             </div>
 
             {/* Compact Output Mappings */}
-            <div>
+            <div className="relative mb-6">
                 <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     Output Mappings
                 </h4>

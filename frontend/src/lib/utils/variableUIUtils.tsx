@@ -140,15 +140,15 @@ export const renderVariablePaths = (
  * Simple type compatibility check between schemas
  */
 export const isCompatibleType = (paramSchema: Schema, varSchema: Schema): boolean => {
-
     // Direct type match
     if (paramSchema.type === varSchema.type && paramSchema.is_array === varSchema.is_array) {
         return true;
     }
 
-    // Special case for string arrays to string conversion
-    if (paramSchema.type === 'string' && !paramSchema.is_array &&
-        varSchema.type === 'string' && varSchema.is_array) {
+    // Special case for any array to its item type conversion
+    // This allows selecting an array when a single item is expected
+    // The runtime will handle extracting the first item or similar logic
+    if (!paramSchema.is_array && varSchema.is_array && paramSchema.type === varSchema.type) {
         return true;
     }
 
@@ -163,6 +163,13 @@ export const isCompatibleType = (paramSchema: Schema, varSchema: Schema): boolea
     // Check object fields compatibility for object-to-object mapping
     if (paramSchema.type === 'object' && varSchema.type === 'object' &&
         paramSchema.fields && varSchema.fields) {
+
+        // If the parameter object has no fields, any object is compatible
+        if (Object.keys(paramSchema.fields).length === 0) {
+            return true;
+        }
+
+        // Check if all required fields in the parameter schema exist and are compatible in the variable schema
         return Object.entries(paramSchema.fields).every(([fieldName, fieldSchema]) => {
             const varFields = varSchema.fields || {};
             const varField = varFields[fieldName];
@@ -199,6 +206,11 @@ export const renderVariablePathsWithProperties = (
             return [];
         }
 
+        // Check if this is directly compatible with the target schema
+        const isDirectMatch = targetSchema &&
+            targetSchema.type === schema.type &&
+            targetSchema.is_array === schema.is_array;
+
         return [
             <button
                 key={variable.name + '_' + currentPath.join('.')}
@@ -210,9 +222,27 @@ export const renderVariablePathsWithProperties = (
                 }}
                 className={`w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100
                         hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between
-                        ${depth > 0 ? 'pl-' + (depth * 4 + 3) + ' border-l border-gray-200 dark:border-gray-700' : ''}`}
+                        ${depth > 0 ? 'pl-' + (depth * 4 + 3) + ' border-l border-gray-200 dark:border-gray-700' : ''}
+                        ${targetSchema && isDirectMatch ? 'bg-green-50 dark:bg-green-900/20' : ''}`}
             >
-                <span>{currentPath.length > 0 ? currentPath[currentPath.length - 1] : variable.name}</span>
+                <div className="flex items-center">
+                    <span>{currentPath.length > 0 ? currentPath[currentPath.length - 1] : variable.name}</span>
+                    {currentPath.length === 0 && (
+                        <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${variable.io_type === 'input'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                            : variable.io_type === 'output'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+                            }`}>
+                            {variable.io_type}
+                        </span>
+                    )}
+                    {targetSchema && isDirectMatch && (
+                        <span className="ml-2 text-xs text-green-600 dark:text-green-400">
+                            (perfect match)
+                        </span>
+                    )}
+                </div>
                 <span className={`text-xs ${getTypeColor(schema.type, schema.is_array)}`}>
                     {schema.type}{schema.is_array ? '[]' : ''}
                 </span>
@@ -229,9 +259,25 @@ export const renderVariablePathsWithProperties = (
             }}
             className={`w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100
                     hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between
-                    ${depth > 0 ? 'pl-' + (depth * 4 + 3) + ' border-l border-gray-200 dark:border-gray-700' : ''}`}
+                    ${depth > 0 ? 'pl-' + (depth * 4 + 3) + ' border-l border-gray-200 dark:border-gray-700' : ''}
+                    ${targetSchema && targetSchema.type === 'object' ? 'bg-green-50 dark:bg-green-900/20' : ''}`}
         >
-            <span>{variable.name} (whole object)</span>
+            <div className="flex items-center">
+                <span>{variable.name} (whole object)</span>
+                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${variable.io_type === 'input'
+                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                    : variable.io_type === 'output'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                        : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+                    }`}>
+                    {variable.io_type}
+                </span>
+                {targetSchema && targetSchema.type === 'object' && (
+                    <span className="ml-2 text-xs text-green-600 dark:text-green-400">
+                        (compatible)
+                    </span>
+                )}
+            </div>
             <span className={`text-xs ${getTypeColor(schema.type, schema.is_array)}`}>
                 {schema.type}{schema.is_array ? '[]' : ''}
             </span>
@@ -248,13 +294,30 @@ export const renderVariablePathsWithProperties = (
         const newPath = [...currentPath, fieldName];
         const newDepth = depth + 1;
 
-        // If we have a target schema, check if this field or any of its subfields are compatible
+        // If we have a target schema, check compatibility for this field
         if (targetSchema) {
             // For primitive fields, check direct compatibility
-            if (fieldSchema.type !== 'object' && !isCompatibleType(targetSchema, fieldSchema)) {
-                return [];
+            if (fieldSchema.type !== 'object') {
+                if (!isCompatibleType(targetSchema, fieldSchema)) {
+                    return [];
+                }
+            } else if (fieldSchema.type === 'object' && fieldSchema.fields) {
+                // For object fields, check if any of its properties are compatible
+                // or if the object itself is compatible
+                const hasCompatibleProperties = Object.values(fieldSchema.fields).some(subFieldSchema =>
+                    isCompatibleType(targetSchema, subFieldSchema)
+                );
+
+                if (!hasCompatibleProperties && !isCompatibleType(targetSchema, fieldSchema)) {
+                    return [];
+                }
             }
         }
+
+        // Check if this field is directly compatible with the target schema
+        const isDirectMatch = targetSchema &&
+            targetSchema.type === fieldSchema.type &&
+            targetSchema.is_array === fieldSchema.is_array;
 
         // Create the button for this field
         const fieldButton = (
@@ -266,9 +329,17 @@ export const renderVariablePathsWithProperties = (
                 }}
                 className={`w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100
                         hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between
-                        pl-${newDepth * 4 + 3} border-l border-gray-200 dark:border-gray-700`}
+                        pl-${newDepth * 4 + 3} border-l border-gray-200 dark:border-gray-700
+                        ${targetSchema && isDirectMatch ? 'bg-green-50 dark:bg-green-900/20' : ''}`}
             >
-                <span>{fieldName}</span>
+                <div className="flex items-center">
+                    <span>{fieldName}</span>
+                    {targetSchema && isDirectMatch && (
+                        <span className="ml-2 text-xs text-green-600 dark:text-green-400">
+                            (perfect match)
+                        </span>
+                    )}
+                </div>
                 <span className={`text-xs ${getTypeColor(fieldSchema.type, fieldSchema.is_array)}`}>
                     {fieldSchema.type}{fieldSchema.is_array ? '[]' : ''}
                 </span>
