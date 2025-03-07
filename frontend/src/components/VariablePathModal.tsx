@@ -7,8 +7,8 @@ interface VariablePathModalProps {
     isOpen: boolean;
     onClose: () => void;
     variables: WorkflowVariable[];
-    value: string;
-    onChange: (value: string) => void;
+    selectedWorkflowVariablePath: string;
+    onChange: (selectedWorkflowVariablePath: string) => void;
     targetSchema?: Schema | null;
     title?: string;
 }
@@ -17,7 +17,7 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
     isOpen,
     onClose,
     variables = [],
-    value,
+    selectedWorkflowVariablePath,
     onChange,
     targetSchema = null,
     title = 'Select Variable'
@@ -78,6 +78,11 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
         return true;
     };
 
+    // Helper function to check if a path is currently selected
+    const isPathSelected = (path: string): boolean => {
+        return selectedWorkflowVariablePath === path;
+    };
+
     // Recursively render object properties
     const renderObjectProperties = (
         variableName: string,
@@ -88,10 +93,11 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
         if (!schema.fields) return null;
 
         return (
-            <div className={`ml-${level > 0 ? 4 : 0} ${level > 0 ? 'mt-1 border-l-2 border-gray-200 dark:border-gray-700 pl-2' : ''}`}>
+            <div className={`${level > 0 ? 'ml-4 mt-1 border-l-2 border-gray-200 dark:border-gray-700 pl-2' : ''}`}>
                 {Object.entries(schema.fields).map(([fieldName, fieldSchema]) => {
                     const currentPath = [...path, fieldName];
                     const fullPath = `${variableName}.${currentPath.join('.')}`;
+                    const isSelected = isPathSelected(fullPath);
 
                     // Check if this field is compatible with the target schema
                     const isFieldCompatible = targetSchema ? isCompatibleType(targetSchema, fieldSchema) : true;
@@ -109,19 +115,35 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
                     const isDisabled = fieldDisabled || isObjectDisabled;
 
                     return (
-                        <div key={fullPath}>
+                        <div key={fullPath} className="mt-1">
                             <div
-                                className={`flex items-center justify-between p-2 rounded-md mt-1 ${isDisabled
-                                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                                    : 'bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                                className={`flex items-center justify-between p-2 rounded-md ${isSelected
+                                        ? 'bg-blue-100 dark:bg-blue-800 border border-blue-300 dark:border-blue-600'
+                                        : isDisabled
+                                            ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                            : 'bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600'
                                     }`}
                                 onClick={() => {
                                     if (!isDisabled) {
                                         handleVariableSelect(fullPath);
                                     }
                                 }}
+                                data-selected={isSelected ? 'true' : 'false'}
+                                data-path={fullPath}
                             >
-                                <span>{fieldName}</span>
+                                <div className="flex items-center">
+                                    <span>{fieldName}</span>
+                                    {isSelected && (
+                                        <span className="ml-2 text-xs text-blue-600 dark:text-blue-300">
+                                            (selected)
+                                        </span>
+                                    )}
+                                    {isDisabled && (
+                                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 italic">
+                                            (disabled)
+                                        </span>
+                                    )}
+                                </div>
                                 <span className={`text-xs ${getTypeColor(fieldSchema.type, fieldSchema.is_array)}`}>
                                     {fieldSchema.type}{fieldSchema.is_array ? '[]' : ''}
                                 </span>
@@ -146,6 +168,7 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
         const isObject = variable.schema.type === 'object' && variable.schema.fields;
         const isCompatible = isVariableCompatible(variable);
         const hasCompatibleProps = isObject && hasCompatibleProperties(variable.schema);
+        const isSelected = isPathSelected(variable.name);
 
         // For objects that need to map to primitives, disable the parent if it has no compatible properties
         const isDisabled = isObject && targetSchema &&
@@ -156,17 +179,21 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
             <div key={variable.name} className="mb-4 border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
                 {/* Variable header */}
                 <div
-                    className={`flex items-center justify-between p-2 ${isDisabled
-                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                        : isCompatible
-                            ? 'bg-blue-50 dark:bg-blue-900/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                    className={`flex items-center justify-between p-2 ${isSelected
+                            ? 'bg-blue-100 dark:bg-blue-800 border border-blue-300 dark:border-blue-600'
+                            : isDisabled
+                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                : isCompatible
+                                    ? 'bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800/40'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                         }`}
                     onClick={() => {
                         if (!isDisabled && isCompatible) {
                             handleVariableSelect(variable.name);
                         }
                     }}
+                    data-selected={isSelected ? 'true' : 'false'}
+                    data-path={variable.name}
                 >
                     <div className="flex items-center">
                         <span className="font-medium">{variable.name}</span>
@@ -178,6 +205,11 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
                             }`}>
                             {variable.io_type}
                         </span>
+                        {isSelected && (
+                            <span className="ml-2 text-xs text-blue-600 dark:text-blue-300">
+                                (selected)
+                            </span>
+                        )}
                         {isDisabled && (
                             <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 italic">
                                 (disabled)
@@ -191,7 +223,7 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
 
                 {/* Object properties */}
                 {isObject && variable.schema.fields && !isDisabled && (
-                    <div className="p-2 bg-gray-50 dark:bg-gray-800/30">
+                    <div className="p-2 bg-gray-50 dark:bg-gray-800/50">
                         {renderObjectProperties(variable.name, variable.schema)}
                     </div>
                 )}
@@ -200,6 +232,19 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
     };
 
     if (!isOpen) return null;
+
+    // Auto-scroll to the selected variable when the modal opens
+    useEffect(() => {
+        if (isOpen && selectedWorkflowVariablePath) {
+            // Use setTimeout to ensure the DOM is fully rendered
+            setTimeout(() => {
+                const selectedElement = document.querySelector('[data-selected="true"]');
+                if (selectedElement) {
+                    selectedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+        }
+    }, [isOpen, selectedWorkflowVariablePath]);
 
     return (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
@@ -227,7 +272,7 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search variables..."
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
-                                 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         autoFocus
                     />
                 </div>
@@ -244,7 +289,7 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg sticky bottom-0">
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-lg sticky bottom-0">
                     <button
                         onClick={onClose}
                         className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 

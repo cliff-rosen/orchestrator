@@ -6,8 +6,8 @@ import VariablePathModal from './VariablePathModal';
 
 interface VariablePathButtonProps {
     variables: WorkflowVariable[];
-    value: string;
-    onChange: (value: string) => void;
+    selectedWorkflowVariablePath: string;
+    onChange: (selectedWorkflowVariablePath: string) => void;
     targetSchema?: Schema | null;
     placeholder?: string;
     className?: string;
@@ -17,7 +17,7 @@ interface VariablePathButtonProps {
 
 const VariablePathButton: React.FC<VariablePathButtonProps> = ({
     variables = [],
-    value,
+    selectedWorkflowVariablePath,
     onChange,
     targetSchema = null,
     placeholder = 'Select variable',
@@ -37,14 +37,14 @@ const VariablePathButton: React.FC<VariablePathButtonProps> = ({
         setIsModalOpen(false);
     };
 
-    const handleChange = (newValue: string) => {
-        onChange(newValue);
+    const handleChange = (newSelectedWorkflowVariablePath: string) => {
+        onChange(newSelectedWorkflowVariablePath);
         closeModal();
     };
 
     const baseClasses = `relative w-full px-3 py-2 border rounded-md text-sm 
                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                        ${disabled ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : 'bg-white dark:bg-gray-800 cursor-pointer'}
+                        ${disabled ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 cursor-not-allowed' : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600'}
                         ${className}`;
 
     return (
@@ -54,11 +54,11 @@ const VariablePathButton: React.FC<VariablePathButtonProps> = ({
                 onClick={openModal}
             >
                 <div className="flex items-center justify-between">
-                    <span className={value ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}>
-                        {value ? formatVariablePath(value) : placeholder}
+                    <span className={selectedWorkflowVariablePath ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-400'}>
+                        {selectedWorkflowVariablePath ? formatVariablePath(selectedWorkflowVariablePath) : placeholder}
                     </span>
                     <svg
-                        className="h-5 w-5 text-gray-400"
+                        className="h-5 w-5 text-gray-400 dark:text-gray-400"
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 20 20"
                         fill="currentColor"
@@ -77,7 +77,7 @@ const VariablePathButton: React.FC<VariablePathButtonProps> = ({
                 isOpen={isModalOpen}
                 onClose={closeModal}
                 variables={variables}
-                value={value}
+                selectedWorkflowVariablePath={selectedWorkflowVariablePath}
                 onChange={handleChange}
                 targetSchema={targetSchema}
                 title={modalTitle || `Select ${targetSchema?.type || 'variable'}`}

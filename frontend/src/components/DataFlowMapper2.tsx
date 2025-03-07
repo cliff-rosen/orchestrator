@@ -149,21 +149,22 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
         setShowVariableCreation(true);
     };
 
-    const handleOutputMappingChange = (outputName: string, value: string) => {
+    const handleParameterMappingChange = (paramName: string, selectedWorkflowVariablePath: string) => {
+        const newMappings = {
+            ...parameter_mappings,
+            [paramName as ToolParameterName]: selectedWorkflowVariablePath as WorkflowVariableName
+        };
+        onParameterMappingChange(newMappings);
+    };
+
+    const handleOutputMappingChange = (outputName: string, selectedWorkflowVariablePath: string) => {
         const newMappings = {
             ...output_mappings,
-            [outputName as ToolOutputName]: value as WorkflowVariableName
+            [outputName as ToolOutputName]: selectedWorkflowVariablePath as WorkflowVariableName
         };
         onOutputMappingChange(newMappings);
     };
 
-    const handleParameterMappingChange = (paramName: string, value: string) => {
-        const newMappings = {
-            ...parameter_mappings,
-            [paramName as ToolParameterName]: value as WorkflowVariableName
-        };
-        onParameterMappingChange(newMappings);
-    };
 
     const handleCreateVariableSubmit = () => {
         const paramOrOutput = creatingForParameter
@@ -484,8 +485,8 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
 
                         <VariablePathButton
                             variables={workflowState || []}
-                            value={parameter_mappings[param.name as ToolParameterName] || ''}
-                            onChange={(value) => handleParameterMappingChange(param.name, value)}
+                            selectedWorkflowVariablePath={parameter_mappings[param.name as ToolParameterName] || ''}
+                            onChange={(selectedWorkflowVariablePath) => handleParameterMappingChange(param.name, selectedWorkflowVariablePath)}
                             targetSchema={param.schema}
                             placeholder="Select variable or property..."
                             className="text-xs py-1"
@@ -527,8 +528,8 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
 
                         <VariablePathButton
                             variables={workflowState || []}
-                            value={output_mappings[output.name as ToolOutputName] || ''}
-                            onChange={(value) => handleOutputMappingChange(output.name, value)}
+                            selectedWorkflowVariablePath={output_mappings[output.name as ToolOutputName] || ''}
+                            onChange={(selectedWorkflowVariablePath) => handleOutputMappingChange(output.name, selectedWorkflowVariablePath)}
                             placeholder="Select variable..."
                             className="text-xs py-1"
                             targetSchema={output.schema}
@@ -593,7 +594,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                             </div>
                         </div>
 
-                        <div className="flex justify-end space-x-3 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
+                        <div className="flex justify-end space-x-3 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-lg">
                             <button
                                 onClick={() => {
                                     setShowVariableCreation(false);
