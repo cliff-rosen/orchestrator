@@ -530,6 +530,7 @@ const DataFlowMapper2: React.FC<DataFlowMapper2Props> = ({
                             onChange={(value) => handleOutputMappingChange(output.name, value)}
                             placeholder="Select variable..."
                             className="text-xs py-1"
+                            targetSchema={output.schema}
                         />
                     </div>
                 ))}

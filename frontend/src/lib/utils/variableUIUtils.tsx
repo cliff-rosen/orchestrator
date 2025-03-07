@@ -153,11 +153,24 @@ export const isCompatibleType = (paramSchema: Schema, varSchema: Schema): boolea
     }
 
     // Object property compatibility - if param is a primitive type, it can match a property of an object
+    // BUT we don't allow direct object-to-string mappings (only object properties to string)
     if (!paramSchema.is_array && varSchema.type === 'object' && varSchema.fields) {
-        // Check if any field in the object is compatible with the parameter
-        return Object.values(varSchema.fields).some(fieldSchema =>
-            isCompatibleType(paramSchema, fieldSchema)
-        );
+        // If the parameter is a string and the variable is an object, we don't allow direct mapping
+        // We only allow mapping specific properties of the object to the string
+        if (['string', 'number', 'boolean'].includes(paramSchema.type)) {
+            // Check if any field in the object is compatible with the parameter
+            return Object.values(varSchema.fields).some(fieldSchema =>
+                isCompatibleType(paramSchema, fieldSchema)
+            );
+        }
+        return false;
+    }
+
+    // Prevent string outputs from being mapped to object variables
+    // This is the reverse of the above case - if the parameter is an object and the variable is a primitive type
+    if (paramSchema.type === 'object' &&
+        ['string', 'number', 'boolean'].includes(varSchema.type)) {
+        return false;
     }
 
     // Check object fields compatibility for object-to-object mapping
@@ -285,7 +298,16 @@ export const renderVariablePathsWithProperties = (
     ] : [];
 
     // If we have a target schema and the whole object isn't compatible, don't show the base button
-    if (targetSchema && currentPath.length === 0 && !isCompatibleType(targetSchema, schema)) {
+    // Also explicitly hide the whole object option when the target schema is a primitive type
+    // And hide primitive variables when the target schema is an object
+    if (targetSchema && currentPath.length === 0 &&
+        (!isCompatibleType(targetSchema, schema) ||
+            // Hide object variables when target is a primitive type
+            (schema.type === 'object' &&
+                ['string', 'number', 'boolean'].includes(targetSchema.type)) ||
+            // Hide primitive variables when target is an object
+            (['string', 'number', 'boolean'].includes(schema.type) &&
+                targetSchema.type === 'object'))) {
         baseButton.length = 0;
     }
 
