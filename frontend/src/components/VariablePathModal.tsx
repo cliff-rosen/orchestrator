@@ -118,10 +118,10 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
                         <div key={fullPath} className="mt-1">
                             <div
                                 className={`flex items-center justify-between p-2 rounded-md ${isSelected
-                                        ? 'bg-blue-100 dark:bg-blue-800 border border-blue-300 dark:border-blue-600'
-                                        : isDisabled
-                                            ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                                            : 'bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600'
+                                    ? 'bg-blue-100 dark:bg-blue-800 border border-blue-300 dark:border-blue-600'
+                                    : isDisabled
+                                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                        : 'bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600'
                                     }`}
                                 onClick={() => {
                                     if (!isDisabled) {
@@ -180,12 +180,12 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
                 {/* Variable header */}
                 <div
                     className={`flex items-center justify-between p-2 ${isSelected
-                            ? 'bg-blue-100 dark:bg-blue-800 border border-blue-300 dark:border-blue-600'
-                            : isDisabled
-                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                                : isCompatible
-                                    ? 'bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800/40'
-                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                        ? 'bg-blue-100 dark:bg-blue-800 border border-blue-300 dark:border-blue-600'
+                        : isDisabled
+                            ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                            : isCompatible
+                                ? 'bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800/40'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                         }`}
                     onClick={() => {
                         if (!isDisabled && isCompatible) {
