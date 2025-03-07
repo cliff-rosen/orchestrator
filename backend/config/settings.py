@@ -42,8 +42,12 @@ class Settings(BaseSettings):
     # LOG_LEVEL: str = "INFO"
     LOG_DIR: str = "logs"
     LOG_FILENAME_PREFIX: str = "app"
-    LOG_MAX_BYTES: int = 10 * 1024 * 1024  # 10MB
-    LOG_BACKUP_COUNT: int = 5
+    LOG_BACKUP_COUNT: int = 10
+    LOG_FORMAT: str = "standard"  # Options: "standard" or "json"
+    LOG_REQUEST_BODY: bool = False  # Whether to log request bodies
+    LOG_RESPONSE_BODY: bool = False  # Whether to log response bodies
+    LOG_SENSITIVE_FIELDS: list[str] = ["password", "token", "secret", "key", "authorization"]
+    LOG_PERFORMANCE_THRESHOLD_MS: int = 500  # Log slow operations above this threshold
 
     # Neo4j Settings
     NEO4J_URI: str = "neo4j+ssc://801e8074.databases.neo4j.io"

@@ -6,12 +6,13 @@ from routers import search, auth, research, workflow, tools, files
 from database import get_db, init_db
 from models import Base
 from config import settings, setup_logging
+from middleware import LoggingMiddleware
 import sys
 from pydantic import ValidationError
 from starlette.responses import JSONResponse
 
 # Setup logging first
-logger = setup_logging()
+logger, request_id_filter = setup_logging()
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -24,25 +25,17 @@ app = FastAPI(
     }
 )
 
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    logger.info("="*50)
-    logger.info(f"Request: {request.method} {request.url}")
-    # logger.info(f"Headers: {request.headers}")
-    # logger.info(f"Path parameters: {request.path_params}")
-    # logger.info(f"Auth header: {request.headers.get('authorization', 'No auth header')}")
-    
-    return await call_next(request)
+# Add logging middleware
+app.add_middleware(LoggingMiddleware, request_id_filter=request_id_filter)
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*", "Authorization"],
-    expose_headers=["Authorization"],
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_methods=settings.CORS_ALLOW_METHODS,
+    allow_headers=settings.CORS_ALLOW_HEADERS,
+    expose_headers=settings.CORS_EXPOSE_HEADERS,
 )
 
 # Include routers
@@ -84,21 +77,12 @@ async def startup_event():
     #logger.info(f"Settings object: {settings}")
     #logger.info(f"ACCESS_TOKEN_EXPIRE_MINUTES value: {settings.ACCESS_TOKEN_EXPIRE_MINUTES}")
 
-# Health and test endpoints
-@app.get("/health")
-async def health_check(db: Session = Depends(get_db)):
-    try:
-        db.execute(text("SELECT 1"))
-        return {"status": "healthy", "database": "connected"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/test")
-async def test_endpoint():
-    print("TESTING PRINT STATEMENT", flush=True)
-    print("TESTING STDERR", file=sys.stderr, flush=True)
-    logger.info("Test endpoint called")
-    return {"status": "ok"}
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint for monitoring"""
+    return {"status": "healthy", "version": settings.SETTING_VERSION}
+
 
 @app.exception_handler(ValidationError)
 async def validation_exception_handler(request: Request, exc: ValidationError):
@@ -109,5 +93,6 @@ async def validation_exception_handler(request: Request, exc: ValidationError):
         status_code=422,
         content={"detail": exc.errors()}
     )
+
 
 logger.info("Application startup complete")
