@@ -97,12 +97,12 @@ const ActionStepRunner: React.FC<ActionStepRunnerProps> = ({
     const handleSaveEdit = (paramName: string, varName: WorkflowVariableName) => {
         if (!workflow) return;
 
-        const updatedState = (workflow.state || []).map(variable => {
-            if (variable.name === varName) {
-                return { ...variable, value: editValue };
-            }
-            return variable;
-        });
+        // Use WorkflowEngine.updateVariableValue to properly handle nested paths
+        const updatedState = WorkflowEngine.updateVariableValue(
+            workflow.state || [],
+            varName.toString(),
+            editValue
+        );
 
         updateWorkflowByAction({
             type: 'UPDATE_WORKFLOW',

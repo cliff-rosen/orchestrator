@@ -46,6 +46,19 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
         setFilteredVariables(filtered);
     }, [searchTerm, variables]);
 
+    // Auto-scroll to the selected variable when the modal opens
+    useEffect(() => {
+        if (isOpen && selectedWorkflowVariablePath) {
+            // Use setTimeout to ensure the DOM is fully rendered
+            setTimeout(() => {
+                const selectedElement = document.querySelector('[data-selected="true"]');
+                if (selectedElement) {
+                    selectedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+        }
+    }, [isOpen, selectedWorkflowVariablePath]);
+
     const handleVariableSelect = (path: string) => {
         onChange(path);
         onClose();
@@ -232,19 +245,6 @@ const VariablePathModal: React.FC<VariablePathModalProps> = ({
     };
 
     if (!isOpen) return null;
-
-    // Auto-scroll to the selected variable when the modal opens
-    useEffect(() => {
-        if (isOpen && selectedWorkflowVariablePath) {
-            // Use setTimeout to ensure the DOM is fully rendered
-            setTimeout(() => {
-                const selectedElement = document.querySelector('[data-selected="true"]');
-                if (selectedElement) {
-                    selectedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 100);
-        }
-    }, [isOpen, selectedWorkflowVariablePath]);
 
     return (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">

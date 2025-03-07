@@ -70,7 +70,7 @@ export const VariableRenderer: React.FC<VariableRendererProps> = ({
     }
 
     // For simple primitive values
-    return <span className={className}>{stringValue}</span>;
+    return <span className={`text-gray-900 dark:text-gray-100 ${className}`}>{stringValue}</span>;
 };
 
 export default VariableRenderer; 
