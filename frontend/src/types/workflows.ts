@@ -21,6 +21,7 @@ export interface StepExecutionResult {
     success: boolean;
     error?: string;
     outputs?: Record<WorkflowVariableName, SchemaValueType>;
+    inputs?: Record<ToolParameterName, SchemaValueType>;
     updatedState?: WorkflowVariable[];  // Optional updated workflow state
 }
 

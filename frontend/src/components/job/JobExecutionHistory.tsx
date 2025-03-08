@@ -5,6 +5,7 @@ import { SchemaValueType } from '../../types/schema';
 import VariableRenderer from '../common/VariableRenderer';
 import { usePromptTemplates } from '../../context/PromptTemplateContext';
 import { JobEngine } from '../../lib/job/jobEngine';
+import { ToolParameterName } from '../../types/tools';
 
 // Simple variable renderer that doesn't show type information
 const SimpleVariableRenderer: React.FC<{ value: any }> = ({ value }) => {
@@ -44,6 +45,12 @@ const getOutputValue = (outputs: Record<WorkflowVariableName, SchemaValueType> |
     if (!outputs) return '';
     const value = outputs[key as WorkflowVariableName];
     return value !== undefined ? String(value) : '';
+};
+
+// Helper function to safely get a value from inputs
+const getInputValue = (inputs: Record<ToolParameterName, SchemaValueType> | undefined, key: string): SchemaValueType | undefined => {
+    if (!inputs) return undefined;
+    return inputs[key as ToolParameterName];
 };
 
 const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded, onToggle, executionIndex }) => {
@@ -103,19 +110,21 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
         }
     };
 
-    // Get input mappings and values
+    // Get input mappings and values directly from the step execution result
     const getInputMappings = () => {
-        return JobEngine.getStepInputMappings(job, result.step_id);
+        return JobEngine.getStepInputMappingsFromHistory(job, result.step_id, result);
     };
 
-    // Get output mappings and values
+    // Get output mappings and values directly from the step execution result
     const getOutputMappings = () => {
-        return JobEngine.getStepOutputMappings(job, result.step_id, result.outputs);
+        return JobEngine.getStepOutputMappingsFromHistory(job, result.step_id, result);
     };
 
     const inputMappings = getInputMappings();
     const outputMappings = getOutputMappings();
     const duration = getDuration();
+
+    console.log('inputMappings', inputMappings);
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -195,45 +204,58 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                     )}
 
                     {/* Step Type Specific: Evaluation */}
-                    {stepDefinition.step_type === 'EVALUATION' && result.outputs && (
+                    {stepDefinition.step_type === 'EVALUATION' && (
                         <div className="mb-4">
-                            <h4 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Condition Evaluation</h4>
-                            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-md p-3">
-                                <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Condition</div>
-                                    <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                        {getOutputValue(result.outputs, 'condition')}
-                                    </div>
+                            <h4 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                Condition Evaluation
+                                {!result.outputs && (
+                                    <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 font-normal">
+                                        (no evaluation data available)
+                                    </span>
+                                )}
+                            </h4>
+                            {result.outputs ? (
+                                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-md p-3">
+                                    <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Condition</div>
+                                        <div className="col-span-2 text-gray-700 dark:text-gray-300">
+                                            {getOutputValue(result.outputs, 'condition')}
+                                        </div>
 
-                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Result</div>
-                                    <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                        {getOutputValue(result.outputs, 'result')}
-                                    </div>
+                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Result</div>
+                                        <div className="col-span-2 text-gray-700 dark:text-gray-300">
+                                            {getOutputValue(result.outputs, 'result')}
+                                        </div>
 
-                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Action</div>
-                                    <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                        {(() => {
-                                            const action = getOutputValue(result.outputs, 'action');
-                                            if (action === 'jump') {
-                                                return `Jump to step ${getOutputValue(result.outputs, 'target_step')}`;
-                                            } else if (action === 'end') {
-                                                return 'End workflow';
-                                            } else {
-                                                return 'Continue to next step';
-                                            }
-                                        })()}
-                                    </div>
+                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Action</div>
+                                        <div className="col-span-2 text-gray-700 dark:text-gray-300">
+                                            {(() => {
+                                                const action = getOutputValue(result.outputs, 'action');
+                                                if (action === 'jump') {
+                                                    return `Jump to step ${getOutputValue(result.outputs, 'target_step')}`;
+                                                } else if (action === 'end') {
+                                                    return 'End workflow';
+                                                } else {
+                                                    return 'Continue to next step';
+                                                }
+                                            })()}
+                                        </div>
 
-                                    {getOutputValue(result.outputs, 'reason') && (
-                                        <>
-                                            <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Reason</div>
-                                            <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                                {getOutputValue(result.outputs, 'reason')}
-                                            </div>
-                                        </>
-                                    )}
+                                        {getOutputValue(result.outputs, 'reason') && (
+                                            <>
+                                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Reason</div>
+                                                <div className="col-span-2 text-gray-700 dark:text-gray-300">
+                                                    {getOutputValue(result.outputs, 'reason')}
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-md p-3 text-gray-500 dark:text-gray-400 text-sm italic">
+                                    No evaluation data available for this execution.
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -243,7 +265,14 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                             {/* Input Mappings */}
                             {inputMappings.length > 0 && (
                                 <div className="mb-4">
-                                    <h4 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Inputs</h4>
+                                    <h4 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                        Inputs
+                                        {!result.inputs && (
+                                            <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 font-normal">
+                                                (showing current values - historical values not available)
+                                            </span>
+                                        )}
+                                    </h4>
                                     <div className="grid grid-cols-3 gap-x-4 gap-y-3 bg-gray-50 dark:bg-gray-900/50 rounded-md p-3 mt-2">
                                         {inputMappings.map((input, idx) => (
                                             <React.Fragment key={idx}>
@@ -262,7 +291,14 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                             {/* Output Mappings */}
                             {outputMappings.length > 0 && (
                                 <div className="mb-4">
-                                    <h4 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Outputs</h4>
+                                    <h4 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                        Outputs
+                                        {!result.outputs && (
+                                            <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 font-normal">
+                                                (no output values available)
+                                            </span>
+                                        )}
+                                    </h4>
                                     <div className="grid grid-cols-3 gap-x-4 gap-y-3 bg-gray-50 dark:bg-gray-900/50 rounded-md p-3 mt-2">
                                         {outputMappings.map((output, idx) => (
                                             <React.Fragment key={idx}>
@@ -270,7 +306,7 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                                                     ${output.outputLabel}
                                                 </div>
                                                 <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                                    <VariableRenderer value={output.value} schema={output.schema} isMarkdown={true} />
+                                                    <VariableRenderer value={output.value} isMarkdown={true} />
                                                 </div>
                                             </React.Fragment>
                                         ))}

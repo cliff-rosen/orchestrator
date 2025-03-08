@@ -13,7 +13,8 @@ import {
     WorkflowVariableName,
     WorkflowStepType,
     WorkflowStatus,
-    StepExecutionResult as WorkflowStepResult
+    StepExecutionResult as WorkflowStepResult,
+    EvaluationResult
 } from '../../types/workflows';
 import { Schema, SchemaValueType, ValueType } from '../../types/schema';
 import { Tool, ToolOutputName, ToolParameterName } from '../../types/tools';
@@ -65,6 +66,9 @@ export class JobEngine {
             // Convert job to workflow for WorkflowEngine
             const workflow = this.jobToWorkflow(job);
 
+            // Capture input values before execution
+            const inputValues = this.getResolvedStepInputs(job, stepIndex);
+
             // Execute the step using WorkflowEngine - this already handles all state updates and jump logic
             const { updatedState, result, nextStepIndex } = await WorkflowEngine.executeStepSimple(
                 workflow,
@@ -80,6 +84,7 @@ export class JobEngine {
             // Create step execution record with proper job step result type
             const stepExecutionResult: StepExecutionResult = {
                 ...result,
+                inputs: inputValues, // Include captured input values
                 step_id: job.steps[stepIndex].step_id,
                 started_at: job.steps[stepIndex].started_at || new Date().toISOString(),
                 completed_at: new Date().toISOString()
@@ -95,11 +100,20 @@ export class JobEngine {
             // Handle step execution error
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
+            // Try to capture input values even in case of error
+            let inputValues = {};
+            try {
+                inputValues = this.getResolvedStepInputs(job, stepIndex);
+            } catch (e) {
+                console.error('Failed to capture input values for failed step:', e);
+            }
+
             // Create failed step result with proper job step result type
             const failedResult: StepExecutionResult = {
                 success: false,
                 error: errorMessage,
                 outputs: {},
+                inputs: inputValues, // Include captured input values
                 step_id: job.steps[stepIndex].step_id,
                 started_at: new Date().toISOString(),
                 completed_at: new Date().toISOString()
@@ -132,9 +146,13 @@ export class JobEngine {
         // Create a copy of the job to avoid mutating the original
         const updatedJob = { ...job };
 
+        // Capture input values for the step
+        const inputValues = this.getResolvedStepInputs(job, stepIndex);
+
         // Create step execution record
         const stepExecutionResult: StepExecutionResult = {
             ...result,
+            inputs: inputValues, // Include captured input values
             step_id: job.steps[stepIndex].step_id,
             started_at: job.steps[stepIndex].started_at || new Date().toISOString(),
             completed_at: new Date().toISOString()
@@ -619,6 +637,101 @@ export class JobEngine {
                 varName: varPathSpec,
                 outputLabel: varPathSpec as string,
                 value: outputValue
+            };
+        });
+    }
+
+    /**
+     * Get resolved step inputs for a given step
+     * @param job The job containing the step
+     * @param stepIndex The index of the step to get inputs for
+     * @returns Record of input names to resolved values
+     */
+    static getResolvedStepInputs(job: Job, stepIndex: number): Record<string, any> {
+        const step = job.steps[stepIndex];
+        const inputs: Record<string, any> = {};
+
+        if (step.parameter_mappings) {
+            Object.entries(step.parameter_mappings).forEach(([paramName, varPathSpec]) => {
+                // Parse the variable path into a root name and property path
+                const { rootName, propPath } = parseVariablePath(varPathSpec.toString());
+
+                // Get the root variable from the job state
+                const rootVar = findVariableByRootName(job.state || [], rootName);
+                let varValue = undefined;
+
+                if (rootVar?.value !== undefined) {
+                    if (propPath.length === 0) {
+                        // Direct mapping
+                        varValue = rootVar.value;
+                    } else {
+                        // Use utility to resolve property path
+                        const { value, validPath } = resolvePropertyPath(rootVar.value, propPath);
+                        if (validPath) {
+                            varValue = value;
+                        }
+                    }
+                }
+
+                inputs[paramName] = varValue;
+            });
+        }
+
+        return inputs;
+    }
+
+    /**
+     * Get input mappings for a specific step with their resolved values from historical step execution result
+     * @param job The job containing the step
+     * @param stepId The ID of the step to get input mappings for
+     * @param stepResult The historical step execution result
+     * @returns Array of input mappings with variable names and resolved values from history
+     */
+    static getStepInputMappingsFromHistory(job: Job, stepId: string, stepResult: StepExecutionResult) {
+        const step = job.steps.find(s => s.step_id === stepId);
+
+        if (!step?.parameter_mappings) {
+            return [];
+        }
+
+        // If we have captured input values in the result, use them
+        if (stepResult.inputs) {
+            return Object.entries(step.parameter_mappings).map(([paramName, varPathSpec]) => {
+                return {
+                    paramName,
+                    varName: varPathSpec,
+                    paramLabel: varPathSpec as string,
+                    // Use the captured input value from the step execution result
+                    value: stepResult.inputs?.[paramName as ToolParameterName]
+                };
+            });
+        }
+
+        // Fallback to current values if historical values are not available
+        return this.getStepInputMappings(job, stepId);
+    }
+
+    /**
+     * Get output mappings for a specific step with their resolved values from historical step execution result
+     * @param job The job containing the step
+     * @param stepId The ID of the step to get output mappings for
+     * @param stepResult The historical step execution result
+     * @returns Array of output mappings with variable names and values from history
+     */
+    static getStepOutputMappingsFromHistory(job: Job, stepId: string, stepResult: StepExecutionResult) {
+        const step = job.steps.find(s => s.step_id === stepId);
+
+        if (!step?.output_mappings || !stepResult.outputs) {
+            return [];
+        }
+
+        return Object.entries(step.output_mappings).map(([outputName, varPathSpec]) => {
+            return {
+                outputName,
+                varName: varPathSpec,
+                outputLabel: varPathSpec as string,
+                // Use the output value from the step execution result
+                value: stepResult.outputs?.[outputName as WorkflowVariableName]
             };
         });
     }
