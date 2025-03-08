@@ -330,9 +330,8 @@ export class WorkflowEngine {
             // Use the utility library to resolve variable paths
             const { value, validPath, errorMessage } = resolveVariablePath(allVariables, varNamePath.toString());
 
+            parameters[paramName as ToolParameterName] = value || (null as unknown as SchemaValueType);
             if (validPath && value !== undefined) {
-                parameters[paramName as ToolParameterName] = value as SchemaValueType;
-            } else {
                 console.warn(`Invalid or undefined variable path: ${varNamePath}`, errorMessage ? `Error: ${errorMessage}` : '');
             }
         }
@@ -813,6 +812,8 @@ export class WorkflowEngine {
                 // For tool execution, we need the workflow context to resolve parameters
                 const workflowCopy = { ...workflow, state: clearedState };
                 const parameters = this.getResolvedParameters(step, workflowCopy);
+
+                console.log('parameters', parameters);
 
                 // Add prompt template ID for LLM tools
                 if (step.tool.tool_type === 'llm' && step.prompt_template_id) {

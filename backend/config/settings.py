@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     CORS_EXPOSE_HEADERS: list[str] = ["Authorization"]
 
     # Logging settings
-    LOG_LEVEL: str = "DEBUG"
-    # LOG_LEVEL: str = "INFO"
+    # LOG_LEVEL: str = "DEBUG"
+    LOG_LEVEL: str = "INFO"
     LOG_DIR: str = "logs"
     LOG_FILENAME_PREFIX: str = "app"
     LOG_BACKUP_COUNT: int = 10

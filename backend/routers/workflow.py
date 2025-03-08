@@ -110,31 +110,3 @@ async def delete_workflow(
         return {"message": "Workflow deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
-
-@router.post("/{workflow_id}/steps", response_model=WorkflowStepResponse)
-async def add_workflow_step(
-    workflow_id: str,
-    step_data: WorkflowStepCreate,
-    current_user: User = Depends(validate_token),
-    db: Session = Depends(get_db)
-):
-    """Add a step to a workflow."""
-    workflow_service = WorkflowService(db)
-    try:
-        return workflow_service.add_step(workflow_id, step_data, current_user.user_id)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e))
-
-@router.post("/{workflow_id}/execute")
-async def execute_workflow(
-    workflow_id: str,
-    execution_data: WorkflowExecuteRequest,
-    current_user: User = Depends(validate_token),
-    db: Session = Depends(get_db)
-):
-    """Execute a workflow."""
-    workflow_service = WorkflowService(db)
-    try:
-        return await workflow_service.execute_workflow(workflow_id, execution_data, current_user.user_id)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) 
