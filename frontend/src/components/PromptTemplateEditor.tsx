@@ -214,6 +214,43 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
         setError('');
     };
 
+    // Function to generate schema output instructions
+    const generateSchemaInstructions = () => {
+        if (outputSchema.type !== 'object') return '';
+
+        // Create a simplified schema representation for instructions
+        const schemaForInstructions = JSON.stringify(outputSchema, null, 2);
+
+        return `Please respond in valid JSON format using the following schema structure:
+
+${schemaForInstructions}
+
+IMPORTANT: Your response must be properly formatted JSON that follows this schema exactly. Do not include any explanatory text outside the JSON structure, as this will cause parsing errors. Ensure all quotes, brackets, and commas are correctly placed.`;
+    };
+
+    // Function to copy schema instructions to clipboard
+    const copySchemaInstructions = () => {
+        const instructions = generateSchemaInstructions();
+        if (instructions) {
+            navigator.clipboard.writeText(instructions)
+                .then(() => {
+                    // Provide visual feedback by temporarily changing the button text
+                    const button = document.getElementById('copy-schema-button');
+                    if (button) {
+                        const originalText = button.textContent;
+                        button.textContent = 'Copied!';
+                        setTimeout(() => {
+                            button.textContent = originalText;
+                        }, 2000);
+                    }
+                    console.log('Schema instructions copied to clipboard');
+                })
+                .catch(err => {
+                    console.error('Failed to copy schema instructions:', err);
+                });
+        }
+    };
+
     return (
         <Dialog
             isOpen={isOpen}
@@ -310,7 +347,22 @@ const PromptTemplateEditor: React.FC<PromptTemplateEditorProps> = ({
 
                 {/* Output schema editor */}
                 <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Output Schema</label>
+                    <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">Output Schema</label>
+                        {outputSchema.type === 'object' && (
+                            <button
+                                id="copy-schema-button"
+                                type="button"
+                                onClick={copySchemaInstructions}
+                                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md 
+                                        text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 
+                                        hover:bg-indigo-100 dark:hover:bg-indigo-900/30 border border-indigo-300 dark:border-indigo-700
+                                        focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            >
+                                Copy Schema Instructions
+                            </button>
+                        )}
+                    </div>
                     <div className="border border-gray-200 dark:border-gray-700 rounded-md p-2 bg-gray-50 dark:bg-gray-800">
                         <SchemaEditor
                             schema={outputSchema}

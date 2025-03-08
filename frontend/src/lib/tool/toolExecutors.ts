@@ -115,6 +115,13 @@ export const executeLLM = async (toolId: string, parameters: ResolvedParameters)
 
     } catch (error: any) {
         console.error('Error executing LLM:', error);
+
+        // Handle specific error cases
+        if (error.response?.status === 422 && error.response?.data?.detail?.includes('LLM response was not valid JSON')) {
+            console.error('LLM returned invalid JSON:', error.response.data.detail);
+            throw new Error(`The AI returned a response in an invalid format. This usually happens when the AI doesn't follow the required JSON structure. Try running the step again or adjusting the prompt to emphasize the need for valid JSON output.`);
+        }
+
         if (error.response?.status === 401 || error.response?.status === 403) {
             window.location.href = '/login';
         }

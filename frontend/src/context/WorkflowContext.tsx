@@ -387,6 +387,17 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
             // If the execution failed, set the error state
             if (!result.success && result.error) {
+                // Check for LLM JSON parsing errors and provide a more helpful message
+                if (result.error.includes('LLM response was not valid JSON')) {
+                    const friendlyError = 'The AI returned a response in an invalid format. This usually happens when the AI doesn\'t follow the required JSON structure. Try running the step again or adjusting the prompt to emphasize the need for valid JSON output.';
+                    setError(friendlyError);
+                    return {
+                        success: false,
+                        error: friendlyError,
+                        outputs: result.outputs
+                    };
+                }
+
                 setError(result.error);
             }
 

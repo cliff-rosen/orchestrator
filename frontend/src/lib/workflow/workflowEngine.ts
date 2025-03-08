@@ -821,21 +821,32 @@ export class WorkflowEngine {
                 }
 
                 // Execute the tool
-                const toolResult = await ToolEngine.executeTool(step.tool, parameters);
+                try {
+                    const toolResult = await ToolEngine.executeTool(step.tool, parameters);
 
-                // Update workflow state with tool results
-                if (toolResult) {
-                    updatedState = this.getUpdatedWorkflowStateFromResults(
-                        step,
-                        toolResult,
-                        workflowCopy
-                    );
+                    // Update workflow state with tool results
+                    if (toolResult) {
+                        updatedState = this.getUpdatedWorkflowStateFromResults(
+                            step,
+                            toolResult,
+                            workflowCopy
+                        );
+                    }
+
+                    result = {
+                        success: true,
+                        outputs: toolResult
+                    };
+                } catch (toolError) {
+                    console.error(`Tool execution error for step ${step.step_id}:`, toolError);
+
+                    // Create a proper error result
+                    result = {
+                        success: false,
+                        error: toolError instanceof Error ? toolError.message : String(toolError),
+                        outputs: {}
+                    };
                 }
-
-                result = {
-                    success: true,
-                    outputs: toolResult
-                };
             }
 
             return {

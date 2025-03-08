@@ -320,6 +320,8 @@ async def execute_llm(request: LLMExecuteRequest, db: Session = Depends(get_db))
             try:
                 response = json.loads(llm_response)
             except json.JSONDecodeError as e:
+                print(f"LLM response was not valid JSON")
+                print(f"LLM response: {llm_response}")                
                 raise HTTPException(
                     status_code=422,
                     detail=f"LLM response was not valid JSON: {str(e)}"
