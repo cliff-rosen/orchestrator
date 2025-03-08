@@ -493,6 +493,10 @@ export class WorkflowEngine {
                         // Convert jumpInfo to proper output format
                         const outputs: Record<WorkflowVariableName, SchemaValueType> = {
                             ['condition_met' as WorkflowVariableName]: condition.condition_id as SchemaValueType,
+                            ['variable_name' as WorkflowVariableName]: condition.variable.toString() as SchemaValueType,
+                            ['variable_value' as WorkflowVariableName]: JSON.stringify(value) as SchemaValueType,
+                            ['operator' as WorkflowVariableName]: condition.operator as SchemaValueType,
+                            ['comparison_value' as WorkflowVariableName]: JSON.stringify(condition.value) as SchemaValueType,
                             ['next_action' as WorkflowVariableName]: nextAction as SchemaValueType,
                             ['target_step_index' as WorkflowVariableName]: targetStepIndex.toString() as SchemaValueType,
                             ['reason' as WorkflowVariableName]: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}` as SchemaValueType,
@@ -515,6 +519,10 @@ export class WorkflowEngine {
                         // Max jumps reached, continue to next step
                         const outputs: Record<WorkflowVariableName, SchemaValueType> = {
                             ['condition_met' as WorkflowVariableName]: condition.condition_id as SchemaValueType,
+                            ['variable_name' as WorkflowVariableName]: condition.variable.toString() as SchemaValueType,
+                            ['variable_value' as WorkflowVariableName]: JSON.stringify(value) as SchemaValueType,
+                            ['operator' as WorkflowVariableName]: condition.operator as SchemaValueType,
+                            ['comparison_value' as WorkflowVariableName]: JSON.stringify(condition.value) as SchemaValueType,
                             ['next_action' as WorkflowVariableName]: 'continue' as SchemaValueType,
                             ['reason' as WorkflowVariableName]: `Condition met but maximum jumps (${step.evaluation_config.maximum_jumps}) reached` as SchemaValueType,
                             ['jump_count' as WorkflowVariableName]: jumpCount.toString() as SchemaValueType,
@@ -540,6 +548,10 @@ export class WorkflowEngine {
                     success: true,
                     outputs: {
                         ['condition_met' as WorkflowVariableName]: condition.condition_id as SchemaValueType,
+                        ['variable_name' as WorkflowVariableName]: condition.variable.toString() as SchemaValueType,
+                        ['variable_value' as WorkflowVariableName]: JSON.stringify(value) as SchemaValueType,
+                        ['operator' as WorkflowVariableName]: condition.operator as SchemaValueType,
+                        ['comparison_value' as WorkflowVariableName]: JSON.stringify(condition.value) as SchemaValueType,
                         ['next_action' as WorkflowVariableName]: nextAction as SchemaValueType,
                         ['target_step_index' as WorkflowVariableName]: targetStepIndex?.toString() as SchemaValueType,
                         ['reason' as WorkflowVariableName]: `Condition met: ${condition.variable} ${condition.operator} ${condition.value}` as SchemaValueType

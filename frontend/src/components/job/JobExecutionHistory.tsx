@@ -124,8 +124,6 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
     const outputMappings = getOutputMappings();
     const duration = getDuration();
 
-    console.log('inputMappings', inputMappings);
-
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
             {/* Header */}
@@ -219,20 +217,45 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                                     <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                                         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Condition</div>
                                         <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                            {getOutputValue(result.outputs, 'condition')}
+                                            {getOutputValue(result.outputs, 'condition_met')}
                                         </div>
 
                                         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Result</div>
                                         <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                            {getOutputValue(result.outputs, 'result')}
+                                            {(() => {
+                                                const variableName = getOutputValue(result.outputs, 'variable_name');
+                                                let variableValue = getOutputValue(result.outputs, 'variable_value');
+                                                const operator = getOutputValue(result.outputs, 'operator');
+                                                let comparisonValue = getOutputValue(result.outputs, 'comparison_value');
+
+                                                // Try to parse JSON values
+                                                try {
+                                                    if (variableValue) variableValue = JSON.parse(variableValue);
+                                                } catch (e) { /* Use as is if not valid JSON */ }
+
+                                                try {
+                                                    if (comparisonValue) comparisonValue = JSON.parse(comparisonValue);
+                                                } catch (e) { /* Use as is if not valid JSON */ }
+
+                                                if (variableName && operator && comparisonValue) {
+                                                    return `${variableName} (${variableValue}) ${operator.replace('_', ' ')} ${comparisonValue}`;
+                                                } else {
+                                                    // Use condition_met and reason as fallback
+                                                    const conditionMet = getOutputValue(result.outputs, 'condition_met');
+                                                    const reason = getOutputValue(result.outputs, 'reason');
+                                                    return conditionMet !== 'none'
+                                                        ? `Condition "${conditionMet}" met`
+                                                        : reason || 'No condition met';
+                                                }
+                                            })()}
                                         </div>
 
                                         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Action</div>
                                         <div className="col-span-2 text-gray-700 dark:text-gray-300">
                                             {(() => {
-                                                const action = getOutputValue(result.outputs, 'action');
+                                                const action = getOutputValue(result.outputs, 'next_action');
                                                 if (action === 'jump') {
-                                                    return `Jump to step ${getOutputValue(result.outputs, 'target_step')}`;
+                                                    return `Jump to step ${getOutputValue(result.outputs, 'target_step_index')}`;
                                                 } else if (action === 'end') {
                                                     return 'End workflow';
                                                 } else {
@@ -246,6 +269,18 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                                                 <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Reason</div>
                                                 <div className="col-span-2 text-gray-700 dark:text-gray-300">
                                                     {getOutputValue(result.outputs, 'reason')}
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {getOutputValue(result.outputs, 'jump_count') && (
+                                            <>
+                                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Jump Count</div>
+                                                <div className="col-span-2 text-gray-700 dark:text-gray-300">
+                                                    {getOutputValue(result.outputs, 'jump_count')} / {getOutputValue(result.outputs, 'max_jumps')}
+                                                    {getOutputValue(result.outputs, 'max_jumps_reached') === 'true' && (
+                                                        <span className="ml-2 text-amber-600 dark:text-amber-400">(Maximum reached)</span>
+                                                    )}
                                                 </div>
                                             </>
                                         )}

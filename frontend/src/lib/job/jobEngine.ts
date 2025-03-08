@@ -340,15 +340,29 @@ export class JobEngine {
      */
     static checkAndFixMissingVariables(job: Job): Job {
         // Create a map of all variables that should be created by output mappings
-        const expectedVariables = new Map<string, { stepId: string, outputName: string }>();
+        const expectedVariables = new Map<string, {
+            stepId: string,
+            outputName: string,
+            schema?: Schema // Add schema information
+        }>();
 
         // Collect all output mappings from all steps
         job.steps.forEach(step => {
             if (step.output_mappings) {
                 Object.entries(step.output_mappings).forEach(([outputName, varName]) => {
+                    // Try to get the schema from the tool's output signature if available
+                    let schema: Schema | undefined;
+                    if (step.tool?.signature?.outputs) {
+                        const outputDef = step.tool.signature.outputs.find(o => o.name === outputName);
+                        if (outputDef) {
+                            schema = outputDef.schema;
+                        }
+                    }
+
                     expectedVariables.set(varName as string, {
                         stepId: step.step_id,
-                        outputName
+                        outputName,
+                        schema
                     });
                 });
             }
@@ -369,16 +383,34 @@ export class JobEngine {
 
         // Add placeholder values for missing variables
         missingVariables.forEach(varName => {
-            const { stepId, outputName } = expectedVariables.get(varName)!;
+            const { stepId, outputName, schema } = expectedVariables.get(varName)!;
             console.log(`Adding placeholder for missing variable "${varName}" from step ${stepId}, output "${outputName}"`);
 
-            // Create a placeholder variable with empty string value
+            // Create a placeholder variable with appropriate default value based on schema
+            let defaultValue: SchemaValueType = '';
+            let defaultSchema: Schema = { type: 'string', is_array: false };
+
+            if (schema) {
+                defaultSchema = schema;
+                // Create appropriate default value based on schema type
+                if (schema.is_array) {
+                    defaultValue = [] as any; // Cast to any to avoid type error
+                } else if (schema.type === 'object') {
+                    defaultValue = {};
+                } else if (schema.type === 'number') {
+                    defaultValue = 0;
+                } else if (schema.type === 'boolean') {
+                    defaultValue = false;
+                }
+                // String and file types default to empty string
+            }
+
             updatedState.push({
                 name: varName as WorkflowVariableName,
                 variable_id: varName,
-                value: '',
+                value: defaultValue,
                 io_type: 'output',
-                schema: { type: 'string', is_array: false }
+                schema: defaultSchema
             });
         });
 
@@ -406,7 +438,12 @@ export class JobEngine {
         // Debug logging to help diagnose the issue
         console.log(`Validating variable mappings for step ${stepIndex + 1} (${step.step_id}):`);
         console.log('- Parameter mappings:', step.parameter_mappings);
-        console.log('- Current job state variables:', job.state.map(v => v.name));
+        console.log('- Current job state variables:', job.state.map(v => ({
+            name: v.name,
+            type: v.schema.type,
+            isArray: v.schema.is_array,
+            valueType: v.value ? typeof v.value : 'undefined'
+        })));
 
         // Validate parameter mappings for the current step
         step.tool.signature.parameters.forEach(param => {
@@ -428,17 +465,35 @@ export class JobEngine {
                     return;
                 }
 
+                console.log(`Validating mapping for parameter "${param.name}" -> "${mappedVarPath}":`, {
+                    variableSchema: stateVar.schema,
+                    variableValue: stateVar.value,
+                    parameterSchema: param.schema,
+                    propPath
+                });
+
                 // Use utility to validate and resolve the variable path
                 const validation = validateAndResolveVariablePath(stateVar, propPath);
 
                 if (!validation.valid) {
-                    errors.push(`Step ${stepIndex + 1}: ${validation.errorMessage || `Invalid path "${mappedVarPath}"`}`);
+                    const errorMsg = validation.errorMessage || `Invalid path "${mappedVarPath}"`;
+                    errors.push(`Step ${stepIndex + 1}: ${errorMsg}`);
+                    console.log(`ERROR: Invalid path for parameter "${param.name}":`, {
+                        error: errorMsg,
+                        variable: stateVar,
+                        propPath
+                    });
                     return;
                 }
 
                 // Check type compatibility
                 if (validation.schema && !this.isSchemaCompatible(param.schema, validation.schema)) {
-                    errors.push(`Step ${stepIndex + 1}: Parameter "${param.name}" type mismatch with "${mappedVarPath}" - expected ${JSON.stringify(param.schema)}, got ${JSON.stringify(validation.schema)}`);
+                    const error = `Step ${stepIndex + 1}: Parameter "${param.name}" type mismatch with "${mappedVarPath}" - expected ${JSON.stringify(param.schema)}, got ${JSON.stringify(validation.schema)}`;
+                    errors.push(error);
+                    console.log(`ERROR: Type mismatch for parameter "${param.name}":`, {
+                        parameterSchema: param.schema,
+                        variableSchema: validation.schema
+                    });
                 }
             }
         });

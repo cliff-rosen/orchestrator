@@ -41,21 +41,52 @@ export function resolvePropertyPath(
     let currentValue = obj;
     let validPath = true;
     let errorProp = '';
+    let errorReason = '';
 
     for (const prop of propPath) {
-        if (currentValue && typeof currentValue === "object" && prop in currentValue) {
+        // Check if currentValue is null or undefined
+        if (currentValue === null) {
+            validPath = false;
+            errorProp = prop;
+            errorReason = 'null value';
+            break;
+        }
+
+        if (currentValue === undefined) {
+            validPath = false;
+            errorProp = prop;
+            errorReason = 'undefined value';
+            break;
+        }
+
+        // Check if currentValue is an object
+        if (typeof currentValue !== 'object') {
+            validPath = false;
+            errorProp = prop;
+            errorReason = `value is of type '${typeof currentValue}', not an object`;
+            break;
+        }
+
+        // Check if property exists
+        if (prop in currentValue) {
             currentValue = currentValue[prop];
         } else {
             validPath = false;
             errorProp = prop;
+            errorReason = 'property not found';
             break;
         }
+    }
+
+    let errorMessage: string | undefined;
+    if (!validPath) {
+        errorMessage = `Cannot access property '${errorProp}' in path '${propPath.join('.')}': ${errorReason}`;
     }
 
     return {
         value: validPath ? currentValue : undefined,
         validPath,
-        errorMessage: validPath ? undefined : `Property '${errorProp}' not found in path '${propPath.join('.')}'`
+        errorMessage
     };
 }
 
@@ -211,6 +242,20 @@ export function validateAndResolveVariablePath(
         };
     }
 
+    // If we're trying to access properties but the variable is not an object type,
+    // provide a more specific error message
+    if (variable.schema.type !== 'object' && !variable.schema.is_array) {
+        return {
+            valid: false,
+            value: undefined,
+            schema: undefined,
+            errorMessage: `Variable "${variable.name}" is of type "${variable.schema.type}", not an object - cannot access property "${propPath[0]}"`
+        };
+    }
+
+    // If the value is undefined or null but the schema is valid, we'll still validate against schema
+    // This allows for validation during design time when values might not be available
+
     // Validate against schema
     const schemaValidation = validatePropertyPathAgainstSchema(
         variable.schema,
@@ -223,21 +268,31 @@ export function validateAndResolveVariablePath(
             value: undefined,
             schema: undefined,
             errorMessage: schemaValidation.errorPath
-                ? `Schema does not define property "${schemaValidation.errorPath}"`
-                : `Variable is not an object, cannot access properties`
+                ? `Schema for "${variable.name}" does not define property "${schemaValidation.errorPath}"`
+                : `Variable "${variable.name}" is not an object, cannot access properties`
         };
     }
 
     // If we have a value, validate against runtime
-    if (variable.value) {
-        const { value, validPath } = resolvePropertyPath(variable.value, propPath);
+    if (variable.value !== undefined && variable.value !== null) {
+        // Extra check for runtime type mismatch
+        if (typeof variable.value !== 'object') {
+            return {
+                valid: false,
+                value: undefined,
+                schema: schemaValidation.schema,
+                errorMessage: `Variable "${variable.name}" has value of type "${typeof variable.value}" at runtime, expected object to access "${propPath.join('.')}"`
+            };
+        }
+
+        const { value, validPath, errorMessage } = resolvePropertyPath(variable.value, propPath);
 
         if (!validPath) {
             return {
                 valid: false,
                 value: undefined,
                 schema: schemaValidation.schema,
-                errorMessage: `Property path is invalid - runtime value doesn't match schema`
+                errorMessage: errorMessage || `Property path "${propPath.join('.')}" is invalid for variable "${variable.name}" - runtime value doesn't match schema`
             };
         }
 
@@ -248,7 +303,7 @@ export function validateAndResolveVariablePath(
         };
     }
 
-    // Schema is valid but no runtime value to check
+    // If we don't have a value but the schema is valid, return a valid result with undefined value
     return {
         valid: true,
         value: undefined,

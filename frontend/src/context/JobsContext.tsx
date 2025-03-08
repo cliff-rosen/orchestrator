@@ -562,8 +562,10 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 error_message: undefined,
                 output_data: undefined
             })),
-            // Preserve the state but reset any output variables
-            state: job.state?.filter(v => v.io_type === 'input') || []
+            // Preserve all variables but reset output values
+            state: job.state?.map(v =>
+                v.io_type === 'input' ? v : { ...v, value: undefined }
+            ) || []
         };
 
         // Update state
