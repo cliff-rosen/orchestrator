@@ -940,36 +940,49 @@ export class WorkflowEngine {
         currentStepIndex: number
     ): { nextStepIndex: number, updatedState: WorkflowVariable[] } {
         const currentStep = workflow.steps[currentStepIndex];
-        let nextStepIndex = currentStepIndex + 1;
+        let nextStepIndex = currentStepIndex + 1; // Default to next step
         let updatedState = [...(workflow.state || [])];
 
-        // For evaluation steps, check conditions to determine next step
+        if (!currentStep) {
+            return {
+                nextStepIndex,
+                updatedState
+            };
+        }
+
+        // For evaluation steps, check if there's a jump action in the outputs
         if (currentStep.step_type === WorkflowStepType.EVALUATION) {
-            // Create a copy of the workflow state to avoid mutating the original
-            const workflowStateCopy = [...(workflow.state || [])];
+            // Find the next_action output variable
+            const nextActionVar = updatedState.find(v =>
+                v.name === 'next_action' &&
+                v.variable_id.startsWith(`${currentStep.step_id}_output`)
+            );
 
-            // Clear any existing outputs for this step
-            const clearedState = this.clearStepOutputs(currentStep, { ...workflow, state: workflowStateCopy });
+            // Find the target_step_index output variable
+            const targetStepVar = updatedState.find(v =>
+                v.name === 'target_step_index' &&
+                v.variable_id.startsWith(`${currentStep.step_id}_output`)
+            );
 
-            // For evaluation, we need the workflow context to evaluate conditions
-            const workflowCopy = { ...workflow, state: clearedState };
+            // Find the max_jumps_reached output variable
+            const maxJumpsReachedVar = updatedState.find(v =>
+                v.name === 'max_jumps_reached' &&
+                v.variable_id.startsWith(`${currentStep.step_id}_output`)
+            );
 
-            // Evaluate conditions - this already handles jump count management internally
-            const result = this.evaluateConditions(currentStep, workflowCopy);
-            console.log('getNextStepIndex evaluation result:', result);
+            const nextAction = nextActionVar?.value as string;
+            const targetStepIndex = targetStepVar?.value !== undefined ? Number(targetStepVar.value) : undefined;
+            const maxJumpsReached = maxJumpsReachedVar?.value === 'true';
 
-            // If we have updated state from the result, use it
-            if ('updatedState' in result && result.updatedState) {
-                updatedState = result.updatedState;
-            }
+            console.log('getNextStepIndex evaluation outputs:', {
+                nextAction,
+                targetStepIndex,
+                maxJumpsReached
+            });
 
-            // Determine next step based on evaluation result
-            const nextAction = result.outputs?.['next_action' as WorkflowVariableName] as string;
-            const targetStepIndex = result.outputs?.['target_step_index' as WorkflowVariableName] as string | undefined;
-            const maxJumpsReached = result.outputs?.['max_jumps_reached' as WorkflowVariableName] === 'true';
-
+            // Handle jump logic
             if (nextAction === 'jump' && targetStepIndex !== undefined && !maxJumpsReached) {
-                nextStepIndex = parseInt(targetStepIndex, 10);
+                nextStepIndex = targetStepIndex;
                 console.log('Jump will occur in getNextStepIndex to step:', nextStepIndex);
             } else if (nextAction === 'end') {
                 nextStepIndex = workflow.steps.length; // End workflow
