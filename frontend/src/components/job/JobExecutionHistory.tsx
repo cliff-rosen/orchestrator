@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Job, StepExecutionResult, JobExecutionState, JobStatus } from '../../types/jobs';
 import { WorkflowVariableName } from '../../types/workflows';
 import { SchemaValueType } from '../../types/schema';
-import VariableRenderer from '../common/VariableRenderer';
 import { usePromptTemplates } from '../../context/PromptTemplateContext';
 import { JobEngine } from '../../lib/job/jobEngine';
 import { ToolParameterName } from '../../types/tools';
+import JobDataViewer from '../common/JobDataViewer';
+import DataViewer from '../common/DataViewer';
+import EvaluationDataViewer from '../common/EvaluationDataViewer';
 
 // Simple variable renderer that doesn't show type information
 const SimpleVariableRenderer: React.FC<{ value: any }> = ({ value }) => {
@@ -18,13 +20,8 @@ const SimpleVariableRenderer: React.FC<{ value: any }> = ({ value }) => {
         );
     }
 
-    // For arrays and objects, use the standard renderer
-    if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
-        return <VariableRenderer value={value} />;
-    }
-
-    // For simple primitive values, just show the value
-    return <span>{String(value)}</span>;
+    // Use the enhanced DataViewer component for better visualization
+    return <DataViewer data={value} initiallyExpanded={true} />;
 };
 
 interface JobExecutionHistoryProps {
@@ -190,14 +187,10 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                     {!result.success && result.error && (
                         <div className="mb-4">
                             <h4 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Error</h4>
-                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-md p-3 mt-2">
-                                <div className="grid grid-cols-3 gap-x-4">
-                                    <div className="text-sm font-medium text-red-700 dark:text-red-300">Message</div>
-                                    <div className="col-span-2 text-sm text-red-700 dark:text-red-400">
-                                        {result.error}
-                                    </div>
-                                </div>
-                            </div>
+                            <DataViewer
+                                data={result.error}
+                                className="border-l-2 border-l-red-400"
+                            />
                         </div>
                     )}
 
@@ -213,78 +206,72 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                                 )}
                             </h4>
                             {result.outputs ? (
-                                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-md p-3">
-                                    <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Condition</div>
-                                        <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                            {getOutputValue(result.outputs, 'condition_met')}
-                                        </div>
+                                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-md p-3 divide-y divide-gray-100 dark:divide-gray-700">
+                                    <EvaluationDataViewer
+                                        label="Condition"
+                                        data={getOutputValue(result.outputs, 'condition_met')}
+                                    />
 
-                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Result</div>
-                                        <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                            {(() => {
-                                                const variableName = getOutputValue(result.outputs, 'variable_name');
-                                                let variableValue = getOutputValue(result.outputs, 'variable_value');
-                                                const operator = getOutputValue(result.outputs, 'operator');
-                                                let comparisonValue = getOutputValue(result.outputs, 'comparison_value');
+                                    <EvaluationDataViewer
+                                        label="Result"
+                                        data={(() => {
+                                            const variableName = getOutputValue(result.outputs, 'variable_name');
+                                            let variableValue = getOutputValue(result.outputs, 'variable_value');
+                                            const operator = getOutputValue(result.outputs, 'operator');
+                                            let comparisonValue = getOutputValue(result.outputs, 'comparison_value');
 
-                                                // Try to parse JSON values
-                                                try {
-                                                    if (variableValue) variableValue = JSON.parse(variableValue);
-                                                } catch (e) { /* Use as is if not valid JSON */ }
+                                            // Try to parse JSON values
+                                            try {
+                                                if (variableValue) variableValue = JSON.parse(variableValue);
+                                            } catch (e) { /* Use as is if not valid JSON */ }
 
-                                                try {
-                                                    if (comparisonValue) comparisonValue = JSON.parse(comparisonValue);
-                                                } catch (e) { /* Use as is if not valid JSON */ }
+                                            try {
+                                                if (comparisonValue) comparisonValue = JSON.parse(comparisonValue);
+                                            } catch (e) { /* Use as is if not valid JSON */ }
 
-                                                if (variableName && operator && comparisonValue) {
-                                                    return `${variableName} (${variableValue}) ${operator.replace('_', ' ')} ${comparisonValue}`;
-                                                } else {
-                                                    // Use condition_met and reason as fallback
-                                                    const conditionMet = getOutputValue(result.outputs, 'condition_met');
-                                                    const reason = getOutputValue(result.outputs, 'reason');
-                                                    return conditionMet !== 'none'
-                                                        ? `Condition "${conditionMet}" met`
-                                                        : reason || 'No condition met';
-                                                }
-                                            })()}
-                                        </div>
+                                            if (variableName && operator && comparisonValue) {
+                                                return `${variableName} (${variableValue}) ${operator.replace('_', ' ')} ${comparisonValue}`;
+                                            } else {
+                                                // Use condition_met and reason as fallback
+                                                const conditionMet = getOutputValue(result.outputs, 'condition_met');
+                                                const reason = getOutputValue(result.outputs, 'reason');
+                                                return conditionMet !== 'none'
+                                                    ? `Condition "${conditionMet}" met`
+                                                    : reason || 'No condition met';
+                                            }
+                                        })()}
+                                    />
 
-                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Action</div>
-                                        <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                            {(() => {
-                                                const action = getOutputValue(result.outputs, 'next_action');
-                                                if (action === 'jump') {
-                                                    return `Jump to step ${getOutputValue(result.outputs, 'target_step_index')}`;
-                                                } else if (action === 'end') {
-                                                    return 'End workflow';
-                                                } else {
-                                                    return 'Continue to next step';
-                                                }
-                                            })()}
-                                        </div>
+                                    <EvaluationDataViewer
+                                        label="Action"
+                                        data={(() => {
+                                            const action = getOutputValue(result.outputs, 'next_action');
+                                            if (action === 'jump') {
+                                                return `Jump to step ${getOutputValue(result.outputs, 'target_step_index')}`;
+                                            } else if (action === 'end') {
+                                                return 'End workflow';
+                                            } else {
+                                                return 'Continue to next step';
+                                            }
+                                        })()}
+                                    />
 
-                                        {getOutputValue(result.outputs, 'reason') && (
-                                            <>
-                                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Reason</div>
-                                                <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                                    {getOutputValue(result.outputs, 'reason')}
-                                                </div>
-                                            </>
-                                        )}
+                                    {getOutputValue(result.outputs, 'reason') && (
+                                        <EvaluationDataViewer
+                                            label="Reason"
+                                            data={getOutputValue(result.outputs, 'reason')}
+                                        />
+                                    )}
 
-                                        {getOutputValue(result.outputs, 'jump_count') && (
-                                            <>
-                                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Jump Count</div>
-                                                <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                                    {getOutputValue(result.outputs, 'jump_count')} / {getOutputValue(result.outputs, 'max_jumps')}
-                                                    {getOutputValue(result.outputs, 'max_jumps_reached') === 'true' && (
-                                                        <span className="ml-2 text-amber-600 dark:text-amber-400">(Maximum reached)</span>
-                                                    )}
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
+                                    {getOutputValue(result.outputs, 'jump_count') && (
+                                        <EvaluationDataViewer
+                                            label="Jump Count"
+                                            data={`${getOutputValue(result.outputs, 'jump_count')} / ${getOutputValue(result.outputs, 'max_jumps')}${getOutputValue(result.outputs, 'max_jumps_reached') === 'true'
+                                                ? ' (Maximum reached)'
+                                                : ''
+                                                }`}
+                                        />
+                                    )}
                                 </div>
                             ) : (
                                 <div className="bg-gray-50 dark:bg-gray-900/50 rounded-md p-3 text-gray-500 dark:text-gray-400 text-sm italic">
@@ -308,16 +295,15 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                                             </span>
                                         )}
                                     </h4>
-                                    <div className="grid grid-cols-3 gap-x-4 gap-y-3 bg-gray-50 dark:bg-gray-900/50 rounded-md p-3 mt-2">
+                                    <div className="space-y-3">
                                         {inputMappings.map((input, idx) => (
-                                            <React.Fragment key={idx}>
-                                                <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                                                    ${input.paramLabel}
-                                                </div>
-                                                <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                                    <SimpleVariableRenderer value={input.value} />
-                                                </div>
-                                            </React.Fragment>
+                                            <JobDataViewer
+                                                key={idx}
+                                                label={`$${input.paramLabel}`}
+                                                data={input.value}
+                                                isInput={true}
+                                                isMarkdown={false}
+                                            />
                                         ))}
                                     </div>
                                 </div>
@@ -334,16 +320,15 @@ const StepResultCard: React.FC<StepResultCardProps> = ({ job, result, isExpanded
                                             </span>
                                         )}
                                     </h4>
-                                    <div className="grid grid-cols-3 gap-x-4 gap-y-3 bg-gray-50 dark:bg-gray-900/50 rounded-md p-3 mt-2">
+                                    <div className="space-y-3">
                                         {outputMappings.map((output, idx) => (
-                                            <React.Fragment key={idx}>
-                                                <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                                                    ${output.outputLabel}
-                                                </div>
-                                                <div className="col-span-2 text-gray-700 dark:text-gray-300">
-                                                    <VariableRenderer value={output.value} isMarkdown={true} />
-                                                </div>
-                                            </React.Fragment>
+                                            <JobDataViewer
+                                                key={idx}
+                                                label={`$${output.outputLabel}`}
+                                                data={output.value}
+                                                isInput={false}
+                                                isMarkdown={stepDefinition.tool?.tool_type === 'llm'}
+                                            />
                                         ))}
                                     </div>
                                 </div>
@@ -410,14 +395,10 @@ export const JobExecutionHistory: React.FC<JobExecutionHistoryProps> = ({ job, e
             {job.error_message && (
                 <div className="mt-4">
                     <h4 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Job Error</h4>
-                    <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800 rounded-lg p-3">
-                        <div className="grid grid-cols-3 gap-x-4">
-                            <div className="text-sm font-medium text-red-700 dark:text-red-300">Message</div>
-                            <div className="col-span-2 text-sm text-red-700 dark:text-red-300">
-                                {job.error_message}
-                            </div>
-                        </div>
-                    </div>
+                    <DataViewer
+                        data={job.error_message}
+                        className="border-l-2 border-l-red-400"
+                    />
                 </div>
             )}
         </div>

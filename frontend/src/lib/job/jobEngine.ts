@@ -18,7 +18,7 @@ import {
 } from '../../types/workflows';
 import { Schema, SchemaValueType, ValueType } from '../../types/schema';
 import { Tool, ToolOutputName, ToolParameterName } from '../../types/tools';
-import { parseVariablePath, resolvePropertyPath, findVariableByRootName, validatePropertyPathAgainstSchema, validateAndResolveVariablePath } from '../utils/variablePathUtils';
+import { parseVariablePath, resolvePropertyPath, findVariableByRootName, validateAndResolveVariablePath } from '../utils/variablePathUtils';
 
 /**
  * JobState represents the combined state of a job's variables and execution progress

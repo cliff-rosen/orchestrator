@@ -233,6 +233,8 @@ export function validateAndResolveVariablePath(
     schema: Schema | undefined;
     errorMessage?: string;
 } {
+
+
     // Short circuit for direct variable access
     if (propPath.length === 0) {
         return {
