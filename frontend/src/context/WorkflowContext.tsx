@@ -324,6 +324,17 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         sessionStorage.removeItem('originalWorkflow');
     }, []);
 
+
+    // HACK: clear the outputs of the current step  
+    const clearClearStepOutputs = useCallback(() => {
+        if (!workflow) return;
+        const stepIndex = Math.max(0, activeStep);
+        const step = workflow.steps[stepIndex];
+        const updatedState = WorkflowEngine.clearStepOutputs(step, workflow);
+        updateWorkflowByAction({ type: 'UPDATE_STATE', payload: { state: updatedState } });
+    }, [workflow, activeStep, updateWorkflowByAction]);
+
+
     // Workflow Execution Methods
     const executeCurrentStep = useCallback(async (): Promise<StepExecutionResult> => {
         console.log('executeCurrentStep called');
@@ -337,6 +348,7 @@ export const WorkflowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         try {
+            clearClearStepOutputs()
             setIsExecuting(true);
             setError(null);
 

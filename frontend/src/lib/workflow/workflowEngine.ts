@@ -859,7 +859,7 @@ export class WorkflowEngine {
      * Clears outputs for a step before execution
      * Returns the updated state array
      */
-    private static clearStepOutputs(
+    static clearStepOutputs(
         step: WorkflowStep,
         workflow: Workflow
     ): WorkflowVariable[] {
