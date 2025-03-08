@@ -146,83 +146,6 @@ async def get_prompt_template_signature(template_id: str, db: Session = Depends(
     signature = workflow_service._get_llm_signature(template_id)
     return signature
 
-@router.post("/execute_llm", response_model=LLMExecuteResponse)
-async def execute_llm(request: LLMExecuteRequest, db: Session = Depends(get_db)):
-    """Execute an LLM prompt template with provided parameters"""
-    template = db.query(PromptTemplate).filter(PromptTemplate.template_id == request.prompt_template_id).first()
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-
-    # Validate all required tokens are provided
-    for token in template.tokens:
-        if token['type'] == 'string' and token['name'] not in request.regular_variables:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Missing required string token: {token['name']}"
-            )
-        elif token['type'] == 'file' and token['name'] not in request.file_variables:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Missing required file token: {token['name']}"
-            )
-
-    try:
-        # Format both templates
-        user_message = template.user_message_template
-        system_message = template.system_message_template
-
-        # Replace string tokens in both templates
-        string_tokens = [t['name'] for t in template.tokens if t['type'] == 'string']
-        for token_name in string_tokens:
-            value = str(request.regular_variables[token_name])
-            if system_message:
-                system_message = system_message.replace(f"{{{{{token_name}}}}}", value)
-            user_message = user_message.replace(f"{{{{{token_name}}}}}", value)
-
-        # Process file tokens
-        file_tokens = [t for t in template.tokens if t['type'] == 'file']
-        content_parts, system_message = await process_template_with_files(
-            user_message=user_message,
-            system_message=system_message,
-            file_tokens=file_tokens,
-            file_variables=request.file_variables,
-            db=db
-        )
-
-        # Build messages array
-        messages = [{
-            'role': 'user',
-            'content': content_parts if content_parts else user_message
-        }]
-
-        # Call LLM using AI service
-        llm_response = await ai_service.send_messages(
-            messages=messages,
-            model=request.model,
-            max_tokens=request.max_tokens,
-            system=system_message if system_message else None
-        )
-
-        # Process response based on schema type
-        response = llm_response
-        if template.output_schema["type"] == "object":
-            try:
-                response = json.loads(llm_response)
-            except json.JSONDecodeError as e:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"LLM response was not valid JSON: {str(e)}"
-                )
-
-        return LLMExecuteResponse(
-            template_id=template.template_id,
-            messages=messages,
-            response=response
-        )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @router.post("/prompt-templates", response_model=PromptTemplateResponse)
 async def create_prompt_template(
     template: PromptTemplateCreate,
@@ -334,6 +257,83 @@ async def test_prompt_template(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/execute_llm", response_model=LLMExecuteResponse)
+async def execute_llm(request: LLMExecuteRequest, db: Session = Depends(get_db)):
+    """Execute an LLM prompt template with provided parameters"""
+    template = db.query(PromptTemplate).filter(PromptTemplate.template_id == request.prompt_template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    # Validate all required tokens are provided
+    for token in template.tokens:
+        if token['type'] == 'string' and token['name'] not in request.regular_variables:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Missing required string token: {token['name']}"
+            )
+        elif token['type'] == 'file' and token['name'] not in request.file_variables:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing required file token: {token['name']}"
+            )
+
+    try:
+        # Format both templates
+        user_message = template.user_message_template
+        system_message = template.system_message_template
+
+        # Replace string tokens in both templates
+        string_tokens = [t['name'] for t in template.tokens if t['type'] == 'string']
+        for token_name in string_tokens:
+            value = str(request.regular_variables[token_name])
+            if system_message:
+                system_message = system_message.replace(f"{{{{{token_name}}}}}", value)
+            user_message = user_message.replace(f"{{{{{token_name}}}}}", value)
+
+        # Process file tokens
+        file_tokens = [t for t in template.tokens if t['type'] == 'file']
+        content_parts, system_message = await process_template_with_files(
+            user_message=user_message,
+            system_message=system_message,
+            file_tokens=file_tokens,
+            file_variables=request.file_variables,
+            db=db
+        )
+
+        # Build messages array
+        messages = [{
+            'role': 'user',
+            'content': content_parts if content_parts else user_message
+        }]
+
+        # Call LLM using AI service
+        llm_response = await ai_service.send_messages(
+            messages=messages,
+            model=request.model,
+            max_tokens=request.max_tokens,
+            system=system_message if system_message else None
+        )
+
+        # Process response based on schema type
+        response = llm_response
+        if template.output_schema["type"] == "object":
+            try:
+                response = json.loads(llm_response)
+            except json.JSONDecodeError as e:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"LLM response was not valid JSON: {str(e)}"
+                )
+
+        return LLMExecuteResponse(
+            template_id=template.template_id,
+            messages=messages,
+            response=response
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/pubmed/search")
 async def search_pubmed(query: str, db: Session = Depends(get_db)):
     """Search PubMed for articles"""
@@ -342,3 +342,4 @@ async def search_pubmed(query: str, db: Session = Depends(get_db)):
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 
+    
