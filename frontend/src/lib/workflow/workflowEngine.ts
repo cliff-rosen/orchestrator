@@ -576,13 +576,28 @@ export class WorkflowEngine {
         try {
             switch (operator) {
                 case 'equals':
-                    // Use strict equality after converting to same type if needed
+                    // Handle boolean comparisons
+                    if (typeof value === 'boolean' || typeof compareValue === 'boolean') {
+                        // Convert string representations of booleans to actual booleans
+                        const boolValue = typeof value === 'string' && (value.toLowerCase() === 'true' || value.toLowerCase() === 'false')
+                            ? value.toLowerCase() === 'true'
+                            : value;
+
+                        const boolCompare = typeof compareValue === 'string' && (compareValue.toLowerCase() === 'true' || compareValue.toLowerCase() === 'false')
+                            ? compareValue.toLowerCase() === 'true'
+                            : compareValue;
+
+                        return boolValue === boolCompare;
+                    }
+
+                    // Handle numeric comparisons
                     if (typeof value === 'number' && typeof compareValue === 'string') {
                         return value === Number(compareValue);
                     }
                     if (typeof value === 'string' && typeof compareValue === 'number') {
                         return Number(value) === compareValue;
                     }
+
                     return value === compareValue;
 
                 case 'not_equals':

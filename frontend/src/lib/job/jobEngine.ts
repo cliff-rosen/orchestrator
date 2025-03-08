@@ -400,7 +400,7 @@ export class JobEngine {
 
             if (mappedVarPath) {
                 // Parse the variable path
-                const { rootName, propPath } = parseVariablePath(mappedVarPath.toString());
+                const { rootName, propPath } = parseVariablePath(String(mappedVarPath));
                 const stateVar = findVariableByRootName(job.state, rootName);
 
                 // Check if the root variable exists in job state
